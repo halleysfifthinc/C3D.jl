@@ -47,7 +47,7 @@ mutable struct Group
     np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     dl::Int8 # Number of characters in group description (nominally should be between 1 and 127)
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    p::Dict{Symbol, Parameter}
+    p::Dict{Symbol,Parameter}
 end
 
 Base.show(io::IO, g::Group) = show(io, g.p)
@@ -62,7 +62,7 @@ function readgroup(f::IOStream)
 
     name = transcode(String, read(f, abs(nl)))
 
-    if ismatch(r"[^a-zA-Z0-9_ ]",name)
+    if ismatch(r"[^a-zA-Z0-9_ ]", name)
         warn("Group ", name, " has unofficially supported characters. 
             Unexpected results may occur")
     end
@@ -71,7 +71,7 @@ function readgroup(f::IOStream)
     dl = saferead(f, Int8)
     desc = transcode(String, read(f, dl))
 
-    return Group(pos, nl, isLocked, gid, name, np, dl, desc, Dict{Symbol, Array{Parameter, 1}}())
+    return Group(pos, nl, isLocked, gid, name, np, dl, desc, Dict{Symbol,Array{Parameter,1}}())
 end
 
 function readparam(f::IOStream)
@@ -82,7 +82,7 @@ function readparam(f::IOStream)
     # println(nl)
     name = transcode(String, read(f, abs(nl)))
 
-    if ismatch(r"[^a-zA-Z0-9_ ]",name)
+    if ismatch(r"[^a-zA-Z0-9_ ]", name)
         warn("Parameter ", name, " has unofficially supported characters. 
             Unexpected results may occur")
     end
@@ -106,11 +106,11 @@ function readparam(f::IOStream)
 
     nd = saferead(f, Int8)
     if nd > 0
-        dims = NTuple{convert(Int,nd),Int8}(saferead(f, Int8, nd))
+        dims = NTuple{convert(Int, nd),Int8}(saferead(f, Int8, nd))
         if T == UInt8
-            data = convert.(Char,saferead(f, T, convert.(Int,dims)))
+            data = convert.(Char, saferead(f, T, convert.(Int, dims)))
         else
-            data = saferead(f, T, convert.(Int,dims))
+            data = saferead(f, T, convert.(Int, dims))
         end
     else
         dims = ()
@@ -127,8 +127,8 @@ function readparam(f::IOStream)
     return Parameter(pos, nl, isLocked, gid, name, np, ellen, nd, dims, data, dl, desc)
 end
 
-saferead(f::IOStream, T::Union{Int8, UInt8}) = read(f, T)
-saferead(f::IOStream, T::Union{Int8, UInt8}, dims) = read(f, T, dims)
+saferead(f::IOStream, T::Union{Int8,UInt8}) = read(f, T)
+saferead(f::IOStream, T::Union{Int8,UInt8}, dims) = read(f, T, dims)
 
 function saferead(f::IOStream, T::Float32)
     if VAX
@@ -265,7 +265,7 @@ function readc3d(filename::AbstractString)
 
             local z = read(file, (((params_ptr + paramblocks) - 1) * 512 - 1) - position(file))
 
-            if isempty(find(!iszero,z))
+            if isempty(find(!iszero, z))
                 unmark(file)
                 moreparams = false
             else
@@ -275,8 +275,8 @@ function readc3d(filename::AbstractString)
         end
     end
 
-    groups = Dict{Symbol, Group}()
-    gids = Dict{Int, Symbol}()
+    groups = Dict{Symbol,Group}()
+    gids = Dict{Int,Symbol}()
 
     for group in gs
         gname = replace(strip(group.name), r"[^a-zA-Z0-9_ ]", '_')
