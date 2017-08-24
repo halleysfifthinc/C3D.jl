@@ -15,7 +15,7 @@ export readc3d
 # Group format description https://www.c3d.org/HTML/groupformat1.htm
 mutable struct Group
     pos::Int
-    nl::Int8 # Number of characters in group name (nominally should be between 1 and 127)
+    nl::Int8 # Number of characters in group name
     isLocked::Bool # Locked if nl < 0
     gid::Int8 # Group ID
     name::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
@@ -29,7 +29,7 @@ Base.show(io::IO, g::Group) = print(io, "\nGroup{\"", g.name, "\",", abs(g.gid),
 # Parameter format description https://www.c3d.org/HTML/parameterformat1.htm
 mutable struct Parameter
     pos::Int
-    nl::Int8 # Number of characters in group name (nominally should be between 1 and 127)
+    nl::Int8 # Number of characters in group name
     isLocked::Bool # Locked if nl < 0
     gid::Int8 # Group ID
     name::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
@@ -60,6 +60,12 @@ function readgroup(f::IOStream)
     gid = saferead(f, Int8)
 
     name = transcode(String, read(f, abs(nl)))
+
+    if ismatch(r"[^a-zA-Z0-9_ ]",name)
+        warn("Group ", name, " has unofficially supported characters. 
+            Unexpected results may occur")
+    end
+
     np = saferead(f, Int16)
     dl = saferead(f, Int8)
     desc = transcode(String, read(f, dl))
@@ -74,6 +80,12 @@ function readparam(f::IOStream)
     gid = saferead(f, Int8)
     # println(nl)
     name = transcode(String, read(f, abs(nl)))
+
+    if ismatch(r"[^a-zA-Z0-9_ ]",name)
+        warn("Parameter ", name, " has unofficially supported characters. 
+            Unexpected results may occur")
+    end
+
     np = saferead(f, Int16)
 
     ellen = saferead(f, Int8)
