@@ -108,7 +108,12 @@ function readparam(f::IOStream)
     if nd > 0
         dims = NTuple{convert(Int, nd),Int8}(saferead(f, Int8, nd))
         if T == UInt8
-            data = convert.(Char, saferead(f, T, convert.(Int, dims)))
+            tdata = convert.(Char, saferead(f, T, convert.(Int, dims)))
+            if nd > 1
+                data = [ String(tdata[((i - 1) * dims[1] + 1):(i * dims[1])]) for i in 1:(*)(dims[2:end]...)]
+            else
+                data = [ String(tdata) ]
+            end
         else
             data = saferead(f, T, convert.(Int, dims))
         end
