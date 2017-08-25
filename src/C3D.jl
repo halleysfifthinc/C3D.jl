@@ -212,15 +212,15 @@ function readc3d(filename::AbstractString)
     # Deal with host big-endianness in the future
     if proctype == 1
         # little-endian
-        F_ENDIAN = LE
+        global F_ENDIAN = LE
     elseif proctype == 2
         # DEC floats; little-endian
-        VAX = true
-        F_ENDIAN = LE
+        global VAX = true
+        global F_ENDIAN = LE
         # error("DEC processor type files not supported yet")
     elseif proctype == 3
         # big-endian
-        F_ENDIAN = BE
+        global F_ENDIAN = BE
         # error("SGI/MIPS processor type files not supported yet")
     else
         error("Malformed processor type. Expected 1, 2, or 3. Found ", proctype)
