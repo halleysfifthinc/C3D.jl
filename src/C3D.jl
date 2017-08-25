@@ -13,7 +13,7 @@ include("vaxtype.jl")
 export readc3d
 
 # Parameter format description https://www.c3d.org/HTML/parameterformat1.htm
-mutable struct Parameter
+struct Parameter{T,N} <: AbstractArray{T,N}
     pos::Int
     nl::Int8 # Number of characters in group name
     isLocked::Bool # Locked if nl < 0
@@ -29,16 +29,17 @@ mutable struct Parameter
     # Array format description https://www.c3d.org/HTML/parameterarrays1.htm
     nd::Int8
     dims::Tuple # Vector of bytes (Int8 technically) describing array dimensions
-    data::Array
+    data::Array{T,N}
     dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
     
 end
 
-Base.show(io::IO, p::Parameter) = show(io, summary(p.data))
+Base.getindex(p::Parameter, i...) = getindex(p.data, i...)
+Base.size(p::Parameter) = size(p.data)
 
 # Group format description https://www.c3d.org/HTML/groupformat1.htm
-mutable struct Group
+struct Group
     pos::Int
     nl::Int8 # Number of characters in group name
     isLocked::Bool # Locked if nl < 0
@@ -50,7 +51,9 @@ mutable struct Group
     p::Dict{Symbol,Parameter}
 end
 
-Base.show(io::IO, g::Group) = show(io, g.p)
+Base.getindex(g::Group, key) = getindex(g.p, key)
+
+Base.show(io::IO, g::Group) = show(io, keys(g.p))
 
 relseek(s::IOStream, n::Int) = seek(s, position(s) + n)
 
@@ -91,7 +94,7 @@ function readparam(f::IOStream)
 
     ellen = saferead(f, Int8)
     if ellen == -1
-        T = UInt8
+        T = String
     elseif ellen == 1
         T = Int8
     elseif ellen == 2
@@ -107,8 +110,8 @@ function readparam(f::IOStream)
     nd = saferead(f, Int8)
     if nd > 0
         dims = NTuple{convert(Int, nd),Int8}(saferead(f, Int8, nd))
-        if T == UInt8
-            tdata = convert.(Char, saferead(f, T, convert.(Int, dims)))
+        if T == String
+            tdata = convert.(Char, saferead(f, UInt8, convert.(Int, dims)))
             if nd > 1
                 data = [ String(tdata[((i - 1) * dims[1] + 1):(i * dims[1])]) for i in 1:(*)(dims[2:end]...)]
             else
@@ -119,8 +122,8 @@ function readparam(f::IOStream)
         end
     else
         dims = ()
-        if T == UInt8
-            data = [ convert(Char, read(f, T)) ]
+        if T == String
+            data = [ convert(Char, read(f, UInt8)) ]
         else
             data = [ saferead(f, T) ]
         end
@@ -129,7 +132,13 @@ function readparam(f::IOStream)
     dl = saferead(f, Int8)
     desc = transcode(String, read(f, dl))
 
-    return Parameter(pos, nl, isLocked, gid, name, np, ellen, nd, dims, data, dl, desc)
+    N = nd == 0 ? 1 : convert(Int,nd)
+
+    if T == String && N > 1
+        N -= 1
+    end
+
+    return Parameter{T,N}(pos, nl, isLocked, gid, name, np, ellen, nd, dims, data, dl, desc)
 end
 
 saferead(f::IOStream, T::Union{Type{Int8},Type{UInt8}}) = read(f, T)
