@@ -127,10 +127,10 @@ function readparam(f::IOStream)
     return Parameter(pos, nl, isLocked, gid, name, np, ellen, nd, dims, data, dl, desc)
 end
 
-saferead(f::IOStream, T::Union{Int8,UInt8}) = read(f, T)
-saferead(f::IOStream, T::Union{Int8,UInt8}, dims) = read(f, T, dims)
+saferead(f::IOStream, T::Union{Type{Int8},Type{UInt8}}) = read(f, T)
+saferead(f::IOStream, T::Union{Type{Int8},Type{UInt8}}, dims) = read(f, T, dims)
 
-function saferead(f::IOStream, T::Float32)
+function saferead(f::IOStream, T::Type{Float32})
     if VAX
         if H_ENDIAN === F_ENDIAN
             return read(f, Vax32)::T
@@ -138,7 +138,7 @@ function saferead(f::IOStream, T::Float32)
             return ltoh(read(f, Vax32))::T
         end
     end
-
+    
     if H_ENDIAN === F_ENDIAN
         return read(f, T)::T
     elseif F_ENDIAN === LE
@@ -148,25 +148,25 @@ function saferead(f::IOStream, T::Float32)
     end
 end
 
-function saferead(f::IOStream, T::Float32, dims)
+function saferead(f::IOStream, T::Type{Float32}, dims)
     if VAX
         if H_ENDIAN === F_ENDIAN
             return read(f, Vax32, dims)
         else
-            return ltoh(read(f, Vax32, dims))
+            return ltoh.(read(f, Vax32, dims))
         end
     end
-
+    
     if H_ENDIAN === F_ENDIAN
-        return read(f, T::Float32, dims)
+        return read(f, T, dims)
     elseif F_ENDIAN === LE
-        return ltoh(read(f, T::Float32, dims))
+        return ltoh.(read(f, T, dims))
     elseif F_ENDIAN === BE
-        return ntoh(read(f, T::Float32, dims))
+        return ntoh.(read(f, T, dims))
     end
 end
 
-function saferead(f::IOStream, T)
+function saferead(f::IOStream, T::Type)
     if H_ENDIAN === F_ENDIAN
         return read(f, T)::T
     elseif F_ENDIAN === LE
@@ -176,13 +176,13 @@ function saferead(f::IOStream, T)
     end
 end
 
-function saferead(f::IOStream, T, dims)
+function saferead(f::IOStream, T::Type, dims)
     if H_ENDIAN === F_ENDIAN
         return read(f, T, dims)
     elseif F_ENDIAN === LE
-        return ltoh(read(f, T, dims))
+        return ltoh.(read(f, T, dims))
     elseif F_ENDIAN === BE
-        return ntoh(read(f, T, dims))
+        return ntoh.(read(f, T, dims))
     end
 end
 
