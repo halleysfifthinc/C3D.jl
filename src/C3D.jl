@@ -55,6 +55,32 @@ Base.getindex(g::Group, key) = getindex(g.p, key)
 
 Base.show(io::IO, g::Group) = show(io, keys(g.p))
 
+struct C3DFile
+    header::Int
+    groups::Dict{Symbol,Group}
+    d3d::Array
+    dad::Array
+    bylabels::Dict{Symbol,SubArray}
+
+    function C3DFile(header, groups, d3d, dad)
+        bylabels = Dict{Symbol,SubArray}()
+
+        for (idx, symname) in enumerate(groups[:POINT][:LABELS][1:groups[:POINT][:USED][1]])
+            sym = Symbol(replace(strip(symname), r"[^a-zA-Z0-9_]", '_'))
+            bylabels[sym] = view(d3d, :, ((idx-1)*3+1):((idx-1)*3+3))
+        end
+
+        for (idx, symname) in enumerate(groups[:ANALOG][:LABELS][1:groups[:ANALOG][:USED][1]])
+            sym = Symbol(replace(strip(symname), r"[^a-zA-Z0-9_]", '_'))
+            bylabels[sym] = view(dad, :, idx)
+        end
+
+        return new(header, groups, d3d, dad, bylabels)
+    end
+end
+
+Base.getindex(f::C3DFile, key) = getindex(f.bylabels, key)
+
 relseek(s::IOStream, n::Int) = seek(s, position(s) + n)
 
 function readgroup(f::IOStream)
@@ -141,6 +167,43 @@ function readparam(f::IOStream)
     return Parameter{T,N}(pos, nl, isLocked, gid, name, np, ellen, nd, dims, data, dl, desc)
 end
 
+
+
+function readdata(f::IOStream, groups::Dict{Symbol,Group})
+
+    format = groups[:POINT][:SCALE][1] > 0 ? Int16 : Float32
+
+    # Read data in a transposed structure for better read/write speeds due to Julia being 
+    # column-order arrays
+    d3rows::Int = groups[:POINT][:USED][1]*3
+    d3cols::Int = groups[:POINT][:FRAMES][1]
+    d3d = Array{format,2}(d3rows,d3cols)
+    d3residuals = Array{format,2}(convert(Int,d3rows/3),d3cols)
+
+    apf::Int = groups[:ANALOG][:RATE][1]/groups[:POINT][:RATE][1]
+    darows::Int = groups[:ANALOG][:USED][1]
+    dacols::Int = apf*d3cols
+    dad = Array{format,2}(darows,dacols)
+
+    for i in 1:d3cols
+        tmp = saferead(f,format,convert(Int,d3rows*4/3))
+        d3d[:,i] = tmp[filter(x -> x % 4 != 0, 1:convert(Int,d3rows*4/3))]
+        d3residuals[:,i] = tmp[filter(x -> x % 4 == 0, 1:convert(Int,d3rows*4/3))]
+        dad[:,((i-1)*apf+1):(i*apf)] = saferead(f,format,(darows,apf))
+    end
+
+    if format == Int32
+        # Multiply or divide by [:point][:scale]
+        d3d *= groups[:POINT][:SCALE][1]
+
+        dad[:] = (dad - groups[:ANALOG][:OFFSET][1])*
+                    groups[:ANALOG][:GEN_SCALE][1].*
+                    groups[:ANALOG][:SCALE][1:length(groups[:ANALOG][:USED])]
+    end
+
+    return C3DFile(1,groups,d3d',dad')
+end
+
 saferead(f::IOStream, T::Union{Type{Int8},Type{UInt8}}) = read(f, T)
 saferead(f::IOStream, T::Union{Type{Int8},Type{UInt8}}, dims) = read(f, T, dims)
 
@@ -152,7 +215,7 @@ function saferead(f::IOStream, T::Type{Float32})
             return ltoh(read(f, Vax32))::T
         end
     end
-    
+
     if H_ENDIAN === F_ENDIAN
         return read(f, T)::T
     elseif F_ENDIAN === LE
@@ -170,7 +233,7 @@ function saferead(f::IOStream, T::Type{Float32}, dims)
             return ltoh.(read(f, Vax32, dims))
         end
     end
-    
+
     if H_ENDIAN === F_ENDIAN
         return read(f, T, dims)
     elseif F_ENDIAN === LE
@@ -204,11 +267,11 @@ function readc3d(filename::AbstractString)
     if !isfile(filename)
         error("File ", filename, " cannot be found")
     end
-    
+
     file = open(filename, "r")
 
     params_ptr = read(file, UInt8)
-    
+
     if read(file, UInt8) != 0x50
         error("File ", filename, " is not a valid C3D file")
     end
@@ -217,7 +280,7 @@ function readc3d(filename::AbstractString)
     seek(file, (params_ptr - 1) * 512)
 
     # Skip 2 reserved bytes
-    # TODO: store bytes for saving modified files 
+    # TODO: store bytes for saving modified files
     read(file, UInt16)
 
     paramblocks = read(file, UInt8)
@@ -254,7 +317,7 @@ function readc3d(filename::AbstractString)
         # Parameter
         relseek(file, -2)
         push!(ps, readparam(file))
-        moreparams = ps[end].np != 0 ? true : false        
+        moreparams = ps[end].np != 0 ? true : false
     end
 
     while moreparams
@@ -272,12 +335,12 @@ function readc3d(filename::AbstractString)
             # The group ID should never be zero, if it is, the most likely explanation is
             # that the pointer is incorrect (ie the end of the parameters has been reached
             # and the remaining 0x00's are fill to the end of the block
-            
+
             # Check if pointer is incorrect
             relseek(file, -2)
             mark(file)
 
-            local z = read(file, (((params_ptr + paramblocks) - 1) * 512 - 1) - position(file))
+            local z = read(file, (((params_ptr + paramblocks) - 1) * 512) - position(file))
 
             if isempty(find(!iszero, z))
                 unmark(file)
@@ -285,7 +348,7 @@ function readc3d(filename::AbstractString)
             else
                 reset(file)
                 error("Invalid group id at byte ", position(file) + 1)
-            end    
+            end
         end
     end
 
@@ -293,19 +356,21 @@ function readc3d(filename::AbstractString)
     gids = Dict{Int,Symbol}()
 
     for group in gs
-        gname = replace(strip(group.name), r"[^a-zA-Z0-9_ ]", '_')
+        gname = replace(strip(group.name), r"[^a-zA-Z0-9_]", '_')
         groups[Symbol(gname)] = group
         gids[abs(group.gid)] = Symbol(gname)
     end
 
     for param in ps
-        pname = replace(strip(param.name), r"[^a-zA-Z0-9_ ]", '_')
+        pname = replace(strip(param.name), r"[^a-zA-Z0-9_]", '_')
         groups[gids[param.gid]].p[Symbol(pname)] = param
     end
 
+    res = readdata(file,groups)
+
     close(file)
 
-    return groups
+    return res
 end
 
 function __init__()
