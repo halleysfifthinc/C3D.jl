@@ -10,3 +10,9 @@ C3D is a common output format for biomechanics data gathered using various syste
 
 The current corpus of test data is downloaded from the C3D [website](https://www.c3d.org/sampledata.html). 
 Pull requests welcome! Pull requests containing any unusual file examples not found in the C3D sample data from the website are also welcome.
+
+Support for DEC files is possible by the use of libvaxdata:
+
+> Baker, L.M., 2005, libvaxdata: VAX Data Format Conversion
+>     Routines: U.S. Geological Survey Open-File Report 2005-1424,
+>     v1.1 (http://pubs.usgs.gov/of/2005/1424/).
