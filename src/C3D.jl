@@ -217,11 +217,11 @@ function saferead(f::IOStream, T::Type{Float32})
     end
 
     if H_ENDIAN === F_ENDIAN
-        return read(f, T)::T
+        return read(f, T)
     elseif F_ENDIAN === LE
-        return ltoh(read(f, T))::T
+        return ltoh(read(f, T))
     elseif F_ENDIAN === BE
-        return ntoh(read(f, T))::T
+        return ntoh(read(f, T))
     end
 end
 
@@ -245,11 +245,11 @@ end
 
 function saferead(f::IOStream, T::Type)
     if H_ENDIAN === F_ENDIAN
-        return read(f, T)::T
+        return read(f, T)
     elseif F_ENDIAN === LE
-        return ltoh(read(f, T))::T
+        return ltoh(read(f, T))
     elseif F_ENDIAN === BE
-        return ntoh(read(f, T))::T
+        return ntoh(read(f, T))
     end
 end
 
