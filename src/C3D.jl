@@ -25,6 +25,7 @@ struct Parameter{T,N} <: AbstractArray{T,N}
     isLocked::Bool # Locked if nl < 0
     gid::Int8 # Group ID
     name::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    symname::String
     np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     ellen::Int8
     # -1 => Char data
@@ -51,6 +52,7 @@ struct Group
     isLocked::Bool # Locked if nl < 0
     gid::Int8 # Group ID
     name::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    symname::String
     np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     dl::Int8 # Number of characters in group description (nominally should be between 1 and 127)
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
@@ -62,13 +64,14 @@ Base.getindex(g::Group, key) = getindex(g.p, key)
 Base.show(io::IO, g::Group) = show(io, keys(g.p))
 
 struct C3DFile
+    name::String
     header::Int
     groups::Dict{Symbol,Group}
     d3d::Array
     dad::Array
     bylabels::Dict{Symbol,SubArray}
 
-    function C3DFile(header, groups, d3d, dad)
+    function C3DFile(name, header, groups, d3d, dad)
         bylabels = Dict{Symbol,SubArray}()
 
         for (idx, symname) in enumerate(groups[:POINT][:LABELS][1:groups[:POINT][:USED][1]])
@@ -81,7 +84,7 @@ struct C3DFile
             bylabels[sym] = view(dad, :, idx)
         end
 
-        return new(header, groups, d3d, dad, bylabels)
+        return new(name, header, groups, d3d, dad, bylabels)
     end
 end
 
@@ -96,6 +99,7 @@ function readgroup(f::IOStream)
     gid = saferead(f, Int8)
 
     name = transcode(String, read(f, abs(nl)))
+    symname = replace(strip(name), r"[^a-zA-Z0-9_]", '_')
 
     if ismatch(r"[^a-zA-Z0-9_ ]", name)
         warn("Group ", name, " has unofficially supported characters. 
@@ -106,7 +110,7 @@ function readgroup(f::IOStream)
     dl = saferead(f, Int8)
     desc = transcode(String, read(f, dl))
 
-    return Group(pos, nl, isLocked, gid, name, np, dl, desc, Dict{Symbol,Array{Parameter,1}}())
+    return Group(pos, nl, isLocked, gid, name, symname, np, dl, desc, Dict{Symbol,Array{Parameter,1}}())
 end
 
 function readparam(f::IOStream)
@@ -116,6 +120,7 @@ function readparam(f::IOStream)
     gid = saferead(f, Int8)
     # println(nl)
     name = transcode(String, read(f, abs(nl)))
+    symname = replace(strip(name), r"[^a-zA-Z0-9_]", '_')
 
     if ismatch(r"[^a-zA-Z0-9_ ]", name)
         warn("Parameter ", name, " has unofficially supported characters. 
@@ -170,7 +175,8 @@ function readparam(f::IOStream)
         N -= 1
     end
 
-    return Parameter{T,N}(pos, nl, isLocked, gid, name, np, ellen, nd, dims, data, dl, desc)
+    return Parameter{T,N}(pos, nl, isLocked, gid, name, symname, np, ellen, nd, dims, data,
+            dl, desc)
 end
 
 
@@ -207,7 +213,7 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group})
                     groups[:ANALOG][:SCALE][1:length(groups[:ANALOG][:USED])]
     end
 
-    return C3DFile(1,groups,d3d',dad')
+    return C3DFile(f.name, 1, groups, d3d', dad')
 end
 
 saferead(f::IOStream, T::Union{Type{Int8},Type{UInt8}}) = read(f, T)
@@ -362,14 +368,12 @@ function readc3d(filename::AbstractString)
     gids = Dict{Int,Symbol}()
 
     for group in gs
-        gname = replace(strip(group.name), r"[^a-zA-Z0-9_]", '_')
-        groups[Symbol(gname)] = group
-        gids[abs(group.gid)] = Symbol(gname)
+        groups[Symbol(group.symname)] = group
+        gids[abs(group.gid)] = Symbol(group.symname)
     end
 
     for param in ps
-        pname = replace(strip(param.name), r"[^a-zA-Z0-9_]", '_')
-        groups[gids[param.gid]].p[Symbol(pname)] = param
+        groups[gids[param.gid]].p[Symbol(param.symname)] = param
     end
 
     res = readdata(file,groups)
