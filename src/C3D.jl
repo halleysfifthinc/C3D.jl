@@ -298,6 +298,8 @@ function readc3d(filename::AbstractString)
     paramblocks = read(file, UInt8)
     proctype = read(file, Int8) - 83
 
+    global VAX = false
+
     # Deal with host big-endianness in the future
     if proctype == 1
         # little-endian
