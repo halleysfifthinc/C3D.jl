@@ -2,6 +2,12 @@ __precompile__()
 
 module C3D
 
+if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
+    include("../deps/deps.jl")
+else
+    error("C3D not properly installed. Please run Pkg.build(\"C3D\")")
+end
+
 const LE = 1
 const BE = 2
 
@@ -210,9 +216,9 @@ saferead(f::IOStream, T::Union{Type{Int8},Type{UInt8}}, dims) = read(f, T, dims)
 function saferead(f::IOStream, T::Type{Float32})
     if VAX
         if H_ENDIAN === F_ENDIAN
-            return read(f, Vax32)::T
+            return convert(Float32,read(f, Vax32))
         else
-            return ltoh(read(f, Vax32))::T
+            return convert(Float32,ltoh(read(f, Vax32)))
         end
     end
 
@@ -228,9 +234,9 @@ end
 function saferead(f::IOStream, T::Type{Float32}, dims)
     if VAX
         if H_ENDIAN === F_ENDIAN
-            return read(f, Vax32, dims)
+            return convert.(Float32,read(f, Vax32, dims))
         else
-            return ltoh.(read(f, Vax32, dims))
+            return convert.(Float32,ltoh.(read(f, Vax32, dims)))
         end
     end
 
