@@ -38,4 +38,15 @@ pc_int = readc3d(joinpath(datadir, "pc_int.c3d"))
             end
         end
     end
+
+    @testset "Data equivalency between file types" begin
+        for file in [ dec_real, dec_int, sgi_real, sgi_int, pc_int ]
+            @testset "Ensure data equivalency between pc_real and $(file.name)" begin
+                for sig in keys(pc_real.bylabels)
+                  @test haskey(file.bylabels,sig)
+                  @test pc_real[sig] ≈ file[sig]
+                end
+            end
+        end
+    end
 end
