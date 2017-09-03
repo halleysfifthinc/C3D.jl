@@ -16,9 +16,10 @@ provides(SimpleBuild,
         CreateDirectory(prefix)
         CreateDirectory(builddir)
         CreateDirectory(libdir)
-        FileRule(joinpath(prefix, "libvaxdata.so"), @build_steps begin
-            MakeTargets(["-fMakefile"])
+        FileRule(joinpath(libdir, "libvaxdata.so"), @build_steps begin
+              MakeTargets(["-f"*joinpath(@__DIR__, "Makefile")])
           end)
     end), libvaxdata)
 
 @BinDeps.install Dict(:libvaxdata => :libvaxdata)
+
