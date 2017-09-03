@@ -43,7 +43,7 @@
 # GNU C
 # -O3 (highest level of optimization) -ansi (strict ANSI)
 CC     = gcc
-CFLAGS = -O3 -ansi -fPIC
+CFLAGS = -O3 -ansi -w -fPIC
 LDFLAGS = -shared
 
 LIB_NAME = libvaxdata.so
