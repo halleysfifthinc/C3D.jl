@@ -189,13 +189,13 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group})
     # column-order arrays
     d3rows::Int = groups[:POINT][:USED][1]*3
     d3cols::Int = groups[:POINT][:FRAMES][1]
-    d3d = Array{format,2}(d3rows,d3cols)
-    d3residuals = Array{format,2}(convert(Int,d3rows/3),d3cols)
+    d3d = Array{Float32,2}(d3rows,d3cols)
+    d3residuals = Array{Float32,2}(convert(Int,d3rows/3),d3cols)
 
     apf::Int = groups[:ANALOG][:RATE][1]/groups[:POINT][:RATE][1]
     darows::Int = groups[:ANALOG][:USED][1]
     dacols::Int = apf*d3cols
-    dad = Array{format,2}(darows,dacols)
+    dad = Array{Float32,2}(darows,dacols)
 
     for i in 1:d3cols
         tmp = saferead(f,format,convert(Int,d3rows*4/3))
@@ -204,14 +204,14 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group})
         dad[:,((i-1)*apf+1):(i*apf)] = saferead(f,format,(darows,apf))
     end
 
-    if format == Int32
+    if format == Int16
         # Multiply or divide by [:point][:scale]
-        d3d *= groups[:POINT][:SCALE][1]
-
-        dad[:] = (dad - groups[:ANALOG][:OFFSET][1])*
-                    groups[:ANALOG][:GEN_SCALE][1].*
-                    groups[:ANALOG][:SCALE][1:length(groups[:ANALOG][:USED])]
+        d3d *= abs(groups[:POINT][:SCALE][1])
     end
+
+    dad[:] = (dad - groups[:ANALOG][:OFFSET][1])*
+                groups[:ANALOG][:GEN_SCALE][1].*
+                groups[:ANALOG][:SCALE][1:length(groups[:ANALOG][:USED])]
 
     return C3DFile(f.name, 1, groups, d3d', dad')
 end
