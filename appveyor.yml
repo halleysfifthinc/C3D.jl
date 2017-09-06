@@ -58,8 +58,8 @@ artifacts:
     name: Libvaxdata shared library (DLL)
 
 deploy:
-  provider: Github
-  release: $(appveyor_repo_tag_name)
+  provider: GitHub
+  tag_name: $(appveyor_repo_tag_name)
   auth_token:
     secure: 4IwEAQyiErcNkpG874vDzJIUJfJ+Eg19UwLfz1fEQE4Oe/4vUHpgRTi7s/4uFO5R
   artifact: libvaxdata-*.zip
