@@ -48,7 +48,7 @@ build_script:
       Pkg.clone(pwd(), \"C3D\"); Pkg.build(\"C3D\")"
 
 after_build:
-  - 7z a libvaxdata-%ARCH%.zip %APPVEYOR_BUILD_FOLDER%\deps\usr\libvaxdata-%ARCH%.dll
+  - 7z a libvaxdata-%ARCH%.zip C:\Users\appveyor\.julia\v0.6\deps\usr\libvaxdata-%ARCH%.dll
 
 test_script:
   - C:\projects\julia\bin\julia -e "Pkg.test(\"C3D\")"

@@ -1,7 +1,7 @@
 .SUFFIXES:
 .SUFFIXES: .c .o
 
-CFLAGS = -O3 -ansi -w
+CFLAGS = -O3 -ansi -w -fPIC
 LDFLAGS = -shared
 
 ifeq ($(OS),Windows_NT)
