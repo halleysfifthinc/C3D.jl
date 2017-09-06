@@ -21,14 +21,14 @@ matrix:
 
 ## uncomment and modify the following lines to manually install system packages
 #addons:
-#  apt: # apt-get for linux
+#  apt: # apt-get for linuxkkk
 #    packages:
 #    - gfortran
 # before_script: # homebrew for mac
 #   - if [ $TRAVIS_OS_NAME = osx ]; then brew install gcc; fi
 
 before_deploy:
-  - tar -cvzf libvaxdata-$ARCH-$TRAVIS_OS_NAME.tar.gz $TRAVIS_HOME/.julia/v0.6/C3D/deps/usr/lib/libvaxdata-$ARCH*
+  - tar -cvzf libvaxdata-$ARCH-$TRAVIS_OS_NAME.tar.gz /home/travis/.julia/v0.6/C3D/deps/usr/lib/libvaxdata-$ARCH*
 
 deploy:
   provider: releases
