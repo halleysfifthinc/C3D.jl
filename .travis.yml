@@ -28,7 +28,7 @@ matrix:
 #   - if [ $TRAVIS_OS_NAME = osx ]; then brew install gcc; fi
 
 before_deploy:
-  - tar -cvzf libvaxdata-$ARCH-$TRAVIS_OS_NAME.tar.gz /home/travis/.julia/v0.6/C3D/deps/usr/lib/libvaxdata-$ARCH*
+  - tar -cvzf libvaxdata-$ARCH-$TRAVIS_OS_NAME.tar.gz $HOME/.julia/v0.6/C3D/deps/usr/lib/libvaxdata-$ARCH*
 
 deploy:
   provider: releases
