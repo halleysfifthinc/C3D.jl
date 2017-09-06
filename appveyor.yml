@@ -55,15 +55,15 @@ test_script:
 
 artifacts:
   - path: libvaxdata-*.zip
-    name: Libvaxdata shared library (DLL)
+    name: libvaxdata
 
 deploy:
   provider: GitHub
   tag_name: $(appveyor_repo_tag_name)
   auth_token:
     secure: 4IwEAQyiErcNkpG874vDzJIUJfJ+Eg19UwLfz1fEQE4Oe/4vUHpgRTi7s/4uFO5R
-  artifact: libvaxdata-*.zip
+  artifact: libvaxdata
   draft: true
-  prerelease: true
+  force_update: true
   on:
     appveyor_repo_tag: true
