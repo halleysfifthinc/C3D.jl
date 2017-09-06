@@ -2,10 +2,12 @@ __precompile__()
 
 module C3D
 
-if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
+if isfile(joinpath(@__DIR__,"..","deps","deps.jl"))
     include("../deps/deps.jl")
+    global const LIBVAXDATA_LOADED = true
 else
-    error("C3D not properly installed. Please run Pkg.build(\"C3D\")")
+    warn("C3D is missing the library needed for DEC file support. Please run Pkg.build(\"C3D\") if you plan on reading DEC files.")
+    global const LIBVAXDATA_LOADED = false
 end
 
 const LE = 1
@@ -306,9 +308,9 @@ function readc3d(filename::AbstractString)
         global F_ENDIAN = LE
     elseif proctype == 2
         # DEC floats; little-endian
+        !LIBVAXDATA_LOADED && error("DEC processor type files not supported yet")
         global VAX = true
         global F_ENDIAN = LE
-        # error("DEC processor type files not supported yet")
     elseif proctype == 3
         # big-endian
         global F_ENDIAN = BE
