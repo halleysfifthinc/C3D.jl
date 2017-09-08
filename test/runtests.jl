@@ -3,16 +3,16 @@ using Base.Test
 
 datadir = joinpath(@__DIR__,"..","data")
 
-dec_real = readc3d(joinpath(datadir, "Dec_real.c3d"))
-dec_int = readc3d(joinpath(datadir, "DEC_INT.C3D"))
-
-sgi_real = readc3d(joinpath(datadir, "sgi_real.c3d"))
-sgi_int = readc3d(joinpath(datadir, "sgi_int.c3d"))
-
-pc_real = readc3d(joinpath(datadir, "pc_real.c3d"))
-pc_int = readc3d(joinpath(datadir, "pc_int.c3d"))
-
 @testset "C3D file type (DEC, endianness)" begin
+    dec_real = readc3d(joinpath(datadir, "Dec_real.c3d"))
+    dec_int = readc3d(joinpath(datadir, "DEC_INT.C3D"))
+
+    sgi_real = readc3d(joinpath(datadir, "sgi_real.c3d"))
+    sgi_int = readc3d(joinpath(datadir, "sgi_int.c3d"))
+
+    pc_real = readc3d(joinpath(datadir, "pc_real.c3d"))
+    pc_int = readc3d(joinpath(datadir, "pc_int.c3d"))
+
     @testset "Parameters equivalency between file types" begin
         for file in [ dec_real, dec_int, sgi_real, sgi_int, pc_int ]
             @testset "Ensure group-set equivalency between pc_real and $(file.name)" begin
@@ -50,3 +50,5 @@ pc_int = readc3d(joinpath(datadir, "pc_int.c3d"))
         end
     end
 end
+
+include("libvaxdata_tests.jl")
