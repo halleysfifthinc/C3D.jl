@@ -23,12 +23,11 @@ DESTDIR := $(PREFIX)/lib/
 _OBJS = from_vax_i2.o       from_vax_i2_.o      from_vax_i4.o       \
        from_vax_i4_.o      from_vax_r4.o       from_vax_r4_.o      \
        from_vax_d8.o       from_vax_d8_.o      from_vax_g8.o       \
-       from_vax_g8_.o      from_vax_h16.o      from_vax_h16_.o     \
-       to_vax_i2.o         to_vax_i2_.o        to_vax_i4.o         \
-       to_vax_i4_.o        to_vax_r4.o         to_vax_r4_.o        \
-       to_vax_d8.o         to_vax_d8_.o        to_vax_g8.o         \
-       to_vax_g8_.o        to_vax_h16.o        to_vax_h16_.o       \
-       is_little_endian.o  is_little_endian_.o
+       from_vax_g8_.o      to_vax_i2.o         to_vax_i2_.o        \
+       to_vax_i4.o         to_vax_i4_.o        to_vax_r4.o         \
+       to_vax_r4_.o        to_vax_d8.o         to_vax_d8_.o        \
+       to_vax_g8.o         to_vax_g8_.o        is_little_endian.o  \
+       is_little_endian_.o
 
 OBJS := $(addprefix $(LIBDIR)/$(ARCH)/, $(_OBJS))
 
