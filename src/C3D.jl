@@ -66,7 +66,7 @@ Base.show(io::IO, g::Group) = show(io, keys(g.p))
 
 struct C3DFile
     name::String
-    header::Int
+    header::Dict{Symbol,Any}
     groups::Dict{Symbol,Group}
     d3d::Array
     dad::Array
@@ -92,6 +92,54 @@ end
 Base.getindex(f::C3DFile, key) = getindex(f.bylabels, key)
 
 relseek(s::IOStream, n::Int) = seek(s, position(s) + n)
+
+function readheader(f::IOStream)::Dict{Symbol,Any}
+    seek(f,0)
+    paramptr = saferead(f,Int8)
+    read(f,Int8)
+    numpoints = saferead(f,Int16)
+    numanalog = saferead(f,Int16)
+    firstframe = saferead(f,Int16)
+    lastframe = saferead(f,Int16)
+    maxinterp = saferead(f,Int16)
+    pointscale = saferead(f,Float32)
+    DATA_START = saferead(f,Int16)
+    analogpframe = saferead(f,Int16)
+    framerate = saferead(f,Float32)
+    seek(f, (148 - 1) * 2)
+    tmp = saferead(f, Int16)
+    tmp_lr = saferead(f, Int16)
+    lr = (tmp == 0x3039) ? tmp_lr : nothing
+    char4 = (saferead(f, Int16) == 0x3039)
+    numevents = saferead(f, Int16)
+    read(f,Int16)
+    eventtimes = saferead(f, Float32, 18)
+    eventflags = BitArray(saferead(f, Int8, 18))
+    read(f,Int16)
+    
+    tdata = convert.(Char, saferead(f, UInt8, (4, 18)))
+    eventlabels = [ String(tdata[((i - 1) * 4 + 1):(i * 4)]) for i in 1:18]
+
+    (length(find(eventflags)) != numevents) && 1 # They should be the same, header is not authoritative tho, so don't error?
+    eventtimes = eventtimes[eventflags]
+    eventlabels = eventlabels[eventflags]
+
+    return Dict(:paramptr => paramptr,
+                :numpoints => numpoints,
+                :numanalog => numanalog,
+                :firstframe => firstframe,
+                :lastframe => lastframe,
+                :maxinterp => maxinterp,
+                :pointscale => pointscale,
+                :DATA_START => DATA_START,
+                :analogpframe => analogpframe,
+                :framerate => framerate,
+                :lr => lr,
+                :numevents => numevents,
+                :eventtimes => eventtimes,
+                :eventflags => eventflags,
+                :eventlabels => eventlabels)
+end
 
 function readgroup(f::IOStream)
     pos = position(f)
@@ -180,9 +228,7 @@ function readparam(f::IOStream)
             dl, desc)
 end
 
-
-
-function readdata(f::IOStream, groups::Dict{Symbol,Group})
+function readdata(f::IOStream, groups::Dict{Symbol,Group}, header)
 
     format = groups[:POINT][:SCALE][1] > 0 ? Int16 : Float32
 
@@ -214,7 +260,7 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group})
                 groups[:ANALOG][:GEN_SCALE][1].*
                 groups[:ANALOG][:SCALE][1:length(groups[:ANALOG][:USED])]
 
-    return C3DFile(f.name, 1, groups, d3d', dad')
+    return C3DFile(f.name, header, groups, d3d', dad')
 end
 
 saferead(f::IOStream, T::Union{Type{Int8},Type{UInt8}}) = read(f, T)
@@ -316,6 +362,10 @@ function readc3d(filename::AbstractString)
         error("Malformed processor type. Expected 1, 2, or 3. Found ", proctype)
     end
 
+    mark(file)
+    header = readheader(file)
+    reset(file)
+
     gs = Array{Group,1}()
     ps = Array{Parameter,1}()
     moreparams = true
@@ -377,7 +427,7 @@ function readc3d(filename::AbstractString)
         groups[gids[param.gid]].p[Symbol(param.symname)] = param
     end
 
-    res = readdata(file,groups)
+    res = readdata(file,groups, header)
 
     close(file)
 
