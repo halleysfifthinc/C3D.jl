@@ -17,7 +17,7 @@ VAX = false
 
 include("vaxtype.jl")
 
-export readc3d
+export readc3d, readparams
 
 # Parameter format description https://www.c3d.org/HTML/parameterformat1.htm
 struct Parameter{T,N} <: AbstractArray{T,N}
@@ -235,7 +235,7 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, header)
     # Read data in a transposed structure for better read/write speeds due to Julia being 
     # column-order arrays
     d3rows::Int = groups[:POINT][:USED][1]*3
-    d3cols::Int = groups[:POINT][:FRAMES][1]
+    d3cols::Int = (groups[:POINT][:FRAMES][1] < 0) ? convert(Int,reinterpret(UInt16, groups[:POINT][:FRAMES][1])) : groups[:POINT][:FRAMES][1]
     d3d = Array{Float32,2}(d3rows,d3cols)
     d3residuals = Array{Float32,2}(convert(Int,d3rows/3),d3cols)
 
@@ -432,6 +432,116 @@ function readc3d(filename::AbstractString)
     close(file)
 
     return res
+end
+
+function readparams(filename::AbstractString)
+    if !isfile(filename)
+        error("File ", filename, " cannot be found")
+    end
+
+    file = open(filename, "r")
+
+    params_ptr = read(file, UInt8)
+
+    if read(file, UInt8) != 0x50
+        error("File ", filename, " is not a valid C3D file")
+    end
+
+    # Jump to parameters block
+    seek(file, (params_ptr - 1) * 512)
+
+    # Skip 2 reserved bytes
+    # TODO: store bytes for saving modified files
+    read(file, UInt16)
+
+    paramblocks = read(file, UInt8)
+    proctype = read(file, Int8) - 83
+
+    global VAX = false
+
+    # Deal with host big-endianness in the future
+    if proctype == 1
+        # little-endian
+        global F_ENDIAN = LE
+    elseif proctype == 2
+        # DEC floats; little-endian
+        global VAX = true
+        global F_ENDIAN = LE
+    elseif proctype == 3
+        # big-endian
+        global F_ENDIAN = BE
+    else
+        error("Malformed processor type. Expected 1, 2, or 3. Found ", proctype)
+    end
+
+    mark(file)
+    header = readheader(file)
+    reset(file)
+
+    gs = Array{Group,1}()
+    ps = Array{Parameter,1}()
+    moreparams = true
+
+    read(file, UInt8)
+    if read(file, Int8) < 0
+        # Group
+        relseek(file, -2)
+        push!(gs, readgroup(file))
+        moreparams = gs[end].np != 0 ? true : false
+    else
+        # Parameter
+        relseek(file, -2)
+        push!(ps, readparam(file))
+        moreparams = ps[end].np != 0 ? true : false
+    end
+
+    while moreparams
+        read(file, UInt8)
+        local gid = read(file, Int8)
+        if gid < 0 # Group
+            relseek(file, -2)
+            push!(gs, readgroup(file))
+            moreparams = gs[end].np != 0 ? true : false
+        elseif gid > 0 # Parameter
+            relseek(file, -2)
+            push!(ps, readparam(file))
+            moreparams = ps[end].np != 0 ? true : false
+        else # Last parameter pointer is incorrect (assumption)
+            # The group ID should never be zero, if it is, the most likely explanation is
+            # that the pointer is incorrect (ie the end of the parameters has been reached
+            # and the remaining 0x00's are fill to the end of the block
+
+            # Check if pointer is incorrect
+            relseek(file, -2)
+            mark(file)
+
+            local z = read(file, (((params_ptr + paramblocks) - 1) * 512) - position(file))
+
+            if isempty(find(!iszero, z))
+                unmark(file)
+                moreparams = false
+            else
+                reset(file)
+                error("Invalid group id at byte ", position(file) + 1)
+            end
+        end
+    end
+
+    groups = Dict{Symbol,Group}()
+    gids = Dict{Int,Symbol}()
+
+    for group in gs
+        groups[Symbol(group.symname)] = group
+        gids[abs(group.gid)] = Symbol(group.symname)
+    end
+
+    for param in ps
+        groups[gids[param.gid]].p[Symbol(param.symname)] = param
+    end
+
+    close(file)
+
+    return groups
 end
 
 function __init__()
