@@ -2,20 +2,13 @@ __precompile__()
 
 module C3D
 
-const depsfile = joinpath(dirname(@__DIR__),"deps","deps.jl")
-if isfile(depsfile)
-    include(depsfile)
-else
-    error("C3D is missing the library needed for DEC file support. Please run Pkg.build(\"C3D\") if you plan on reading DEC files.")
-end
+using VaxData
 
 const LE = 1
 const BE = 2
 
 F_ENDIAN = LE
 VAX = false
-
-include("vaxtype.jl")
 
 export readc3d, readparams
 
@@ -33,14 +26,14 @@ struct Parameter{T,N} <: AbstractArray{T,N}
     #  1 => Byte data
     #  2 => Int16 data
     #  4 => Float data
-    
+
     # Array format description https://www.c3d.org/HTML/parameterarrays1.htm
     nd::Int8
     dims::Tuple # Vector of bytes (Int8 technically) describing array dimensions
     data::Array{T,N}
     dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    
+
 end
 
 Base.getindex(p::Parameter, i...) = getindex(p.data, i...)
@@ -116,7 +109,7 @@ function readheader(f::IOStream)::Dict{Symbol,Any}
     eventtimes = saferead(f, Float32, 18)
     eventflags = BitArray(saferead(f, Int8, 18))
     read(f,Int16)
-    
+
     tdata = convert.(Char, saferead(f, UInt8, (4, 18)))
     eventlabels = [ String(tdata[((i - 1) * 4 + 1):(i * 4)]) for i in 1:18]
 
@@ -172,7 +165,7 @@ function readparam(f::IOStream)
     symname = replace(strip(name), r"[^a-zA-Z0-9_]", '_')
 
     if ismatch(r"[^a-zA-Z0-9_ ]", name)
-        warn("Parameter ", name, " has unofficially supported characters. 
+        warn("Parameter ", name, " has unofficially supported characters.
             Unexpected results may occur")
     end
 
@@ -232,7 +225,7 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, header)
 
     format = groups[:POINT][:SCALE][1] > 0 ? Int16 : Float32
 
-    # Read data in a transposed structure for better read/write speeds due to Julia being 
+    # Read data in a transposed structure for better read/write speeds due to Julia being
     # column-order arrays
     d3rows::Int = groups[:POINT][:USED][1]*3
     d3cols::Int = (groups[:POINT][:FRAMES][1] < 0) ? convert(Int,reinterpret(UInt16, groups[:POINT][:FRAMES][1])) : groups[:POINT][:FRAMES][1]
@@ -269,9 +262,9 @@ saferead(f::IOStream, T::Union{Type{Int8},Type{UInt8}}, dims) = read(f, T, dims)
 function saferead(f::IOStream, T::Type{Float32})
     if VAX
         if H_ENDIAN === F_ENDIAN
-            return convert(Float32,read(f, Vax32))
+            return convert(Float32,read(f, VaxFloatF))
         else
-            return convert(Float32,ltoh(read(f, Vax32)))
+            return convert(Float32,ltoh(read(f, VaxFloatF)))
         end
     end
 
@@ -287,9 +280,9 @@ end
 function saferead(f::IOStream, T::Type{Float32}, dims)
     if VAX
         if H_ENDIAN === F_ENDIAN
-            return convert.(Float32,read(f, Vax32, dims))
+            return convert.(Float32,read(f, VaxFloatF, dims))
         else
-            return convert.(Float32,ltoh.(read(f, Vax32, dims)))
+            return convert.(Float32,ltoh.(read(f, VaxFloatF, dims)))
         end
     end
 
