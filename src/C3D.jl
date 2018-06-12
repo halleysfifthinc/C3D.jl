@@ -229,13 +229,13 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, header)
     # column-order arrays
     d3rows::Int = groups[:POINT][:USED][1]*3
     d3cols::Int = (groups[:POINT][:FRAMES][1] < 0) ? convert(Int,reinterpret(UInt16, groups[:POINT][:FRAMES][1])) : groups[:POINT][:FRAMES][1]
-    d3d = Array{Float32,2}(d3rows,d3cols)
-    d3residuals = Array{Float32,2}(convert(Int,d3rows/3),d3cols)
+    d3d = Array{Float32,2}(undef, d3rows,d3cols)
+    d3residuals = Array{Float32,2}(undef, convert(Int,d3rows/3),d3cols)
 
     apf::Int = groups[:ANALOG][:RATE][1]/groups[:POINT][:RATE][1]
     darows::Int = groups[:ANALOG][:USED][1]
     dacols::Int = apf*d3cols
-    dad = Array{Float32,2}(darows,dacols)
+    dad = Array{Float32,2}(undef, darows,dacols)
 
     for i in 1:d3cols
         tmp = saferead(f,format,convert(Int,d3rows*4/3))
