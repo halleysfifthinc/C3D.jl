@@ -249,7 +249,7 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, header)
         d3d *= abs(groups[:POINT][:SCALE][1])
     end
 
-    dad[:] = (dad - groups[:ANALOG][:OFFSET][1])*
+    dad[:] = (dad .- groups[:ANALOG][:OFFSET][1])*
                 groups[:ANALOG][:GEN_SCALE][1].*
                 groups[:ANALOG][:SCALE][1:length(groups[:ANALOG][:USED])]
 
