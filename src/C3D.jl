@@ -257,7 +257,7 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, header)
 end
 
 saferead(f::IOStream, T::Union{Type{Int8},Type{UInt8}}) = read(f, T)
-saferead(f::IOStream, T::Union{Type{Int8},Type{UInt8}}, dims) = read(f, T, dims)
+saferead(f::IOStream, T::Union{Type{Int8},Type{UInt8}}, dims) = read!(f, Array{T}(undef, dims...))
 
 function saferead(f::IOStream, T::Type{Float32})
     if VAX
@@ -280,18 +280,18 @@ end
 function saferead(f::IOStream, T::Type{Float32}, dims)
     if VAX
         if H_ENDIAN === F_ENDIAN
-            return convert.(Float32,read(f, VaxFloatF, dims))
+            return convert.(Float32,read!(f, Array{VaxFloatF}(undef, dims...)))
         else
-            return convert.(Float32,ltoh.(read(f, VaxFloatF, dims)))
+            return convert.(Float32,ltoh.(read!(f, Array{VaxFloatF}(undef, dims...))))
         end
     end
 
     if H_ENDIAN === F_ENDIAN
-        return read(f, T, dims)
+        return read!(f, Array{T}(undef, dims))
     elseif F_ENDIAN === LE
-        return ltoh.(read(f, T, dims))
+        return ltoh.(read!(f, Array{T}(undef, dims)))
     elseif F_ENDIAN === BE
-        return ntoh.(read(f, T, dims))
+        return ntoh.(read!(f, Array{T}(undef, dims)))
     end
 end
 
@@ -307,11 +307,11 @@ end
 
 function saferead(f::IOStream, T::Type, dims)
     if H_ENDIAN === F_ENDIAN
-        return read(f, T, dims)
+        return read!(f, Array{T}(undef, dims...))
     elseif F_ENDIAN === LE
-        return ltoh.(read(f, T, dims))
+        return ltoh.(read!(f, Array{T}(undef, dims...)))
     elseif F_ENDIAN === BE
-        return ntoh.(read(f, T, dims))
+        return ntoh.(read!(f, Array{T}(undef, dims...)))
     end
 end
 
