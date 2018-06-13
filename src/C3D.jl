@@ -69,12 +69,12 @@ struct C3DFile
         bylabels = Dict{Symbol,SubArray}()
 
         for (idx, symname) in enumerate(groups[:POINT][:LABELS][1:groups[:POINT][:USED][1]])
-            sym = Symbol(replace(strip(symname), r"[^a-zA-Z0-9_]", '_'))
+            sym = Symbol(replace(strip(symname), r"[^a-zA-Z0-9_]" => '_'))
             bylabels[sym] = view(d3d, :, ((idx-1)*3+1):((idx-1)*3+3))
         end
 
         for (idx, symname) in enumerate(groups[:ANALOG][:LABELS][1:groups[:ANALOG][:USED][1]])
-            sym = Symbol(replace(strip(symname), r"[^a-zA-Z0-9_]", '_'))
+            sym = Symbol(replace(strip(symname), r"[^a-zA-Z0-9_]" => '_'))
             bylabels[sym] = view(dad, :, idx)
         end
 
@@ -141,9 +141,9 @@ function readgroup(f::IOStream)
     gid = saferead(f, Int8)
 
     name = transcode(String, read(f, abs(nl)))
-    symname = replace(strip(name), r"[^a-zA-Z0-9_]", '_')
+    symname = replace(strip(name), r"[^a-zA-Z0-9_]" => '_')
 
-    if ismatch(r"[^a-zA-Z0-9_ ]", name)
+    if occursin(r"[^a-zA-Z0-9_ ]", name)
         warn("Group ", name, " has unofficially supported characters. 
             Unexpected results may occur")
     end
@@ -162,9 +162,9 @@ function readparam(f::IOStream)
     gid = saferead(f, Int8)
     # println(nl)
     name = transcode(String, read(f, abs(nl)))
-    symname = replace(strip(name), r"[^a-zA-Z0-9_]", '_')
+    symname = replace(strip(name), r"[^a-zA-Z0-9_]" => '_')
 
-    if ismatch(r"[^a-zA-Z0-9_ ]", name)
+    if occursin(r"[^a-zA-Z0-9_ ]", name)
         warn("Parameter ", name, " has unofficially supported characters.
             Unexpected results may occur")
     end
