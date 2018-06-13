@@ -1,6 +1,6 @@
 @testset "Sample 01 tests" begin
     dec_real = readc3d(joinpath(datadir, "sample01", "Eb015vr.c3d"))
-    dec_int = readc3d(joinpath(datadir, "sample01", "Eb015vi.C3D"))
+    dec_int = readc3d(joinpath(datadir, "sample01", "Eb015vi.c3d"))
 
     sgi_real = readc3d(joinpath(datadir, "sample01", "Eb015sr.c3d"))
     sgi_int = readc3d(joinpath(datadir, "sample01", "Eb015si.c3d"))
@@ -45,3 +45,4 @@
         end
     end
 end
+
