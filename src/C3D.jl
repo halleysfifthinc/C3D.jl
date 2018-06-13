@@ -113,7 +113,7 @@ function readheader(f::IOStream)::Dict{Symbol,Any}
     tdata = convert.(Char, saferead(f, UInt8, (4, 18)))
     eventlabels = [ String(tdata[((i - 1) * 4 + 1):(i * 4)]) for i in 1:18]
 
-    (length(find(eventflags)) != numevents) && 1 # They should be the same, header is not authoritative tho, so don't error?
+    (length(findall(eventflags)) != numevents) && 1 # They should be the same, header is not authoritative tho, so don't error?
     eventtimes = eventtimes[eventflags]
     eventlabels = eventlabels[eventflags]
 
@@ -398,7 +398,7 @@ function readc3d(filename::AbstractString)
 
             local z = read(file, (((params_ptr + paramblocks) - 1) * 512) - position(file))
 
-            if isempty(find(!iszero, z))
+            if isempty(findall(!iszero, z))
                 unmark(file)
                 moreparams = false
             else
