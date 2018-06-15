@@ -11,11 +11,11 @@
     @testset "Parameters equivalency between file types" begin
         for file in [ dec_real, dec_int, sgi_real, sgi_int, pc_int ]
             @testset "Ensure group-set equivalency between pc_real and $(file.name)" begin
-                @test intersect(keys(pc_real.groups),keys(file.groups)) == collect(keys(pc_real.groups))
+                @test isempty(setdiff(keys(pc_real.groups), keys(file.groups)))
             end
             for grp in keys(pc_real.groups)
                 @testset "Ensure parameter-set equivalency of group :$(pc_real.groups[grp].symname) between pc_real and $(file.name)" begin
-                    @test intersect(keys(pc_real.groups[grp].p),keys(file.groups[grp].p)) == collect(keys(pc_real.groups[grp].p))
+                    @test isempty(setdiff(keys(pc_real.groups[grp].p),keys(file.groups[grp].p)))
                 end
                 @testset "Are the :$(pc_real.groups[grp].symname) parameters approximately equal?" begin
                     for param in keys(pc_real.groups[grp].p)

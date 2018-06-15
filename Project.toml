@@ -1,0 +1,8 @@
+authors = ["Allen Hill <allenofthehills@gmail.com>"]
+name = "C3D"
+uuid = "2f289508-6d0e-11e8-2c47-b9ffa24fd0e3"
+version = "0.1.7"
+
+[deps]
+Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
+VaxData = "cd31b0e8-6739-11e8-0670-d1d5e0f20447"
