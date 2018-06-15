@@ -146,7 +146,7 @@ function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{F
     dl = saferead(f, Int8, FEND)
     desc = transcode(String, read(f, dl))
 
-    return Group(pos, nl, isLocked, gid, name, symname, np, dl, desc, Dict{Symbol,Array{Parameter,1}}())
+    return Group(pos, nl, isLocked, gid, name, symname, np, dl, desc, Dict{Symbol,Parameter}())
 end
 
 function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{Float32,VaxFloatF}
@@ -154,7 +154,6 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     nl = saferead(f, Int8, FEND)
     isLocked = nl < 0 ? true : false
     gid = saferead(f, Int8, FEND)
-    # println(nl)
     name = transcode(String, read(f, abs(nl)))
     symname = replace(strip(name), r"[^a-zA-Z0-9_]" => '_')
 
@@ -206,7 +205,7 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     dl = saferead(f, Int8, FEND)
     desc = transcode(String, read(f, dl))
 
-    N = nd == 0 ? 1 : convert(Int, nd)
+    N = (nd == 0) ? 1 : convert(Int, nd)
 
     if T == String && N > 1
         N -= 1
@@ -217,7 +216,6 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
 end
 
 function readdata(f::IOStream, groups::Dict{Symbol,Group}, header, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
-
     format = groups[:POINT][:SCALE][1] > 0 ? Int16 : FType
 
     # Read data in a transposed structure for better read/write speeds due to Julia being
