@@ -6,9 +6,6 @@ using VaxData
 
 @enum Endian LE=1 BE=2
 
-F_ENDIAN = LE
-VAX = false
-
 export readc3d, readparams
 
 # Parameter format description https://www.c3d.org/HTML/parameterformat1.htm
