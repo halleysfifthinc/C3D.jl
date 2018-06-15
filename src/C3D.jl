@@ -80,8 +80,6 @@ end
 
 Base.getindex(f::C3DFile, key) = getindex(f.bylabels, key)
 
-relseek(s::IOStream, n::Int) = seek(s, position(s) + n)
-
 function readheader(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
     seek(f,0)
     paramptr = saferead(f, Int8, FEND)
@@ -349,12 +347,12 @@ function _readparams(file::IOStream)
     read(file, UInt8)
     if read(file, Int8) < 0
         # Group
-        relseek(file, -2)
+        skip(file, -2)
         push!(gs, readgroup(file, FEND, FType))
         moreparams = gs[end].np != 0 ? true : false
     else
         # Parameter
-        relseek(file, -2)
+        skip(file, -2)
         push!(ps, readparam(file, FEND, FType))
         moreparams = ps[end].np != 0 ? true : false
     end
@@ -363,11 +361,11 @@ function _readparams(file::IOStream)
         read(file, UInt8)
         local gid = read(file, Int8)
         if gid < 0 # Group
-            relseek(file, -2)
+            skip(file, -2)
             push!(gs, readgroup(file, FEND, FType))
             moreparams = gs[end].np != 0 ? true : false
         elseif gid > 0 # Parameter
-            relseek(file, -2)
+            skip(file, -2)
             push!(ps, readparam(file, FEND, FType))
             moreparams = ps[end].np != 0 ? true : false
         else # Last parameter pointer is incorrect (assumption)
@@ -376,7 +374,7 @@ function _readparams(file::IOStream)
             # and the remaining 0x00's are fill to the end of the block
 
             # Check if pointer is incorrect
-            relseek(file, -2)
+            skip(file, -2)
             mark(file)
 
             local z = read(file, (((params_ptr + paramblocks) - 1) * 512) - position(file))
