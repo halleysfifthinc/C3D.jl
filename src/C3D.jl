@@ -55,13 +55,13 @@ Base.show(io::IO, g::Group) = show(io, keys(g.p))
 
 struct C3DFile
     name::String
-    header::Dict{Symbol,Any}
+    # header::Dict{Symbol,Any}
     groups::Dict{Symbol,Group}
     d3d::Array
     dad::Array
     bylabels::Dict{Symbol,SubArray}
 
-    function C3DFile(name, header, groups, d3d, dad)
+    function C3DFile(name, groups, d3d, dad)
         bylabels = Dict{Symbol,SubArray}()
 
         for (idx, symname) in enumerate(groups[:POINT][:LABELS][1:groups[:POINT][:USED][1]])
@@ -74,7 +74,7 @@ struct C3DFile
             bylabels[sym] = view(dad, :, idx)
         end
 
-        return new(name, header, groups, d3d, dad, bylabels)
+        return new(name, groups, d3d, dad, bylabels)
     end
 end
 
@@ -215,7 +215,7 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
             dl, desc)
 end
 
-function readdata(f::IOStream, groups::Dict{Symbol,Group}, header, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
+function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
     format = groups[:POINT][:SCALE][1] > 0 ? Int16 : FType
 
     # Read data in a transposed structure for better read/write speeds due to Julia being
@@ -223,30 +223,39 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, header, FEND::Endian,
     d3rows::Int = groups[:POINT][:USED][1]*3
     d3cols::Int = (groups[:POINT][:FRAMES][1] < 0) ? convert(Int,reinterpret(UInt16, groups[:POINT][:FRAMES][1])) : groups[:POINT][:FRAMES][1]
     d3d = Array{Float32,2}(undef, d3rows,d3cols)
-    d3residuals = Array{Float32,2}(undef, convert(Int,d3rows/3),d3cols)
+    d3residuals = Array{Float32,2}(undef, convert(Int,groups[:POINT][:USED][1]),d3cols)
 
     apf::Int = groups[:ANALOG][:RATE][1]/groups[:POINT][:RATE][1]
     darows::Int = groups[:ANALOG][:USED][1]
     dacols::Int = apf*d3cols
     dad = Array{Float32,2}(undef, darows,dacols)
 
+    nb = convert(Int,d3rows*4/3)
+    d3idxs = filter(x -> x % 4 != 0, 1:nb)
+    residxs = filter(x -> x % 4 == 0, 1:nb)
+
+    d3tmp = Array{format}(undef, nb)
+    datmp = Array{format}(undef, (darows,apf))
+    d3view = @view(d3tmp[d3idxs])
+
     for i in 1:d3cols
-        tmp = saferead(f, format, FEND, convert(Int,d3rows*4/3))
-        d3d[:,i] = tmp[filter(x -> x % 4 != 0, 1:convert(Int,d3rows*4/3))]
-        d3residuals[:,i] = tmp[filter(x -> x % 4 == 0, 1:convert(Int,d3rows*4/3))]
-        dad[:,((i-1)*apf+1):(i*apf)] = saferead(f, format, FEND, (darows,apf))
+        saferead!(f, d3tmp, FEND)
+        d3d[:,i] = convert.(Float32, d3view) # Convert from format (eg Int16 or FType)
+        # d3residuals[:,i] = tmp[residxs]
+        saferead!(f, datmp, FEND)
+        dad[:,((i-1)*apf+1):(i*apf)] = convert.(Float32, datmp)
     end
 
     if format == Int16
         # Multiply or divide by [:point][:scale]
-        d3d *= abs(groups[:POINT][:SCALE][1])
+        d3d .*= abs(groups[:POINT][:SCALE][1])
     end
 
     dad[:] = (dad .- groups[:ANALOG][:OFFSET][1]).*
                 groups[:ANALOG][:GEN_SCALE][1].*
                 groups[:ANALOG][:SCALE][1:length(groups[:ANALOG][:USED])]
 
-    return C3DFile(f.name, header, groups, d3d', dad')
+    return C3DFile(f.name, groups, permutedims(d3d), permutedims(dad))
 end
 
 saferead(io::IOStream, ::Type{T}, FEND::Endian) where T <: Union{Int8,UInt8} = read(io, T)
@@ -258,6 +267,15 @@ function saferead(io::IOStream, ::Type{T}, FEND::Endian) where T
     else
         return ntoh(read(io, T))
     end
+end
+
+function saferead!(io::IOStream, x::AbstractArray, FEND::Endian)
+    if FEND == LE
+        x .= ltoh.(read!(io, x))
+    else
+        x .= ntoh.(read!(io, x))
+    end
+    nothing
 end
 
 function saferead(io::IOStream, ::Type{T}, FEND::Endian, dims) where T
@@ -291,9 +309,9 @@ function readc3d(filename::AbstractString)
 
     file = open(filename, "r")
 
-    groups, header, FEND, FType = _readparams(file)
+    groups, FEND, FType = _readparams(file)
 
-    res = readdata(file, groups, header, FEND, FType)
+    res = readdata(file, groups, FEND, FType)
 
     close(file)
 
@@ -335,7 +353,7 @@ function _readparams(file::IOStream)
     end
 
     mark(file)
-    header = readheader(file, FEND, FType)
+    # header = readheader(file, FEND, FType)
     reset(file)
 
     gs = Array{Group,1}()
@@ -399,7 +417,7 @@ function _readparams(file::IOStream)
         groups[gids[param.gid]].p[Symbol(param.symname)] = param
     end
 
-    return (groups, header, FEND, FType)
+    return (groups, FEND, FType)
 end
 
 function readparams(filename::AbstractString)
