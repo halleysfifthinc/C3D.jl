@@ -15,7 +15,7 @@ struct Parameter{T,N} <: AbstractArray{T,N}
     isLocked::Bool # Locked if nl < 0
     gid::Int8 # Group ID
     name::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    symname::String
+    symname::Symbol
     np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     ellen::Int8
     # -1 => Char data
@@ -42,7 +42,7 @@ struct Group
     isLocked::Bool # Locked if nl < 0
     gid::Int8 # Group ID
     name::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    symname::String
+    symname::Symbol
     np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     dl::Int8 # Number of characters in group description (nominally should be between 1 and 127)
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
@@ -57,32 +57,44 @@ struct C3DFile
     name::String
     # header::Dict{Symbol,Any}
     groups::Dict{Symbol,Group}
-    d3d::Array
-    dad::Array
-    bylabels::Dict{Symbol,SubArray}
+    point::Dict{String,Array{Float32,2}}
+    analog::Dict{String,Array{Float32,1}}
+end
 
-    function C3DFile(name, groups, d3d, dad)
-        bylabels = Dict{Symbol,SubArray}()
+function C3DFile(name::String, groups::Dict{Symbol,Group}, point::AbstractArray, analog::AbstractArray)
+    fpoint = Dict{String,Array{Float32,2}}()
+    fanalog = Dict{String,Array{Float32,1}}()
 
-        for (idx, symname) in enumerate(groups[:POINT][:LABELS][1:groups[:POINT][:USED][1]])
-            sym = Symbol(replace(strip(symname), r"[^a-zA-Z0-9_]" => '_'))
-            bylabels[sym] = view(d3d, :, ((idx-1)*3+1):((idx-1)*3+3))
-        end
+    # fill fpoint with 3d point data
+    for (idx, symname) in enumerate(groups[:POINT][:LABELS][1:groups[:POINT][:USED][1]])
+        fpoint[symname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
+    end
 
-        for (idx, symname) in enumerate(groups[:ANALOG][:LABELS][1:groups[:ANALOG][:USED][1]])
-            sym = Symbol(replace(strip(symname), r"[^a-zA-Z0-9_]" => '_'))
-            bylabels[sym] = view(dad, :, idx)
-        end
+    for (idx, symname) in enumerate(groups[:ANALOG][:LABELS][1:groups[:ANALOG][:USED][1]])
+        fanalog[symname] = analog[:, idx]
+    end
 
-        return new(name, groups, d3d, dad, bylabels)
+    return C3DFile(name, groups, fpoint, fanalog)
+end
+
+function Base.show(io::IO, f::C3DFile)
+    length = (f.groups[:POINT][:FRAMES][1] == typemax(UInt16)) ?
+        f.groups[:POINT][:LONG_FRAMES][1]/f.groups[:POINT][:RATE][1] :
+        f.groups[:POINT][:FRAMES][1]/f.groups[:POINT][:RATE][1]
+
+    if get(io, :compact, true)
+        print(io, "C3DFile(\"", f.name, "\")")
+    else
+        print(io, "C3DFile(\"", f.name, "\", ",
+              length, "sec, ",
+              f.groups[:POINT][:USED][1], " points, ",
+              f.groups[:ANALOG][:USED][1], " analog channels)")
     end
 end
 
-Base.getindex(f::C3DFile, key) = getindex(f.bylabels, key)
-
 function readheader(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
     seek(f,0)
-    paramptr = saferead(f, Int8, FEND)
+    paramptr = read(f, Int8)
     read(f, Int8)
     numpoints = saferead(f, Int16, FEND)
     numanalog = saferead(f, Int16, FEND)
@@ -101,10 +113,10 @@ function readheader(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{
     numevents = saferead(f, Int16, FEND)
     read(f, Int16)
     eventtimes = saferead(f, FType, FEND, 18)
-    eventflags = BitArray(saferead(f, Int8, FEND, 18))
+    eventflags = BitArray(read(f, Int8, 18))
     read(f, Int16)
 
-    tdata = convert.(Char, saferead(f, UInt8, FEND, (4, 18)))
+    tdata = convert.(Char, read(f, UInt8, (4, 18)))
     eventlabels = [ String(tdata[((i - 1) * 4 + 1):(i * 4)]) for i in 1:18]
 
     (length(findall(eventflags)) != numevents) && 1 # They should be the same, header is not authoritative tho, so don't error?
@@ -130,12 +142,12 @@ end
 
 function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
     pos = position(f)
-    nl = saferead(f, Int8, FEND)
+    nl = read(f, Int8)
     isLocked = nl < 0 ? true : false
-    gid = saferead(f, Int8, FEND)
+    gid = read(f, Int8)
 
     name = transcode(String, read(f, abs(nl)))
-    symname = replace(strip(name), r"[^a-zA-Z0-9_]" => '_')
+    symname = Symbol(replace(strip(name), r"[^a-zA-Z0-9_]" => '_'))
 
     if occursin(r"[^a-zA-Z0-9_ ]", name)
         warn("Group ", name, " has unofficially supported characters. 
@@ -143,7 +155,7 @@ function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{F
     end
 
     np = saferead(f, Int16, FEND)
-    dl = saferead(f, Int8, FEND)
+    dl = read(f, Int8)
     desc = transcode(String, read(f, dl))
 
     return Group(pos, nl, isLocked, gid, name, symname, np, dl, desc, Dict{Symbol,Parameter}())
@@ -151,11 +163,11 @@ end
 
 function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{Float32,VaxFloatF}
     pos = position(f)
-    nl = saferead(f, Int8, FEND)
+    nl = read(f, Int8)
     isLocked = nl < 0 ? true : false
-    gid = saferead(f, Int8, FEND)
+    gid = read(f, Int8)
     name = transcode(String, read(f, abs(nl)))
-    symname = replace(strip(name), r"[^a-zA-Z0-9_]" => '_')
+    symname = Symbol(replace(strip(name), r"[^a-zA-Z0-9_]" => '_'))
 
     if occursin(r"[^a-zA-Z0-9_ ]", name)
         warn("Parameter ", name, " has unofficially supported characters.
@@ -164,7 +176,7 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
 
     np = saferead(f, Int16, FEND)
 
-    ellen = saferead(f, Int8, FEND)
+    ellen = read(f, Int8)
     if ellen == -1
         T = TA = String
     elseif ellen == 1
@@ -180,11 +192,11 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
         error("Invalid parameter element type. Found ", ellen)
     end
 
-    nd = saferead(f, Int8, FEND)
+    nd = read(f, Int8)
     if nd > 0
-        dims = NTuple{convert(Int, nd),Int8}(saferead(f, Int8, FEND, nd))
+        dims = NTuple{convert(Int, nd),Int8}(read!(f, Array{Int8}(undef, nd)))
         if T == String
-            tdata = convert.(Char, saferead(f, UInt8, FEND, convert.(Int, dims)))
+            tdata = convert.(Char, read!(f, Array{UInt8}(undef, convert.(Int, dims))))
             if nd > 1
                 data = [ String(tdata[((i - 1) * dims[1] + 1):(i * dims[1])]) for i in 1:(*)(dims[2:end]...)]
             else
@@ -202,7 +214,7 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
         end
     end
 
-    dl = saferead(f, Int8, FEND)
+    dl = read(f, Int8)
     desc = transcode(String, read(f, dl))
 
     N = (nd == 0) ? 1 : convert(Int, nd)
@@ -220,46 +232,44 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::
 
     # Read data in a transposed structure for better read/write speeds due to Julia being
     # column-order arrays
-    d3rows::Int = groups[:POINT][:USED][1]*3
-    d3cols::Int = (groups[:POINT][:FRAMES][1] < 0) ? convert(Int,reinterpret(UInt16, groups[:POINT][:FRAMES][1])) : groups[:POINT][:FRAMES][1]
-    d3d = Array{Float32,2}(undef, d3rows,d3cols)
-    d3residuals = Array{Float32,2}(undef, convert(Int,groups[:POINT][:USED][1]),d3cols)
+    nummarkers = convert(Int, groups[:POINT][:USED][1])
+    numframes = convert(Int, groups[:POINT][:FRAMES][1])
+    point = Array{Float32,2}(undef, nummarkers*3, numframes)
+    # residuals = Array{Float32,2}(undef, nummarkers, numframes)
 
-    apf::Int = groups[:ANALOG][:RATE][1]/groups[:POINT][:RATE][1]
-    darows::Int = groups[:ANALOG][:USED][1]
-    dacols::Int = apf*d3cols
-    dad = Array{Float32,2}(undef, darows,dacols)
+    # Analog Samples Per Frame => ASPF
+    aspf = convert(Int, groups[:ANALOG][:RATE][1]/groups[:POINT][:RATE][1])
+    numchannels = convert(Int, groups[:ANALOG][:USED][1])
+    analog = Array{Float32,2}(undef, numchannels, aspf*numframes)
 
-    nb = convert(Int,d3rows*4/3)
-    d3idxs = filter(x -> x % 4 != 0, 1:nb)
-    residxs = filter(x -> x % 4 == 0, 1:nb)
+    nb = nummarkers*4
+    pointidxs = filter(x -> x % 4 != 0, 1:nb)
+    # residxs = filter(x -> x % 4 == 0, 1:nb)
 
-    d3tmp = Array{format}(undef, nb)
-    datmp = Array{format}(undef, (darows,apf))
-    d3view = @view(d3tmp[d3idxs])
+    pointtmp = Array{format}(undef, nb)
+    analogtmp = Array{format}(undef, (numchannels,aspf))
+    pointview = @view(pointtmp[pointidxs])
 
-    for i in 1:d3cols
-        saferead!(f, d3tmp, FEND)
-        d3d[:,i] = convert.(Float32, d3view) # Convert from format (eg Int16 or FType)
-        # d3residuals[:,i] = tmp[residxs]
-        saferead!(f, datmp, FEND)
-        dad[:,((i-1)*apf+1):(i*apf)] = convert.(Float32, datmp)
+    for i in 1:numframes
+        saferead!(f, pointtmp, FEND)
+        point[:,i] = convert.(Float32, pointview) # Convert from `format` (eg Int16 or FType)
+        # residuals[:,i] = tmp[residxs]
+        saferead!(f, analogtmp, FEND)
+        analog[:,((i-1)*aspf+1):(i*aspf)] = convert.(Float32, analogtmp)
     end
 
     if format == Int16
         # Multiply or divide by [:point][:scale]
-        d3d .*= abs(groups[:POINT][:SCALE][1])
+        point .*= abs(groups[:POINT][:SCALE][1])
     end
 
-    dad[:] = (dad .- groups[:ANALOG][:OFFSET][1]).*
+    analog[:] = (analog .- groups[:ANALOG][:OFFSET][1]).*
                 groups[:ANALOG][:GEN_SCALE][1].*
                 groups[:ANALOG][:SCALE][1:length(groups[:ANALOG][:USED])]
 
-    return C3DFile(f.name, groups, permutedims(d3d), permutedims(dad))
+    # return C3DFile(f.name, groups, permutedims(point), permutedims(analog))
+    return (permutedims(point), permutedims(analog))
 end
-
-saferead(io::IOStream, ::Type{T}, FEND::Endian) where T <: Union{Int8,UInt8} = read(io, T)
-saferead(io::IOStream, ::Type{T}, FEND::Endian, dims) where T <: Union{Int8,UInt8} = read!(io, Array{T}(undef, dims...))
 
 function saferead(io::IOStream, ::Type{T}, FEND::Endian) where T
     if FEND == LE
@@ -311,7 +321,9 @@ function readc3d(filename::AbstractString)
 
     groups, FEND, FType = _readparams(file)
 
-    res = readdata(file, groups, FEND, FType)
+    (point, analog) = readdata(file, groups, FEND, FType)
+
+    res = C3DFile(filename, groups, point, analog)
 
     close(file)
 
@@ -409,12 +421,12 @@ function _readparams(file::IOStream)
     gids = Dict{Int,Symbol}()
 
     for group in gs
-        groups[Symbol(group.symname)] = group
-        gids[abs(group.gid)] = Symbol(group.symname)
+        groups[group.symname] = group
+        gids[abs(group.gid)] = group.symname
     end
 
     for param in ps
-        groups[gids[param.gid]].p[Symbol(param.symname)] = param
+        groups[gids[param.gid]].p[param.symname] = param
     end
 
     return (groups, FEND, FType)
