@@ -37,9 +37,13 @@
     @testset "Data equivalency between file types" begin
         for file in [ dec_real, dec_int, sgi_real, sgi_int, pc_int ]
             @testset "Ensure data equivalency between pc_real and $(file.name)" begin
-                for sig in keys(pc_real.bylabels)
-                  @test haskey(file.bylabels,sig)
-                  @test pc_real[sig] ≈ file[sig]
+                for sig in keys(pc_real.point)
+                  @test haskey(file.point,sig)
+                  @test pc_real.point[sig] ≈ file.point[sig]
+                end
+                for sig in keys(pc_real.analog)
+                  @test haskey(file.analog,sig)
+                  @test pc_real.analog[sig] ≈ file.analog[sig]
                 end
             end
         end
