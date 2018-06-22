@@ -29,7 +29,6 @@ struct Parameter{T,N} <: AbstractArray{T,N}
     data::Array{T,N}
     dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-
 end
 
 Base.getindex(p::Parameter, i...) = getindex(p.data, i...)
@@ -44,7 +43,7 @@ struct Group
     name::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
     symname::Symbol
     np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
-    dl::Int8 # Number of characters in group description (nominally should be between 1 and 127)
+    dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
     p::Dict{Symbol,Parameter}
 end
@@ -155,7 +154,7 @@ function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{F
     end
 
     np = saferead(f, Int16, FEND)
-    dl = read(f, Int8)
+    dl = read(f, UInt8)
     desc = transcode(String, read(f, dl))
 
     return Group(pos, nl, isLocked, gid, name, symname, np, dl, desc, Dict{Symbol,Parameter}())
@@ -194,16 +193,16 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
 
     nd = read(f, Int8)
     if nd > 0
-        dims = NTuple{convert(Int, nd),Int8}(read!(f, Array{Int8}(undef, nd)))
+        dims = NTuple{convert(Int, nd),Int}(read!(f, Array{Int8}(undef, nd)))
         if T == String
-            tdata = convert.(Char, read!(f, Array{UInt8}(undef, convert.(Int, dims))))
+            tdata = convert.(Char, read!(f, Array{UInt8}(undef, dims)))
             if nd > 1
-                data = [ String(tdata[((i - 1) * dims[1] + 1):(i * dims[1])]) for i in 1:(*)(dims[2:end]...)]
+                data = [ String(@view(tdata[((i - 1) * dims[1] + 1):(i * dims[1])])) for i in 1:(*)(dims[2:end]...)]
             else
                 data = [ String(tdata) ]
             end
         else
-            data = saferead(f, T, FEND, convert.(Int, dims))
+            data = saferead(f, T, FEND, dims)
         end
     else
         dims = ()
@@ -214,7 +213,7 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
         end
     end
 
-    dl = read(f, Int8)
+    dl = read(f, UInt8)
     desc = transcode(String, read(f, dl))
 
     N = (nd == 0) ? 1 : convert(Int, nd)
@@ -296,7 +295,7 @@ function saferead(io::IOStream, ::Type{T}, FEND::Endian, dims) where T
     end
 end
 
-function saferead(io::IOStream, ::Type{VaxFloatF}, FEND::Endian)
+function saferead(io::IOStream, ::Type{VaxFloatF}, FEND::Endian)::Float32
     if FEND == LE
         return convert(Float32, ltoh(read(io, VaxFloatF)))
     else
