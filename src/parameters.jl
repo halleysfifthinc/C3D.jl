@@ -101,7 +101,7 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     end
 end
 
-function _readscalarparameter(f::IO, FEND::Endian, ::Type{T})::T where T
+function _readscalarparameter(f::IO, FEND::Endian, ::Type{T}) where T
     return saferead(f, T, FEND)
 end
 
@@ -109,7 +109,7 @@ function _readscalarparameter(f::IO, FEND::Endian, ::Type{String})::String
     return transcode(String, read(f, UInt8))
 end
 
-function _readarrayparameter(f::IO, FEND::Endian, ::Type{T}, dims)::Array{T} where T
+function _readarrayparameter(f::IO, FEND::Endian, ::Type{T}, dims) where T
     return saferead(f, T, FEND, dims)
 end
 

@@ -15,18 +15,18 @@
             end
             for grp in keys(pc_real.groups)
                 @testset "Ensure parameter-set equivalency of group :$(pc_real.groups[grp].symname) between pc_real and $(file.name)" begin
-                    @test isempty(setdiff(keys(pc_real.groups[grp].p), keys(file.groups[grp].p)))
+                    @test isempty(setdiff(keys(pc_real.groups[grp].params), keys(file.groups[grp].params)))
                 end
                 @testset "Are the :$(pc_real.groups[grp].symname) parameters approximately equal?" begin
-                    for param in keys(pc_real.groups[grp].p)
-                        if eltype(pc_real.groups[grp][param]) <: Number
+                    for param in keys(pc_real.groups[grp].params)
+                        if eltype(pc_real.groups[grp].params[param].data) <: Number
                             if grp == :POINT && param == :SCALE
-                                @test abs.(pc_real.groups[grp][param]) ≈ abs.(file.groups[grp][param])
+                                @test abs.(pc_real.groups[grp].params[param].data) ≈ abs.(file.groups[grp].params[param].data)
                             else
-                                @test pc_real.groups[grp][param] ≈ file.groups[grp][param]
+                                @test pc_real.groups[grp].params[param].data ≈ file.groups[grp].params[param].data
                             end
                         else
-                          @test reduce(*,pc_real.groups[grp][param] .== file.groups[grp][param])
+                            @test reduce(*,pc_real.groups[grp].params[param].data .== file.groups[grp].params[param].data)
                         end
                     end
                 end

@@ -142,7 +142,7 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::
     return (permutedims(point), permutedims(analog))
 end
 
-function saferead(io::IOStream, ::Type{T}, FEND::Endian)::T where T
+function saferead(io::IOStream, ::Type{T}, FEND::Endian) where T
     if FEND == LE
         return ltoh(read(io, T))
     else
