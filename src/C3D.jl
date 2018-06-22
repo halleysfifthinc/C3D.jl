@@ -24,11 +24,11 @@ function C3DFile(name::String, groups::Dict{Symbol,Group}, point::AbstractArray,
     fanalog = Dict{String,Array{Float32,1}}()
 
     # fill fpoint with 3d point data
-    for (idx, symname) in enumerate(groups[:POINT][:LABELS][1:groups[:POINT][:USED][1]])
+    for (idx, symname) in enumerate(groups[:POINT].LABELS[1:groups[:POINT].USED])
         fpoint[symname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
     end
 
-    for (idx, symname) in enumerate(groups[:ANALOG][:LABELS][1:groups[:ANALOG][:USED][1]])
+    for (idx, symname) in enumerate(groups[:ANALOG].LABELS[1:groups[:ANALOG].USED])
         fanalog[symname] = analog[:, idx]
     end
 
@@ -36,17 +36,17 @@ function C3DFile(name::String, groups::Dict{Symbol,Group}, point::AbstractArray,
 end
 
 function Base.show(io::IO, f::C3DFile)
-    length = (f.groups[:POINT][:FRAMES][1] == typemax(UInt16)) ?
-        f.groups[:POINT][:LONG_FRAMES][1]/f.groups[:POINT][:RATE][1] :
-        f.groups[:POINT][:FRAMES][1]/f.groups[:POINT][:RATE][1]
+    length = (f.groups[:POINT].FRAMES == typemax(UInt16)) ?
+        f.groups[:POINT].LONG_FRAMES/f.groups[:POINT].RATE :
+        f.groups[:POINT].FRAMES/f.groups[:POINT].RATE
 
     if get(io, :compact, true)
         print(io, "C3DFile(\"", f.name, "\")")
     else
         print(io, "C3DFile(\"", f.name, "\", ",
               length, "sec, ",
-              f.groups[:POINT][:USED][1], " points, ",
-              f.groups[:ANALOG][:USED][1], " analog channels)")
+              f.groups[:POINT].USED, " points, ",
+              f.groups[:ANALOG].USED, " analog channels)")
     end
 end
 
@@ -99,18 +99,18 @@ function readheader(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{
 end
 
 function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
-    format = groups[:POINT][:SCALE][1] > 0 ? Int16 : FType
+    format = groups[:POINT].SCALE > 0 ? Int16 : FType
 
     # Read data in a transposed structure for better read/write speeds due to Julia being
     # column-order arrays
-    nummarkers = convert(Int, groups[:POINT][:USED][1])
-    numframes = convert(Int, groups[:POINT][:FRAMES][1])
+    nummarkers = convert(Int, groups[:POINT].USED)
+    numframes = convert(Int, groups[:POINT].FRAMES)
     point = Array{Float32,2}(undef, nummarkers*3, numframes)
     # residuals = Array{Float32,2}(undef, nummarkers, numframes)
 
     # Analog Samples Per Frame => ASPF
-    aspf = convert(Int, groups[:ANALOG][:RATE][1]/groups[:POINT][:RATE][1])
-    numchannels = convert(Int, groups[:ANALOG][:USED][1])
+    aspf = convert(Int, groups[:ANALOG].RATE/groups[:POINT].RATE)
+    numchannels = convert(Int, groups[:ANALOG].USED)
     analog = Array{Float32,2}(undef, numchannels, aspf*numframes)
 
     nb = nummarkers*4
@@ -131,18 +131,18 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::
 
     if format == Int16
         # Multiply or divide by [:point][:scale]
-        point .*= abs(groups[:POINT][:SCALE][1])
+        point .*= abs(groups[:POINT].SCALE)
     end
 
-    analog[:] = (analog .- groups[:ANALOG][:OFFSET][1]).*
-                groups[:ANALOG][:GEN_SCALE][1].*
-                groups[:ANALOG][:SCALE][1:length(groups[:ANALOG][:USED])]
+    analog[:] = (analog .- groups[:ANALOG].OFFSET[1:numchannels]) .*
+                groups[:ANALOG].GEN_SCALE .*
+                groups[:ANALOG].SCALE[1:numchannels]
 
     # return C3DFile(f.name, groups, permutedims(point), permutedims(analog))
     return (permutedims(point), permutedims(analog))
 end
 
-function saferead(io::IOStream, ::Type{T}, FEND::Endian) where T
+function saferead(io::IOStream, ::Type{T}, FEND::Endian)::T where T
     if FEND == LE
         return ltoh(read(io, T))
     else
@@ -159,7 +159,7 @@ function saferead!(io::IOStream, x::AbstractArray, FEND::Endian)
     nothing
 end
 
-function saferead(io::IOStream, ::Type{T}, FEND::Endian, dims) where T
+function saferead(io::IOStream, ::Type{T}, FEND::Endian, dims)::Array{T} where T
     if FEND == LE
         return ltoh.(read!(io, Array{T}(undef, dims)))
     else
@@ -175,7 +175,7 @@ function saferead(io::IOStream, ::Type{VaxFloatF}, FEND::Endian)::Float32
     end
 end
 
-function saferead(io::IOStream, ::Type{VaxFloatF}, FEND::Endian, dims)
+function saferead(io::IOStream, ::Type{VaxFloatF}, FEND::Endian, dims)::Array{Float32}
     if FEND == LE
         return convert.(Float32, ltoh.(read!(io, Array{VaxFloatF}(undef, dims))))
     else
@@ -240,7 +240,7 @@ function _readparams(file::IOStream)
     reset(file)
 
     gs = Array{Group,1}()
-    ps = Array{Parameter,1}()
+    ps = Array{AbstractParameter,1}()
     moreparams = true
 
     read(file, UInt8)
@@ -297,7 +297,7 @@ function _readparams(file::IOStream)
     end
 
     for param in ps
-        groups[gids[param.gid]].p[param.symname] = param
+        groups[gids[param.gid]].params[param.symname] = param
     end
 
     return (groups, FEND, FType)
@@ -310,7 +310,7 @@ function readparams(filename::AbstractString)
 
     file = open(filename, "r")
 
-    groups, header, FEND, FType = _readparams(file)
+    groups, FEND, FType = _readparams(file)
 
     close(file)
 

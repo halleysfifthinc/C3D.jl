@@ -9,11 +9,17 @@ struct Group
     np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    p::Dict{Symbol,Parameter}
+    params::Dict{Symbol,AbstractParameter}
 end
 
-Base.getindex(g::Group, key) = getindex(g.p, key)
-Base.show(io::IO, g::Group) = show(io, keys(g.p))
+function Base.getproperty(g::Group, name::Symbol)
+    if name ∈ fieldnames(typeof(g))
+        return getfield(g, name)
+    else
+        return getfield(g, :params)[name].data
+    end
+end
+Base.show(io::IO, g::Group) = show(io, keys(g.params))
 
 function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
     pos = position(f)
@@ -33,5 +39,6 @@ function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{F
     dl = read(f, UInt8)
     desc = transcode(String, read(f, dl))
 
-    return Group(pos, nl, isLocked, gid, name, symname, np, dl, desc, Dict{Symbol,Parameter}())
+    return Group(pos, nl, isLocked, gid, name, symname, np, dl, desc, Dict{Symbol,AbstractParameter}())
 end
+

@@ -1,5 +1,7 @@
+abstract type AbstractParameter end
+
 # Parameter format description https://www.c3d.org/HTML/parameterformat1.htm
-struct Parameter{T,N} <: AbstractArray{T,N}
+struct ArrayParameter{T,N} <: AbstractParameter
     pos::Int
     nl::Int8 # Number of characters in group name
     isLocked::Bool # Locked if nl < 0
@@ -15,15 +17,37 @@ struct Parameter{T,N} <: AbstractArray{T,N}
 
     # Array format description https://www.c3d.org/HTML/parameterarrays1.htm
     nd::Int8
-    dims::Tuple # Vector of bytes (Int8 technically) describing array dimensions
+    dims::NTuple{N,Int} # Vector of bytes (Int8 technically) describing array dimensions
     data::Array{T,N}
     dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
 end
 
-Base.getindex(p::Parameter, i...) = getindex(p.data, i...)
-Base.size(p::Parameter) = size(p.data)
+struct StringParameter <: AbstractParameter
+    pos::Int
+    nl::Int8 # Number of characters in group name
+    isLocked::Bool # Locked if nl < 0
+    gid::Int8 # Group ID
+    name::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    symname::Symbol
+    np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
+    data::Array{String,1}
+    dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
+    desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+end
 
+struct ScalarParameter{T} <: AbstractParameter
+    pos::Int
+    nl::Int8 # Number of characters in group name
+    isLocked::Bool # Locked if nl < 0
+    gid::Int8 # Group ID
+    name::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    symname::Symbol
+    np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
+    data::T
+    dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
+    desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+end
 
 function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{Float32,VaxFloatF}
     pos = position(f)
@@ -42,14 +66,13 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
 
     ellen = read(f, Int8)
     if ellen == -1
-        T = TA = String
+        T = String
     elseif ellen == 1
-        T = TA = Int8
+        T = Int8
     elseif ellen == 2
-        T = TA = Int16
+        T = Int16
     elseif ellen == 4
         T = FType
-        TA = Float32
     else
         println("File position in bytes ", position(f))
         println("nl: ", nl, "\ngid: ", gid, "\nname: ", name, "\nnp: ", np, "\nellen: ", ellen)
@@ -59,34 +82,44 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     nd = read(f, Int8)
     if nd > 0
         dims = NTuple{convert(Int, nd),Int}(read!(f, Array{Int8}(undef, nd)))
-        if T == String
-            tdata = convert.(Char, read!(f, Array{UInt8}(undef, dims)))
-            if nd > 1
-                data = [ String(@view(tdata[((i - 1) * dims[1] + 1):(i * dims[1])])) for i in 1:(*)(dims[2:end]...)]
-            else
-                data = [ String(tdata) ]
-            end
-        else
-            data = saferead(f, T, FEND, dims)
-        end
+        data = _readarrayparameter(f, FEND, T, dims)
     else
-        dims = ()
-        if T == String
-            data = [ convert(Char, read(f, UInt8)) ]
-        else
-            data = [ saferead(f, T, FEND) ]
-        end
+        data = _readscalarparameter(f, FEND, T)
     end
 
     dl = read(f, UInt8)
     desc = transcode(String, read(f, dl))
 
-    N = (nd == 0) ? 1 : convert(Int, nd)
-
-    if T == String && N > 1
-        N -= 1
+    if data isa AbstractArray
+        if eltype(data) === String
+            return StringParameter(pos, nl, isLocked, gid, name, symname, np, data, dl, desc)
+        else
+            return ArrayParameter(pos, nl, isLocked, gid, name, symname, np, ellen, nd, dims, data, dl, desc)
+        end
+    else
+        return ScalarParameter(pos, nl, isLocked, gid, name, symname, np, data, dl, desc)
     end
-
-    return Parameter{TA,N}(pos, nl, isLocked, gid, name, symname, np, ellen, nd, dims, data,
-            dl, desc)
 end
+
+function _readscalarparameter(f::IO, FEND::Endian, ::Type{T})::T where T
+    return saferead(f, T, FEND)
+end
+
+function _readscalarparameter(f::IO, FEND::Endian, ::Type{String})::String
+    return transcode(String, read(f, UInt8))
+end
+
+function _readarrayparameter(f::IO, FEND::Endian, ::Type{T}, dims)::Array{T} where T
+    return saferead(f, T, FEND, dims)
+end
+
+function _readarrayparameter(f::IO, FEND::Endian, ::Type{String}, dims)::Array{String}
+    tdata = convert.(Char, read!(f, Array{UInt8}(undef, dims)))
+    if length(dims) > 1
+       data = [ String(@view(tdata[((i - 1) * dims[1] + 1):(i * dims[1])])) for i in 1:(*)(dims[2:end]...)]
+    else
+       data = [ String(tdata) ]
+    end
+    return data
+end
+
