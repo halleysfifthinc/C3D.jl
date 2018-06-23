@@ -79,9 +79,9 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
         error("Invalid parameter element type. Found ", ellen)
     end
 
-    nd = read(f, Int8)
+    nd = read(f, UInt8)
     if nd > 0
-        dims = NTuple{convert(Int, nd),Int}(read!(f, Array{Int8}(undef, nd)))
+        dims = NTuple{convert(Int, nd),Int}(read!(f, Array{UInt8}(undef, nd)))
         data = _readarrayparameter(f, FEND, T, dims)
     else
         data = _readscalarparameter(f, FEND, T)
