@@ -40,12 +40,12 @@ function readheader(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{
     res2 = read(f, UInt16)
 
     eventtimes = saferead(f, FType, FEND, 18)
-    eventflags = read(f, Bool, 18)
+    eventflags = read!(f, Array{Bool}(undef, 18))
     validevents = findall(iszero, eventflags) 
 
     res3 = read(f, UInt16)
 
-    tdata = convert.(Char, read(f, UInt8, (4, 18)))
+    tdata = convert.(Char, read!(f, Array{UInt8}(undef, (4, 18))))
     eventlabels = [ Symbol(replace(strip(String(@view(tdata[((i - 1) * 4 + 1):(i * 4)]))),
                                    r"[^a-zA-Z0-9_]" => '_')) for i in 1:18]
 
