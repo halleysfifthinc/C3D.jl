@@ -10,16 +10,17 @@ export readc3d, readparams
 
 include("parameters.jl")
 include("groups.jl")
+include("header.jl")
 
 struct C3DFile
     name::String
-    # header::Dict{Symbol,Any}
+    header::C3DHeader
     groups::Dict{Symbol,Group}
     point::Dict{String,Array{Float32,2}}
     analog::Dict{String,Array{Float32,1}}
 end
 
-function C3DFile(name::String, groups::Dict{Symbol,Group}, point::AbstractArray, analog::AbstractArray)
+function C3DFile(name::String, header::C3DHeader, groups::Dict{Symbol,Group}, point::AbstractArray, analog::AbstractArray)
     fpoint = Dict{String,Array{Float32,2}}()
     fanalog = Dict{String,Array{Float32,1}}()
 
@@ -32,7 +33,7 @@ function C3DFile(name::String, groups::Dict{Symbol,Group}, point::AbstractArray,
         fanalog[symname] = analog[:, idx]
     end
 
-    return C3DFile(name, groups, fpoint, fanalog)
+    return C3DFile(name, header, groups, fpoint, fanalog)
 end
 
 function Base.show(io::IO, f::C3DFile)
@@ -48,54 +49,6 @@ function Base.show(io::IO, f::C3DFile)
               f.groups[:POINT].USED, " points, ",
               f.groups[:ANALOG].USED, " analog channels)")
     end
-end
-
-function readheader(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
-    seek(f,0)
-    paramptr = read(f, Int8)
-    read(f, Int8)
-    numpoints = saferead(f, Int16, FEND)
-    numanalog = saferead(f, Int16, FEND)
-    firstframe = saferead(f, Int16, FEND)
-    lastframe = saferead(f, Int16, FEND)
-    maxinterp = saferead(f, Int16, FEND)
-    pointscale = saferead(f, FType, FEND)
-    DATA_START = saferead(f, Int16, FEND)
-    analogpframe = saferead(f, Int16, FEND)
-    framerate = saferead(f, FType, FEND)
-    seek(f, (148 - 1) * 2)
-    tmp = saferead(f, Int16, FEND)
-    tmp_lr = saferead(f, Int16, FEND)
-    lr = (tmp == 0x3039) ? tmp_lr : nothing
-    char4 = (saferead(f, Int16, FEND) == 0x3039)
-    numevents = saferead(f, Int16, FEND)
-    read(f, Int16)
-    eventtimes = saferead(f, FType, FEND, 18)
-    eventflags = BitArray(read(f, Int8, 18))
-    read(f, Int16)
-
-    tdata = convert.(Char, read(f, UInt8, (4, 18)))
-    eventlabels = [ String(tdata[((i - 1) * 4 + 1):(i * 4)]) for i in 1:18]
-
-    (length(findall(eventflags)) != numevents) && 1 # They should be the same, header is not authoritative tho, so don't error?
-    eventtimes = eventtimes[eventflags]
-    eventlabels = eventlabels[eventflags]
-
-    return Dict(:paramptr => paramptr,
-                :numpoints => numpoints,
-                :numanalog => numanalog,
-                :firstframe => firstframe,
-                :lastframe => lastframe,
-                :maxinterp => maxinterp,
-                :pointscale => pointscale,
-                :DATA_START => DATA_START,
-                :analogpframe => analogpframe,
-                :framerate => framerate,
-                :lr => lr,
-                :numevents => numevents,
-                :eventtimes => eventtimes,
-                :eventflags => eventflags,
-                :eventlabels => eventlabels)
 end
 
 function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
@@ -138,7 +91,6 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::
                 groups[:ANALOG].GEN_SCALE .*
                 groups[:ANALOG].SCALE[1:numchannels]
 
-    # return C3DFile(f.name, groups, permutedims(point), permutedims(analog))
     return (permutedims(point), permutedims(analog))
 end
 
@@ -190,11 +142,11 @@ function readc3d(filename::AbstractString)
 
     file = open(filename, "r")
 
-    groups, FEND, FType = _readparams(file)
+    groups, header, FEND, FType = _readparams(file)
 
     (point, analog) = readdata(file, groups, FEND, FType)
 
-    res = C3DFile(filename, groups, point, analog)
+    res = C3DFile(filename, header, groups, point, analog)
 
     close(file)
 
@@ -236,7 +188,7 @@ function _readparams(file::IOStream)
     end
 
     mark(file)
-    # header = readheader(file, FEND, FType)
+    header = readheader(file, FEND, FType)
     reset(file)
 
     gs = Array{Group,1}()
@@ -300,7 +252,7 @@ function _readparams(file::IOStream)
         groups[gids[param.gid]].params[param.symname] = param
     end
 
-    return (groups, FEND, FType)
+    return (groups, header, FEND, FType)
 end
 
 function readparams(filename::AbstractString)
@@ -310,7 +262,7 @@ function readparams(filename::AbstractString)
 
     file = open(filename, "r")
 
-    groups, FEND, FType = _readparams(file)
+    groups, header, FEND, FType = _readparams(file)
 
     close(file)
 
