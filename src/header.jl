@@ -1,13 +1,13 @@
 struct Header
-    paramptr::Int8
-    npoints::Int16
-    ampf::Int16
-    fframe::Int16
-    lframe::Int16
-    maxinterp::Int16
+    paramptr::UInt8
+    npoints::UInt16
+    ampf::UInt16
+    fframe::UInt16
+    lframe::UInt16
+    maxinterp::UInt16
     scale::Float32
-    datastart::Int16
-    aspf::Int16
+    datastart::UInt16
+    aspf::UInt16
     pointrate::Float32
     res1::Array{UInt8,1}
     labelrange::Union{UInt16,Nothing}
@@ -18,24 +18,24 @@ end
 
 function readheader(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
     seek(f,0)
-    paramptr = read(f, Int8)
+    paramptr = read(f, UInt8)
     read(f, Int8)
-    npoints = saferead(f, Int16, FEND)
-    ampf = saferead(f, Int16, FEND)
-    fframe = saferead(f, Int16, FEND)
-    lframe = saferead(f, Int16, FEND)
-    maxinterp = saferead(f, Int16, FEND)
+    npoints = saferead(f, UInt16, FEND)
+    ampf = saferead(f, UInt16, FEND)
+    fframe = saferead(f, UInt16, FEND)
+    lframe = saferead(f, UInt16, FEND)
+    maxinterp = saferead(f, UInt16, FEND)
     scale = saferead(f, FType, FEND)
-    datastart = saferead(f, Int16, FEND)
-    aspf = saferead(f, Int16, FEND)
+    datastart = saferead(f, UInt16, FEND)
+    aspf = saferead(f, UInt16, FEND)
     pointrate = saferead(f, FType, FEND)
     res1 = read(f, 137*2)
 
-    tmp = saferead(f, Int16, FEND)
-    tmp_lr = saferead(f, Int16, FEND)
+    tmp = saferead(f, UInt16, FEND)
+    tmp_lr = saferead(f, UInt16, FEND)
     labelrange = (tmp == 0x3039) ? tmp_lr : nothing
 
-    char4 = (saferead(f, Int16, FEND) == 0x3039)
+    char4 = (saferead(f, UInt16, FEND) == 0x3039)
     skip(f, 2)
     res2 = read(f, UInt16)
 
