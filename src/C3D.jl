@@ -14,13 +14,13 @@ include("header.jl")
 
 struct C3DFile
     name::String
-    header::C3DHeader
+    header::Header
     groups::Dict{Symbol,Group}
     point::Dict{String,Array{Float32,2}}
     analog::Dict{String,Array{Float32,1}}
 end
 
-function C3DFile(name::String, header::C3DHeader, groups::Dict{Symbol,Group}, point::AbstractArray, analog::AbstractArray)
+function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group}, point::AbstractArray, analog::AbstractArray)
     fpoint = Dict{String,Array{Float32,2}}()
     fanalog = Dict{String,Array{Float32,1}}()
 

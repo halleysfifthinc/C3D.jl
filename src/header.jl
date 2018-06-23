@@ -1,4 +1,4 @@
-struct C3DHeader
+struct Header
     paramptr::Int8
     npoints::Int16
     ampf::Int16
@@ -56,7 +56,7 @@ function readheader(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{
         push!(events[event], time)
     end
 
-    return C3DHeader(paramptr, npoints, ampf, fframe, lframe, maxinterp, scale,
+    return Header(paramptr, npoints, ampf, fframe, lframe, maxinterp, scale,
                      datastart, aspf, pointrate, res1, labelrange, res2, events, res3)
 end
 
