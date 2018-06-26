@@ -52,44 +52,63 @@ function Base.show(io::IO, f::C3DFile)
 end
 
 function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
+    seek(f, (groups[:POINT].DATA_START-1)*512)
+
     format = groups[:POINT].SCALE > 0 ? Int16 : FType
 
     # Read data in a transposed structure for better read/write speeds due to Julia being
     # column-order arrays
-    nummarkers = convert(Int, groups[:POINT].USED)
     numframes = convert(Int, groups[:POINT].FRAMES)
-    point = Array{Float32,2}(undef, nummarkers*3, numframes)
-    # residuals = Array{Float32,2}(undef, nummarkers, numframes)
+    nummarkers = convert(Int, groups[:POINT].USED)
+    hasmarkers = !iszero(nummarkers)
+    if hasmarkers
+        point = Array{Float32,2}(undef, nummarkers*3, numframes)
+        # residuals = Array{Float32,2}(undef, nummarkers, numframes)
 
-    # Analog Samples Per Frame => ASPF
-    aspf = convert(Int, groups[:ANALOG].RATE/groups[:POINT].RATE)
-    numchannels = convert(Int, groups[:ANALOG].USED)
-    analog = Array{Float32,2}(undef, numchannels, aspf*numframes)
+        nb = nummarkers*4
+        pointidxs = filter(x -> x % 4 != 0, 1:nb)
+        # residxs = filter(x -> x % 4 == 0, 1:nb)
 
-    nb = nummarkers*4
-    pointidxs = filter(x -> x % 4 != 0, 1:nb)
-    # residxs = filter(x -> x % 4 == 0, 1:nb)
-
-    pointtmp = Array{format}(undef, nb)
-    analogtmp = Array{format}(undef, (numchannels,aspf))
-    pointview = @view(pointtmp[pointidxs])
-
-    for i in 1:numframes
-        saferead!(f, pointtmp, FEND)
-        point[:,i] = convert.(Float32, pointview) # Convert from `format` (eg Int16 or FType)
-        # residuals[:,i] = tmp[residxs]
-        saferead!(f, analogtmp, FEND)
-        analog[:,((i-1)*aspf+1):(i*aspf)] = convert.(Float32, analogtmp)
+        pointtmp = Array{format}(undef, nb)
+        pointview = @view(pointtmp[pointidxs])
+    else
+        point = Array{Float32,2}(undef, 0,0)
     end
 
-    if format == Int16
+    numchannels = convert(Int, groups[:ANALOG].USED)
+    haschannels = !iszero(numchannels)
+    if haschannels
+        # Analog Samples Per Frame => ASPF
+        aspf = convert(Int, groups[:ANALOG].RATE/groups[:POINT].RATE)
+        analog = Array{Float32,2}(undef, numchannels, aspf*numframes)
+
+        analogtmp = Array{format}(undef, (numchannels,aspf))
+    else
+        analog = Array{Float32,2}(undef, 0,0)
+    end
+
+    @inbounds for i in 1:numframes
+        if hasmarkers
+            saferead!(f, pointtmp, FEND)
+            point[:,i] = convert.(Float32, pointview) # Convert from `format` (eg Int16 or FType)
+            # residuals[:,i] = tmp[residxs]
+        end
+        if haschannels
+            saferead!(f, analogtmp, FEND)
+            analog[:,((i-1)*aspf+1):(i*aspf)] = convert.(Float32, analogtmp)
+        end
+    end
+
+    if hasmarkers && format == Int16
         # Multiply or divide by [:point][:scale]
         point .*= abs(groups[:POINT].SCALE)
     end
 
-    analog[:] = (analog .- groups[:ANALOG].OFFSET[1:numchannels]) .*
-                groups[:ANALOG].GEN_SCALE .*
-                groups[:ANALOG].SCALE[1:numchannels]
+    if haschannels
+        analog[:] = (analog .- groups[:ANALOG].OFFSET[1:numchannels]) .*
+                    groups[:ANALOG].GEN_SCALE .*
+                    groups[:ANALOG].SCALE[1:numchannels]
+    end
 
     return (permutedims(point), permutedims(analog))
 end
