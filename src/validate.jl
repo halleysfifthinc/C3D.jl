@@ -40,14 +40,16 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
                 msg *= " :"*string(p)
             end
             throw(ErrorException(msg))
-        elseif groups[:POINT].USED != 0 # There are markers
-            # Fix the sign for any parameters that are likely to need it
-            for (group, param) in pointsigncheck
-                if reduce(|, signbit.(groups[group].params[param].data))
-                    groups[group].params[param] = unsigned(groups[group].params[param])
-                end
-            end
+        end
 
+        # Fix the sign for any parameters that are likely to need it
+        for (group, param) in pointsigncheck
+            if any(signbit.(groups[group].params[param].data))
+                groups[group].params[param] = unsigned(groups[group].params[param])
+            end
+        end
+
+        if groups[:POINT].USED != 0 # There are markers
             if !(ratescale ⊆ pointkeys) # If there are markers, the additional set of required parameters is ratescale
                 d = setdiff(rpoint, pointkeys)
                 msg = ":POINT is missing required parameter(s)"
@@ -112,10 +114,13 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
         if !haskey(groups[:ANALOG].params, :USED)
             msg = ":ANALOG is missing required parameter :USED"
             throw(ErrorException(msg))
-        elseif groups[:ANALOG].USED != 0 # There are analog channels
-            if signbit.(groups[:ANALOG].USED)
-                groups[:ANALOG].params[:USED] = unsigned(groups[:ANALOG].params[:USED])
-            end
+        end
+
+        if signbit.(groups[:ANALOG].USED)
+            groups[:ANALOG].params[:USED] = unsigned(groups[:ANALOG].params[:USED])
+        end
+
+        if groups[:ANALOG].USED != 0 # There are analog channels
 
             if !(ranalog ⊆ analogkeys) # If there are analog channels, the required set of parameters is ranalog
                 d = setdiff(rpoint, keys(groups[:ANALOG].params))
