@@ -25,13 +25,16 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group}, point
     fpoint = Dict{String,Array{Float32,2}}()
     fanalog = Dict{String,Array{Float32,1}}()
 
-    # fill fpoint with 3d point data
-    for (idx, symname) in enumerate(groups[:POINT].LABELS[1:groups[:POINT].USED])
-        fpoint[symname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
+    if !iszero(groups[:POINT].USED)
+        for (idx, symname) in enumerate(groups[:POINT].LABELS[1:groups[:POINT].USED])
+            fpoint[symname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
+        end
     end
 
-    for (idx, symname) in enumerate(groups[:ANALOG].LABELS[1:groups[:ANALOG].USED])
-        fanalog[symname] = analog[:, idx]
+    if !iszero(groups[:ANALOG].USED)
+        for (idx, symname) in enumerate(groups[:ANALOG].LABELS[1:groups[:ANALOG].USED])
+            fanalog[symname] = analog[:, idx]
+        end
     end
 
     return C3DFile(name, header, groups, fpoint, fanalog)
@@ -285,6 +288,8 @@ function readparams(filename::AbstractString)
     file = open(filename, "r")
 
     groups, header, FEND, FType = _readparams(file)
+
+    validate(header, groups, complete=false)
 
     close(file)
 
