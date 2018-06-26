@@ -31,8 +31,8 @@ function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{F
     symname = Symbol(replace(strip(name), r"[^a-zA-Z0-9_]" => '_'))
 
     if occursin(r"[^a-zA-Z0-9_ ]", name)
-        warn("Group ", name, " has unofficially supported characters. 
-            Unexpected results may occur")
+        @warn "Group "*name*" has unofficially supported characters. 
+            Unexpected results may occur"
     end
 
     np = saferead(f, Int16, FEND)

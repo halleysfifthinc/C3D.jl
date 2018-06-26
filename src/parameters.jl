@@ -68,8 +68,8 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     symname = Symbol(replace(strip(name), r"[^a-zA-Z0-9_]" => '_'))
 
     if occursin(r"[^a-zA-Z0-9_ ]", name)
-        warn("Parameter ", name, " has unofficially supported characters.
-            Unexpected results may occur")
+        @warn "Parameter "*name*" has unofficially supported characters.
+            Unexpected results may occur"
     end
 
     np = saferead(f, Int16, FEND)
@@ -84,9 +84,8 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     elseif ellen == 4
         T = FType
     else
-        println("File position in bytes ", position(f))
-        println("nl: ", nl, "\ngid: ", gid, "\nname: ", name, "\nnp: ", np, "\nellen: ", ellen)
-        error("Invalid parameter element type. Found ", ellen)
+        # println("nl: ", nl, "\ngid: ", gid, "\nname: ", name, "\nnp: ", np, "\nellen: ", ellen)
+        @error "Invalid parameter element type. Found "*ellen*" at "*position(f)
     end
 
     nd = read(f, UInt8)
