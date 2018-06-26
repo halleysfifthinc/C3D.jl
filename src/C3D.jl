@@ -11,6 +11,7 @@ export readc3d, readparams
 include("parameters.jl")
 include("groups.jl")
 include("header.jl")
+include("validate.jl")
 
 struct C3DFile
     name::String
@@ -162,6 +163,8 @@ function readc3d(filename::AbstractString)
     file = open(filename, "r")
 
     groups, header, FEND, FType = _readparams(file)
+
+    validate(header, groups, complete=false)
 
     (point, analog) = readdata(file, groups, FEND, FType)
 

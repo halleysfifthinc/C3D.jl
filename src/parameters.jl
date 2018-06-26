@@ -23,6 +23,11 @@ struct ArrayParameter{T,N} <: AbstractParameter
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
 end
 
+function Base.unsigned(p::ArrayParameter)
+    return ArrayParameter(p.pos, p.nl, p.isLocked, p.gid, p.name, p.symname, p.np, p.ellen,
+                          p.nd, p.dims, unsigned.(p.data), p.dl, p.desc)
+end
+
 struct StringParameter <: AbstractParameter
     pos::Int
     nl::Int8 # Number of characters in group name
@@ -47,6 +52,11 @@ struct ScalarParameter{T} <: AbstractParameter
     data::T
     dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+end
+
+function Base.unsigned(p::ScalarParameter)
+    return ScalarParameter(p.pos, p.nl, p.isLocked, p.gid, p.name, p.symname, p.np,
+                          unsigned(p.data), p.dl, p.desc)
 end
 
 function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{Float32,VaxFloatF}
@@ -122,4 +132,3 @@ function _readarrayparameter(f::IO, FEND::Endian, ::Type{String}, dims)::Array{S
     end
     return data
 end
-
