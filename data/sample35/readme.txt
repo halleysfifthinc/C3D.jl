@@ -1,0 +1,1 @@
+A sample C3D file containing EMG data created by the Mega Electronics comapny product MegaWin containing an isokinetic measurement with two channels of EMG, knee angle and torque.
