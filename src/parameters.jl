@@ -16,7 +16,7 @@ struct ArrayParameter{T,N} <: AbstractParameter
     #  4 => Float data
 
     # Array format description https://www.c3d.org/HTML/parameterarrays1.htm
-    nd::Int8
+    nd::UInt8
     dims::NTuple{N,Int} # Vector of bytes (Int8 technically) describing array dimensions
     data::Array{T,N}
     dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
