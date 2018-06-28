@@ -1,5 +1,4 @@
-using C3D
-using Compat.Test
+using C3D, Test
 
 datadir = joinpath(@__DIR__,"..","data")
 
