@@ -84,6 +84,34 @@ julia> pc_real.groups[:POINT].params[:LABELS]
 C3D.StringParameter(3807, 6, false, 1, "LABELS", :LABELS, 211, ["RFT1", "RFT2", "RFT3",  …  "", "", ""], 0x0c, "Point labels")
 ```
 
+## Debugging
+
+There are two main steps to reading a C3D file: reading the parameters, and reading the point and/or analog data. In the event of a file read that fails, the stacktrace will show whether the error happened in `_readparams` or `readdata`. If the error occurred in `readdata`, try only reading the parameters, optionally setting the keyword argument `valid` to `false`:
+
+```julia
+julia> pc_real = readparams("data/sample01/Eb015pr.c3d")
+Dict{Symbol,C3D.Group} with 5 entries:
+  :POINT          => Symbol[:DESCRIPTIONS, :RATE, :DATA_START, :FRAMES, :USED, :UNITS, :Y_SCREEN, :LABELS, :X_SCREEN, :SCALE]
+  :ANALOG         => Symbol[:DESCRIPTIONS, :RATE, :GEN_SCALE, :OFFSET, :USED, :UNITS, :LABELS, :SCALE]
+  :FORCE_PLATFORM => Symbol[:TYPE, :ORIGIN, :ZERO, :TRANSLATION, :CORNERS, :USED, :ROTATION, :CHANNEL]
+  :SUBJECT        => Symbol[:WEIGHT, :NUMBER, :HEIGHT, :DATE_OF_BIRTH, :GENDER, :PROJECT, :TARGET_RADIUS, :NAME]
+  :FPLOC          => Symbol[:INT, :OBJ, :MAX]
+
+julia> pc_real = readparams("data/sample01/Eb015pr.c3d", valid=false)
+Dict{Symbol,C3D.Group} with 5 entries:
+  :POINT          => Symbol[:DESCRIPTIONS, :RATE, :DATA_START, :FRAMES, :USED, :UNITS, :Y_SCREEN, :LABELS, :X_SCREEN, :SCALE]
+  :ANALOG         => Symbol[:DESCRIPTIONS, :RATE, :GEN_SCALE, :OFFSET, :USED, :UNITS, :LABELS, :SCALE]
+  :FORCE_PLATFORM => Symbol[:TYPE, :ORIGIN, :ZERO, :TRANSLATION, :CORNERS, :USED, :ROTATION, :CHANNEL]
+  :SUBJECT        => Symbol[:WEIGHT, :NUMBER, :HEIGHT, :DATE_OF_BIRTH, :GENDER, :PROJECT, :TARGET_RADIUS, :NAME]
+  :FPLOC          => Symbol[:INT, :OBJ, :MAX]
+```
+
+If the error occurred in `readdata`, it is likely that there is an incorrect setting in one of the parameters. (If this is consistent among several files from the same vendor, open an issue and send an example so I can fix whatever is causing the problem.)
+
+If the error occurred in `_readparams`, try starting julia with `$ JULIA_DEBUG=C3D julia`. This will enable debug messages that may help narrow down the parameter causing the problem.
+
+Please open an issue if you have a file that is being read incorrectly.
+
 ## Roadmap
 
 I plan to eventually add support for saving files that have been modified and for creating new files, but this is not a usecase that I require currently or in the foreseeable future. If this is important to you, open an issue or submit a PR!
