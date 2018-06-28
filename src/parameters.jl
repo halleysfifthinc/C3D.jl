@@ -122,7 +122,7 @@ function _readscalarparameter(f::IO, FEND::Endian, ::Type{T}) where T
 end
 
 function _readscalarparameter(f::IO, FEND::Endian, ::Type{String})::String
-    return transcode(String, read(f, UInt8))
+    return rstrip(transcode(String, read(f, UInt8)))
 end
 
 function _readarrayparameter(f::IO, FEND::Endian, ::Type{T}, dims) where T
@@ -132,9 +132,9 @@ end
 function _readarrayparameter(f::IO, FEND::Endian, ::Type{String}, dims)::Array{String}
     tdata = convert.(Char, read!(f, Array{UInt8}(undef, dims)))
     if length(dims) > 1
-       data = [ String(@view(tdata[((i - 1) * dims[1] + 1):(i * dims[1])])) for i in 1:(*)(dims[2:end]...)]
+        data = [ rstrip(String(@view(tdata[((i - 1) * dims[1] + 1):(i * dims[1])]))) for i in 1:(*)(dims[2:end]...)]
     else
-       data = [ String(tdata) ]
+        data = [ rstrip(String(tdata)) ]
     end
     return data
 end
