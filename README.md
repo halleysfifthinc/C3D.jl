@@ -1,16 +1,89 @@
-# Biomechanics Data format: C3D
+# C3D.jl
 
 [![Build Status](https://travis-ci.org/halleysfifthinc/C3D.jl.svg?branch=master)](https://travis-ci.org/halleysfifthinc/C3D.jl)
 [![Build status](https://ci.appveyor.com/api/projects/status/23iuaa8lr0eav8s4/branch/master?svg=true)](https://ci.appveyor.com/project/halleysfifthinc/c3d-jl/branch/master)
 [![codecov](https://codecov.io/gh/halleysfifthinc/C3D.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/halleysfifthinc/C3D.jl)
 
-C3D is a common output format for biomechanics data gathered using various systems (motion capture, force plate data, EMG, etc). The goal of this package is to offer full coverage of the C3D [file spec](https://www.c3d.org), as well as compatibility with files from major C3D compatible programs (Vicon Nexus, etc.)
+C3D is the standard file format for data gathered using various systems (motion capture, force plate data, EMG, etc). The goal of this package is to offer full coverage of the C3D [file spec](https://www.c3d.org), as well as compatibility with files from major C3D compatible programs (Vicon Nexus, etc.).
 
 The current corpus of test data is downloaded from the C3D [website](https://www.c3d.org/sampledata.html). 
-Pull requests welcome! Pull requests containing any unusual file examples not found in the C3D sample data from the website are also welcome.
+Pull requests welcome! Please open an issue if you have a file that is not being read correctly.
 
-Support for DEC files is possible by the use of libvaxdata:
+## Usage
 
-> Baker, L.M., 2005, libvaxdata: VAX Data Format Conversion
->     Routines: U.S. Geological Survey Open-File Report 2005-1424,
->     v1.1 (http://pubs.usgs.gov/of/2005/1424/).
+### Reading data
+
+Marker and analog data are accessed through the `point` and `analog` fields. Note that all data will always be Float32's. Support for DEC datatypes is limited to reading and conversion, and is preemptively converted to Float32 for consistency.
+
+```julia
+julia> pc_real = readc3d("data/sample01/Eb015pr.c3d")
+C3DFile("data/sample01/Eb015pr.c3d")
+
+julia> pc_real.point["LTH1"]
+450×3 Array{Float32,2}:
+ 0.0         0.0     0.0
+ 0.0         0.0     0.0
+ 0.0         0.0     0.0
+ ⋮
+ 1.66667  2152.67  702.917
+ 3.58333  2159.0   702.833
+ 5.0      2168.08  702.25
+ 
+julia> pc_real.analog["FZ1"]
+1800-element Array{Float32,1}:
+ -20.832
+ -21.576
+ -20.832
+   ⋮
+ -20.088001
+ -21.576
+ -22.32
+```
+
+### Accessing C3D parameters
+
+The parameters can be accessed through the `group` field. Specific groups are indexed as Symbols.
+
+```julia
+julia> pc_real.groups
+Dict{Symbol,C3D.Group} with 5 entries:
+  :POINT          => Symbol[:DESCRIPTIONS, :RATE, :DATA_START, :FRAMES, :USED, :UNITS, :Y_SCREEN, :LABELS, :X_SCREEN, :SCALE]
+  :ANALOG         => Symbol[:DESCRIPTIONS, :RATE, :GEN_SCALE, :OFFSET, :USED, :UNITS, :LABELS, :SCALE]
+  :FORCE_PLATFORM => Symbol[:TYPE, :ORIGIN, :ZERO, :TRANSLATION, :CORNERS, :USED, :ROTATION, :CHANNEL]
+  :SUBJECT        => Symbol[:WEIGHT, :NUMBER, :HEIGHT, :DATE_OF_BIRTH, :GENDER, :PROJECT, :TARGET_RADIUS, :NAME]
+  :FPLOC          => Symbol[:INT, :OBJ, :MAX]
+
+julia> pc_real.groups[:POINT]
+Symbol[:DESCRIPTIONS, :RATE, :DATA_START, :FRAMES, :USED, :UNITS, :Y_SCREEN, :LABELS, :X_SCREEN, :SCALE]
+```
+
+There are two ways to access a specific parameter. The first (and most convenient) directly references the data contained in the parameter.
+
+```julia
+julia> pc_real.groups[:POINT].USED
+26
+
+julia> pc_real.groups[:POINT].LABELS
+48-element Array{String,1}:
+ "RFT1"
+ "RFT2"
+ "RFT3"
+ ⋮
+ ""
+ ""
+ ""
+```
+
+Alternately, it may be necessary to access the parameter (type) itself:
+
+```julia
+julia> pc_real.groups[:POINT].params[:USED]
+C3D.ScalarParameter{Int16}(4433, -4, true, 1, "USED", :USED, 30, 26, 0x17, "* Number of points used")
+
+julia> pc_real.groups[:POINT].params[:LABELS]
+C3D.StringParameter(3807, 6, false, 1, "LABELS", :LABELS, 211, ["RFT1", "RFT2", "RFT3",  …  "", "", ""], 0x0c, "Point labels")
+```
+
+## Roadmap
+
+I plan to eventually add support for saving files that have been modified and for creating new files, but this is not a usecase that I require currently or in the foreseeable future. If this is important to you, open an issue or submit a PR!
