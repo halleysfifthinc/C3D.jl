@@ -41,13 +41,13 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group}, point
 end
 
 function Base.show(io::IO, f::C3DFile)
-    length = (f.groups[:POINT].FRAMES == typemax(UInt16)) ?
-        f.groups[:POINT].LONG_FRAMES/f.groups[:POINT].RATE :
-        f.groups[:POINT].FRAMES/f.groups[:POINT].RATE
-
     if get(io, :compact, true)
         print(io, "C3DFile(\"", f.name, "\")")
     else
+        length = (f.groups[:POINT].FRAMES == typemax(UInt16)) ?
+            f.groups[:POINT].LONG_FRAMES :
+            f.groups[:POINT].FRAMES
+
         print(io, "C3DFile(\"", f.name, "\", ",
               length, "sec, ",
               f.groups[:POINT].USED, " points, ",
