@@ -14,8 +14,6 @@
     end
 
     @testset "Analog only files" begin
-        samp27 = @test_nowarn readc3d(joinpath(datadir, "sample27", "kyowadengyo.c3d"))
-        @test isempty(samp27.point)
         samp35 = @test_nowarn readc3d(joinpath(datadir, "sample35", "Mega Electronics Isokinetic EMG Angle Torque Sample File.c3d"))
         @test isempty(samp35.point)
     end
