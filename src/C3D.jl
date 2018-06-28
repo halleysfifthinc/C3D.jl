@@ -308,7 +308,7 @@ function _readparams(file::IOStream)
     return (groups, header, FEND, FType)
 end
 
-function readparams(filename::AbstractString)
+function readparams(filename::AbstractString; valid=true)
     if !isfile(filename)
         error("File ", filename, " cannot be found")
     end
@@ -317,7 +317,9 @@ function readparams(filename::AbstractString)
 
     groups, header, FEND, FType = _readparams(file)
 
-    validate(header, groups, complete=false)
+    if valid
+        validate(header, groups, complete=false)
+    end
 
     close(file)
 
