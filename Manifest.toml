@@ -1,4 +1,6 @@
 [[VaxData]]
-path = "/home/allen/.julia/dev/VaxData"
+git-tree-sha1 = "c8abd6ac1b059d3ce7e14ad65c62da283fb67e31"
+repo-rev = ""
+repo-url = "https://github.com/halleysfifthinc/VaxData.jl.git"
 uuid = "cd31b0e8-6739-11e8-0670-d1d5e0f20447"
 version = "0.2.4"
