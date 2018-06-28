@@ -68,7 +68,7 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     symname = Symbol(replace(strip(name), r"[^a-zA-Z0-9_]" => '_'))
 
     if occursin(r"[^a-zA-Z0-9_ ]", name)
-        @warn "Parameter "*name*" has unofficially supported characters.
+        @debug "Parameter $name at $pos has unofficially supported characters.
             Unexpected results may occur"
     end
 
@@ -85,7 +85,7 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
         T = FType
     else
         # println("nl: ", nl, "\ngid: ", gid, "\nname: ", name, "\nnp: ", np, "\nellen: ", ellen)
-        @error "Invalid parameter element type. Found "*ellen*" at "*position(f)
+        error("Invalid parameter element type. Found $ellen at $(position(f))")
     end
 
     nd = read(f, UInt8)
@@ -98,6 +98,10 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
 
     dl = read(f, UInt8)
     desc = transcode(String, read(f, dl))
+
+    if position(f) != (pos + np + abs(nl) + 2)
+        @debug "wrong pointer in $name current position: $(position(f)), suggested position: $(pos + np + nl + 2)"
+    end
 
     if data isa AbstractArray
         if eltype(data) === String

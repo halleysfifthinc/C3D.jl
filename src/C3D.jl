@@ -215,10 +215,13 @@ function _readparams(file::IOStream)
     mark(file)
     header = readheader(file, FEND, FType)
     reset(file)
+    unmark(file)
 
     gs = Array{Group,1}()
     ps = Array{AbstractParameter,1}()
     moreparams = true
+    lastparam = :GROUP
+    fail = 0
 
     read(file, UInt8)
     if read(file, Int8) < 0
@@ -226,42 +229,67 @@ function _readparams(file::IOStream)
         skip(file, -2)
         push!(gs, readgroup(file, FEND, FType))
         moreparams = gs[end].np != 0 ? true : false
+        lastparam = :GROUP
     else
         # Parameter
         skip(file, -2)
         push!(ps, readparam(file, FEND, FType))
         moreparams = ps[end].np != 0 ? true : false
+        lastparam = :PARAM
     end
 
     while moreparams
+        # Mark current position in file in case the pointer is incorrect
+        mark(file)
+        if lastparam == :GROUP
+            np = gs[end].pos + gs[end].np + abs(gs[end].nl) + 2
+            # Only seek if necessary
+            np != position(file) && seek(file, np)
+        elseif lastparam == :PARAM
+            np = ps[end].pos + ps[end].np + abs(ps[end].nl) + 2
+            np != position(file) && seek(file, np)
+        elseif fail > 1 # lasparam == :NOP is a given at this point, this is the second failed attempt
+            break
+        end
+
+        # Read the next two bytes to get the gid
         read(file, UInt8)
         local gid = read(file, Int8)
         if gid < 0 # Group
+            # Reset to the beginning of the group
             skip(file, -2)
-            push!(gs, readgroup(file, FEND, FType))
-            moreparams = gs[end].np != 0 ? true : false
+            try
+              push!(gs, readgroup(file, FEND, FType))
+              moreparams = gs[end].np != 0 ? true : break # break if the pointer is 0 (ie the parameters are finished)
+              lastparam = :GROUP
+            catch e
+                # Last readgroup failed, possibly due to a bad pointer. Reset to the ending
+                # location of the last successfully read parameter and try again. Note the failure.
+                reset(file)
+                lastparam = :NOP
+                fail += 1
+            finally
+                unmark(file) # Unmark the file regardless
+            end
         elseif gid > 0 # Parameter
+            # Reset to the beginning of the parameter
             skip(file, -2)
-            push!(ps, readparam(file, FEND, FType))
-            moreparams = ps[end].np != 0 ? true : false
+            try
+              push!(ps, readparam(file, FEND, FType))
+              moreparams = ps[end].np != 0 ? true : break
+              lastparam = :PARAM
+            catch e
+                reset(file)
+                lastparam = :NOP
+                fail += 1
+            finally
+                unmark(file)
+            end
         else # Last parameter pointer is incorrect (assumption)
             # The group ID should never be zero, if it is, the most likely explanation is
-            # that the pointer is incorrect (ie the end of the parameters has been reached
-            # and the remaining 0x00's are fill to the end of the block
-
-            # Check if pointer is incorrect
-            skip(file, -2)
-            mark(file)
-
-            local z = read(file, (((params_ptr + paramblocks) - 1) * 512) - position(file))
-
-            if isempty(findall(!iszero, z))
-                unmark(file)
-                moreparams = false
-            else
-                reset(file)
-                error("Invalid group id at byte ", position(file) + 1)
-            end
+            # that the pointer is incorrect (eg the pointer was not fixed when the previously
+            # last parameter was deleted or moved)
+            break
         end
     end
 
