@@ -1,7 +1,7 @@
 name = "C3D"
 uuid = "2f289508-6d0e-11e8-2c47-b9ffa24fd0e3"
 authors = ["Allen Hill <allenofthehills@gmail.com>"]
-version = "0.1.7"
+version = "0.2.0"
 
 [deps]
 VaxData = "cd31b0e8-6739-11e8-0670-d1d5e0f20447"
