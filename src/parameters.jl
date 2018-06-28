@@ -106,6 +106,9 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     if data isa AbstractArray
         if eltype(data) === String
             return StringParameter(pos, nl, isLocked, gid, name, symname, np, data, dl, desc)
+        elseif all(size(data) .< 2)
+            # In the event of an 'array' parameter with only one element
+            return ScalarParameter(pos, nl, isLocked, gid, name, symname, np, data[1], dl, desc)
         else
             return ArrayParameter(pos, nl, isLocked, gid, name, symname, np, ellen, nd, dims, data, dl, desc)
         end
