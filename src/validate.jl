@@ -70,16 +70,16 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
         end
 
         if !(descriptives ⊆ pointkeys) # Check that the descriptive parameters exist
-            if !haskey(groups[:POINT].LABELS)
+            if !haskey(groups[:POINT].params, :LABELS)
                 # While the C3D file can technically be read in the absence of a LABELS parameter,
                 # this implementation requires LABELS (for indexing)
                 @debug ":POINT is missing parameter :LABELS"
                 labels = [ "M"*string(i, pad=3) for i in 1:groups[:POINT].USED ]
                 push!(groups[:POINT],
                       StringParameter(0, Int8(0), false, abs(groups[:POINT].gid), "LABELS", :LABELS, Int16(0), labels, UInt8(13), "Marker labels"))
-            elseif !haskey(groups[:POINT].DESCRIPTIONS)
+            elseif !haskey(groups[:POINT].params, :DESCRIPTIONS)
                 @debug ":POINT is missing parameter :DESCRIPTIONS"
-            elseif !haskey(groups[:POINT].UNITS)
+            elseif !haskey(groups[:POINT].params, :UNITS)
                 @debug ":POINT is missing parameter :UNITS"
             end
         end
@@ -135,21 +135,21 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
     if groups[:ANALOG].USED != 0 # There are analog channels
 
         if !(ranalog ⊆ analogkeys) # If there are analog channels, the required set of parameters is ranalog
-            d = setdiff(rpoint, keys(groups[:ANALOG].params))
+            d = setdiff(ranalog, analogkeys)
             msg = ":ANALOG is missing required parameter(s)"
             for p in d
                 msg *= " :"*string(p)
             end
             throw(ErrorException(msg))
         elseif !(descriptives ⊆ analogkeys) # Check that the descriptive parameters exist
-            if !haskey(groups[:ANALOG].LABELS)
+            if !haskey(groups[:ANALOG].params, :LABELS)
                 @debug ":ANALOG is missing parameter :LABELS"
                 labels = [ "A"*string(i, pad=3) for i in 1:groups[:ANALOG].USED ]
                 push!(groups[:ANALOG],
                       StringParameter(0, Int8(0), false, abs(groups[:ANALOG].gid), "LABELS", :LABELS, Int16(0), labels, UInt8(14), "Channel labels"))
-            elseif !haskey(groups[:ANALOG].DESCRIPTIONS)
+            elseif !haskey(groups[:ANALOG].params, :DESCRIPTIONS)
                 @debug ":ANALOG is missing parameter :DESCRIPTIONS"
-            elseif !haskey(groups[:ANALOG].UNITS)
+            elseif !haskey(groups[:ANALOG].params, :UNITS)
                 @debug ":ANALOG is missing parameter :UNITS"
             end
         end
