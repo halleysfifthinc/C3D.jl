@@ -6,14 +6,14 @@
 
 C3D is the standard file format for data gathered using various systems (motion capture, force plate data, EMG, etc). The goal of this package is to offer full coverage of the C3D [file spec](https://www.c3d.org), as well as compatibility with files from major C3D compatible programs (Vicon Nexus, etc.).
 
-The current corpus of test data is downloaded from the C3D [website](https://www.c3d.org/sampledata.html). 
+The current corpus of test data is a subset of the sample files found on the C3D [website](https://www.c3d.org/sampledata.html). 
 Pull requests welcome! Please open an issue if you have a file that is not being read correctly.
 
 ## Usage
 
 ### Reading data
 
-Marker and analog data are accessed through the `point` and `analog` fields. Note that all data will always be Float32's. Support for DEC datatypes is limited to reading and conversion, and is preemptively converted to Float32 for consistency.
+Marker and analog data are accessed through the `point` and `analog` fields. Note that all data is converted to Float32 upon reading, regardless of the original type (eg DEC types).
 
 ```julia
 julia> pc_real = readc3d("data/sample01/Eb015pr.c3d")
@@ -86,7 +86,7 @@ C3D.StringParameter(3807, 6, false, 1, "LABELS", :LABELS, 211, ["RFT1", "RFT2", 
 
 ## Debugging
 
-There are two main steps to reading a C3D file: reading the parameters, and reading the point and/or analog data. In the event of a file read that fails, the stacktrace will show whether the error happened in `_readparams` or `readdata`. If the error occurred in `readdata`, try only reading the parameters, optionally setting the keyword argument `valid` to `false`:
+There are two main steps to reading a C3D file: reading the parameters, and reading the point and/or analog data. In the event a file read fails, the stacktrace will show whether the error happened in `_readparams` or `readdata`. If the error occurred in `readdata`, try only reading the parameters, optionally setting the keyword argument `valid` to `false`:
 
 ```julia
 julia> pc_real = readparams("data/sample01/Eb015pr.c3d")
@@ -106,7 +106,7 @@ Dict{Symbol,C3D.Group} with 5 entries:
   :FPLOC          => Symbol[:INT, :OBJ, :MAX]
 ```
 
-If the error occurred in `readdata`, it is likely that there is an incorrect setting in one of the parameters. (If this is consistent among several files from the same vendor, open an issue and send an example so I can fix whatever is causing the problem.)
+If the error occurred in `readdata`, it is likely that there is an incorrect setting in one of the parameters. (If this is consistent among several files from the same vendor, open an issue and send an example file so I can fix whatever is causing the problem.)
 
 If the error occurred in `_readparams`, try starting julia with `$ JULIA_DEBUG=C3D julia`. This will enable debug messages that may help narrow down the parameter causing the problem.
 
