@@ -45,7 +45,7 @@ build_script:
 # Need to convert from shallow to complete for Pkg.clone to work
   - IF EXIST .git\shallow (git fetch --unshallow)
   - C:\projects\julia\bin\julia -e "using Pkg, InteractiveUtils; versioninfo();
-      Pkg.add(pwd(), \"C3D\"); Pkg.build(\"C3D\")"
+      Pkg.clone(pwd(), \"C3D\"); Pkg.build(\"C3D\")"
 
 test_script:
   - C:\projects\julia\bin\julia -e "using Pkg; Pkg.test(\"C3D\")"
