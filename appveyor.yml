@@ -1,18 +1,10 @@
 environment:
+  JULIA_PROJECT: "@."
   matrix:
-  - ARCH: "i686"
-    JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x86/0.6/julia-0.6-latest-win32.exe"
-  - ARCH: "x86_64"
-    JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x64/0.6/julia-0.6-latest-win64.exe"
+  - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x86/0.7/julia-0.7.0-beta-win32.exe"
+  - JULIA_URL: "https://julialang-s3.julialang.org/bin/winnt/x64/0.7/julia-0.7.0-beta-win64.exe"
   - JULIA_URL: "https://julialangnightlies-s3.julialang.org/bin/winnt/x86/julia-latest-win32.exe"
   - JULIA_URL: "https://julialangnightlies-s3.julialang.org/bin/winnt/x64/julia-latest-win64.exe"
-
-## uncomment the following lines to allow failures on nightly julia
-## (tests will run but not make your overall status red)
-matrix:
- allow_failures:
- - JULIA_URL: "https://julialangnightlies-s3.julialang.org/bin/winnt/x86/julia-latest-win32.exe"
- - JULIA_URL: "https://julialangnightlies-s3.julialang.org/bin/winnt/x64/julia-latest-win64.exe"
 
 branches:
   only:
@@ -32,8 +24,7 @@ install:
         https://ci.appveyor.com/api/projects/$env:APPVEYOR_ACCOUNT_NAME/$env:APPVEYOR_PROJECT_SLUG/history?recordsNumber=50).builds | `
         Where-Object pullRequestId -eq $env:APPVEYOR_PULL_REQUEST_NUMBER)[0].buildNumber) { `
         throw "There are newer queued builds for this pull request, failing early." }
-  - appveyor DownloadFile https://cygwin.com/setup-x86_64.exe -FileName C:\projects\cygwin-setup-x86_64.exe
-  - C:\projects\cygwin-setup-x86_64.exe -q -g -P make,mingw64-i686-gcc-core,mingw64-x86_64-gcc-core
+
 # Download most recent Julia Windows binary
   - ps: (new-object net.webclient).DownloadFile(
         $env:JULIA_URL,
@@ -44,26 +35,9 @@ install:
 build_script:
 # Need to convert from shallow to complete for Pkg.clone to work
   - IF EXIST .git\shallow (git fetch --unshallow)
-  - C:\projects\julia\bin\julia -e "versioninfo();
-      Pkg.clone(pwd(), \"C3D\"); Pkg.build(\"C3D\")"
-
-after_build:
-  - 7z a libvaxdata-%ARCH%.zip C:\Users\appveyor\.julia\v0.6\C3D\deps\usr\lib\libvaxdata-%ARCH%.dll
+  - C:\projects\julia\bin\julia -e "using Pkg, InteractiveUtils; versioninfo();
+      VERSION < v\"0.7.0-DEV.5183\" && Pkg.clone(pwd(), \"C3D\");
+      Pkg.build(\"C3D\")"
 
 test_script:
-  - C:\projects\julia\bin\julia -e "Pkg.test(\"C3D\")"
-
-artifacts:
-  - path: libvaxdata-*.zip
-    name: libvaxdata
-
-deploy:
-  provider: GitHub
-  tag_name: $(appveyor_repo_tag_name)
-  auth_token:
-    secure: 4IwEAQyiErcNkpG874vDzJIUJfJ+Eg19UwLfz1fEQE4Oe/4vUHpgRTi7s/4uFO5R
-  artifact: libvaxdata
-  draft: true
-  force_update: true
-  on:
-    appveyor_repo_tag: true
+  - C:\projects\julia\bin\julia -e "using Pkg; Pkg.test(\"C3D\")"
