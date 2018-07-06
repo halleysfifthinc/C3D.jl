@@ -222,6 +222,7 @@ function _readparams(file::IOStream)
     moreparams = true
     lastparam = :GROUP
     fail = 0
+    np = 0
 
     read(file, UInt8)
     if read(file, Int8) < 0
@@ -244,11 +245,18 @@ function _readparams(file::IOStream)
         if lastparam == :GROUP
             np = gs[end].pos + gs[end].np + abs(gs[end].nl) + 2
             # Only seek if necessary
-            np != position(file) && seek(file, np)
+            if np != position(file)
+                @debug "Pointer mismatch at position $(position(file)) where pointer was $np"
+                seek(file, np)
+            end
         elseif lastparam == :PARAM
             np = ps[end].pos + ps[end].np + abs(ps[end].nl) + 2
-            np != position(file) && seek(file, np)
+            if np != position(file)
+                @debug "Pointer mismatch at position $(position(file)) where pointer was $np"
+                seek(file, np)
+            end
         elseif fail > 1 # lasparam == :NOP is a given at this point, this is the second failed attempt
+            @debug "Second failed parameter read attempt from $(position(file))"
             break
         end
 
@@ -260,12 +268,13 @@ function _readparams(file::IOStream)
             skip(file, -2)
             try
               push!(gs, readgroup(file, FEND, FType))
-              moreparams = gs[end].np != 0 ? true : break # break if the pointer is 0 (ie the parameters are finished)
+              moreparams = gs[end].np != 0 ? true : false # break if the pointer is 0 (ie the parameters are finished)
               lastparam = :GROUP
             catch e
                 # Last readgroup failed, possibly due to a bad pointer. Reset to the ending
                 # location of the last successfully read parameter and try again. Note the failure.
                 reset(file)
+                @debug "Read group failed, last parameter ended at $(position(file)), pointer at $np" fail
                 lastparam = :NOP
                 fail += 1
             finally
@@ -276,10 +285,11 @@ function _readparams(file::IOStream)
             skip(file, -2)
             try
               push!(ps, readparam(file, FEND, FType))
-              moreparams = ps[end].np != 0 ? true : break
+              moreparams = ps[end].np != 0 ? true : false
               lastparam = :PARAM
             catch e
                 reset(file)
+                @debug "Read group failed, last parameter ended at $(position(file)), pointer at $np" fail
                 lastparam = :NOP
                 fail += 1
             finally
@@ -289,6 +299,7 @@ function _readparams(file::IOStream)
             # The group ID should never be zero, if it is, the most likely explanation is
             # that the pointer is incorrect (eg the pointer was not fixed when the previously
             # last parameter was deleted or moved)
+            @debug "Bad last position. Assuming parameter section is finished."
             break
         end
     end

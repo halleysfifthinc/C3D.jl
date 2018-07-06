@@ -99,8 +99,9 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     dl = read(f, UInt8)
     desc = transcode(String, read(f, dl))
 
-    if position(f) != (pos + np + abs(nl) + 2)
-        @debug "wrong pointer in $name current position: $(position(f)), suggested position: $(pos + np + nl + 2)"
+    pointer = pos + np + abs(nl) + 2
+    if position(f) != pointer
+        @debug "wrong pointer in $name" position(f) pointer
     end
 
     if data isa AbstractArray
