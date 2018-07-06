@@ -18,16 +18,19 @@ struct C3DFile
     header::Header
     groups::Dict{Symbol,Group}
     point::Dict{String,Array{Float32,2}}
+    residuals::Dict{String, Array{Float32,1}}
     analog::Dict{String,Array{Float32,1}}
 end
 
-function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group}, point::AbstractArray, analog::AbstractArray)
+function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group}, point::AbstractArray, residuals::AbstractArray, analog::AbstractArray)
     fpoint = Dict{String,Array{Float32,2}}()
+    fresiduals = Dict{String,Array{Float32,1}}()
     fanalog = Dict{String,Array{Float32,1}}()
 
     if !iszero(groups[:POINT].USED)
         for (idx, symname) in enumerate(groups[:POINT].LABELS[1:groups[:POINT].USED])
             fpoint[symname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
+            fresiduals[symname] = residuals[:,idx]
         end
     end
 
@@ -37,7 +40,7 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group}, point
         end
     end
 
-    return C3DFile(name, header, groups, fpoint, fanalog)
+    return C3DFile(name, header, groups, fpoint, fresiduals, fanalog)
 end
 
 function Base.show(io::IO, f::C3DFile)
@@ -67,11 +70,11 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::
     hasmarkers = !iszero(nummarkers)
     if hasmarkers
         point = Array{Float32,2}(undef, nummarkers*3, numframes)
-        # residuals = Array{Float32,2}(undef, nummarkers, numframes)
+        residuals = Array{Float32,2}(undef, nummarkers, numframes)
 
         nb = nummarkers*4
         pointidxs = filter(x -> x % 4 != 0, 1:nb)
-        # residxs = filter(x -> x % 4 == 0, 1:nb)
+        residxs = filter(x -> x % 4 == 0, 1:nb)
 
         pointtmp = Array{format}(undef, nb)
         pointview = @view(pointtmp[pointidxs])
@@ -95,7 +98,7 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::
         if hasmarkers
             saferead!(f, pointtmp, FEND)
             point[:,i] = convert.(Float32, pointview) # Convert from `format` (eg Int16 or FType)
-            # residuals[:,i] = tmp[residxs]
+            residuals[:,i] = pointtmp[residxs]
         end
         if haschannels
             saferead!(f, analogtmp, FEND)
@@ -114,7 +117,7 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::
                     groups[:ANALOG].SCALE[1:numchannels]
     end
 
-    return (permutedims(point), permutedims(analog))
+    return (permutedims(point), permutedims(residuals), permutedims(analog))
 end
 
 function saferead(io::IOStream, ::Type{T}, FEND::Endian) where T
@@ -169,9 +172,9 @@ function readc3d(filename::AbstractString)
 
     validate(header, groups, complete=false)
 
-    (point, analog) = readdata(file, groups, FEND, FType)
+    (point, residuals, analog) = readdata(file, groups, FEND, FType)
 
-    res = C3DFile(filename, header, groups, point, analog)
+    res = C3DFile(filename, header, groups, point, residuals, analog)
 
     close(file)
 
