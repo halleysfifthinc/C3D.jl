@@ -80,6 +80,7 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::
         pointview = @view(pointtmp[pointidxs])
     else
         point = Array{Float32,2}(undef, 0,0)
+        residuals = Array{Float32,2}(undef, 0,0)
     end
 
     numchannels = convert(Int, groups[:ANALOG].USED)
