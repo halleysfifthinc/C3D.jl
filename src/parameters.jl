@@ -67,9 +67,12 @@ end
 function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{Float32,VaxFloatF}
     pos = position(f)
     nl = read(f, Int8)
+    @assert nl != 0
     isLocked = nl < 0 ? true : false
     gid = read(f, Int8)
+    @assert gid != 0
     name = transcode(String, read(f, abs(nl)))
+    @assert isvalid(name) && isascii(name)
     symname = Symbol(replace(strip(name), r"[^a-zA-Z0-9_]" => '_'))
 
     if occursin(r"[^a-zA-Z0-9_ ]", name)
@@ -89,7 +92,6 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     elseif ellen == 4
         T = FType
     else
-        # println("nl: ", nl, "\ngid: ", gid, "\nname: ", name, "\nnp: ", np, "\nellen: ", ellen)
         throw(ParameterTypeError(ellen, position(f)))
     end
 
@@ -114,11 +116,11 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     end
 
     if data isa AbstractArray
-        if eltype(data) === String
-            return StringParameter(pos, nl, isLocked, gid, name, symname, np, data, dl, desc)
-        elseif all(size(data) .< 2)
+        if all(size(data) .< 2) && !isempty(data)
             # In the event of an 'array' parameter with only one element
             return ScalarParameter(pos, nl, isLocked, gid, name, symname, np, data[1], dl, desc)
+        elseif eltype(data) === String
+            return StringParameter(pos, nl, isLocked, gid, name, symname, np, data, dl, desc)
         else
             return ArrayParameter(pos, nl, isLocked, gid, name, symname, np, ellen, nd, dims, data, dl, desc)
         end
