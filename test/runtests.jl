@@ -1,6 +1,7 @@
 using C3D, Test
 
-datadir = joinpath(@__DIR__,"..","data")
+cd(@__DIR__)
+datadir = joinpath("..", "data")
 
 include("identical.jl")
 include("bigdata.jl")

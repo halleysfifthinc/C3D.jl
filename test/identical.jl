@@ -1,7 +1,7 @@
 function comparefiles(reference, candidates)
-    refc3d = @test_nowarn readc3d(reference)
+    refc3d = @test_nowarn readc3d(reference; invalidate=false)
     for candfn in candidates
-        file = @test_nowarn readc3d(candfn)
+        file = @test_nowarn readc3d(candfn; invalidate=false)
 
         @testset "Parameters equivalency between files" begin
             @testset "Compare groups with $(file.name)" begin
@@ -30,14 +30,18 @@ function comparefiles(reference, candidates)
         end
 
         @testset "Data equivalency between file types" begin
-            @testset "Ensure data equivalency between refc3d and $(file.name)" begin
+            @testset "Ensure data equivalency between $(refc3d.name) and $(file.name)" begin
                 for sig in keys(refc3d.point)
-                  @test haskey(file.point,sig)
-                  @test refc3d.point[sig] ≈ file.point[sig]
+                    @testset "$sig" begin
+                        @test haskey(file.point,sig)
+                        @test all(isapprox.(refc3d.point[sig], file.point[sig]; atol=0.3))
+                    end
                 end
                 for sig in keys(refc3d.analog)
-                  @test haskey(file.analog,sig)
-                  @test refc3d.analog[sig] ≈ file.analog[sig]
+                    @testset "$sig" begin
+                        @test haskey(file.analog,sig)
+                        @test all(isapprox.(refc3d.analog[sig], file.analog[sig]; atol=0.3))
+                    end
                 end
             end
         end

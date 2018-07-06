@@ -17,13 +17,13 @@ struct C3DFile
     name::String
     header::Header
     groups::Dict{Symbol,Group}
-    point::Dict{String,Array{Float32,2}}
+    point::Dict{String,Array{Union{Missing, Float32},2}}
     residuals::Dict{String, Array{Float32,1}}
     analog::Dict{String,Array{Float32,1}}
 end
 
-function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group}, point::AbstractArray, residuals::AbstractArray, analog::AbstractArray)
-    fpoint = Dict{String,Array{Float32,2}}()
+function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group}, point::AbstractArray, residuals::AbstractArray, analog::AbstractArray; invalidate::Bool=true)
+    fpoint = Dict{String,Array{Union{Missing, Float32},2}}()
     fresiduals = Dict{String,Array{Float32,1}}()
     fanalog = Dict{String,Array{Float32,1}}()
 
@@ -31,6 +31,9 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group}, point
         for (idx, symname) in enumerate(groups[:POINT].LABELS[1:groups[:POINT].USED])
             fpoint[symname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
             fresiduals[symname] = residuals[:,idx]
+            if invalidate
+                fpoint[symname][findall(x -> x == -1.0, fresiduals[symname]), :] .= missing
+            end
         end
     end
 
@@ -162,7 +165,7 @@ function saferead(io::IOStream, ::Type{VaxFloatF}, FEND::Endian, dims)::Array{Fl
     end
 end
 
-function readc3d(filename::AbstractString)
+function readc3d(filename::AbstractString; invalidate=true)
     if !isfile(filename)
         error("File ", filename, " cannot be found")
     end
@@ -175,7 +178,7 @@ function readc3d(filename::AbstractString)
 
     (point, residuals, analog) = readdata(file, groups, FEND, FType)
 
-    res = C3DFile(filename, header, groups, point, residuals, analog)
+    res = C3DFile(filename, header, groups, point, residuals, analog; invalidate=invalidate)
 
     close(file)
 
