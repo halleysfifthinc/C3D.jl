@@ -1,5 +1,10 @@
 abstract type AbstractParameter end
 
+struct ParameterTypeError <: Exception
+    found::Int
+    position::Int
+end
+
 # Parameter format description https://www.c3d.org/HTML/parameterformat1.htm
 struct ArrayParameter{T,N} <: AbstractParameter
     pos::Int
@@ -85,7 +90,7 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
         T = FType
     else
         # println("nl: ", nl, "\ngid: ", gid, "\nname: ", name, "\nnp: ", np, "\nellen: ", ellen)
-        error("Invalid parameter element type. Found $ellen at $(position(f))")
+        throw(ParameterTypeError(ellen, position(f)))
     end
 
     nd = read(f, UInt8)
