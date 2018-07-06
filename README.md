@@ -40,6 +40,33 @@ julia> pc_real.analog["FZ1"]
  -22.32
 ```
 
+#### Invalid data points
+
+According to the C3D format documentation, invalid data points are signified by setting the residual word to `-1.0`. This convention is respected by default by changing the 3D coordinates of invalid points to `missing`. If your C3D files do not respect this convention, or if you wish to ignore this for some other reason, this behavior can be disabled by setting keyword arg `invalidate=false` in the `readc3d` function.
+
+```julia
+
+julia> bball = readc3d("data/sample16/basketball.c3d")
+C3DFile("data/sample16/basketball.c3d")
+
+julia> bball.point["2003"]
+34×3 Array{Union{Missing, Float32},2}:
+ missing  missing  missing
+ missing  missing  missing
+ missing  missing  missing
+  ⋮
+
+julia> bball = readc3d("data/sample16/basketball.c3d"; invalidate=false)
+C3DFile("data/sample16/basketball.c3d")
+
+julia> bball.point["2003"]
+34×3 Array{Union{Missing, Float32},2}:
+  0.69115      0.987054    1.53009
+  0.656669     1.00666     1.5854
+  0.615803     1.02481     1.60467
+   ⋮
+```
+
 ### Accessing C3D parameters
 
 The parameters can be accessed through the `group` field. Specific groups are indexed as Symbols.
