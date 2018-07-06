@@ -99,6 +99,10 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     dl = read(f, UInt8)
     desc = transcode(String, read(f, dl))
 
+    if !iszero(dl) && !isascii(desc)
+        desc = ""
+    end
+
     pointer = pos + np + abs(nl) + 2
     if position(f) != pointer
         @debug "wrong pointer in $name" position(f) pointer
