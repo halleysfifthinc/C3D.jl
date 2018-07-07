@@ -85,34 +85,36 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
         end
 
         # Valid labels are required for each marker by the C3DFile constructor
-        if length(groups[:POINT].LABELS) < groups[:POINT].USED # Some markers don't have labels
+        if any(isempty.(groups[:POINT].LABELS)) ||
+           length(groups[:POINT].LABELS) < groups[:POINT].USED # Some markers don't have labels
             i = 2
             while length(groups[:POINT].LABELS) < groups[:POINT].USED
                 if haskey(groups[:POINT].params, Symbol("LABEL",i)) # Check for the existence of a runoff labels group
-                    append!(groups[:POINT].LABELS, groups[:POINT].params[Symbol("LABEL",i)])
+                    append!(groups[:POINT].LABELS, groups[:POINT].params[Symbol("LABEL",i)].data)
+                    i += 1
                 else
-                    labels = [ "M"*string(i, pad=3) for i in length(groups[:POINT].LABELS):groups[:POINT].USED ]
-                    append!(groups[:POINT].LABELS, labels)
+                    push!(groups[:POINT].LABELS, "")
                 end
-                i += 1
             end
+
+            idx = findall(isempty, groups[:POINT].LABELS)
+            labels = [ "M"*string(i, pad=3) for i in 1:length(idx) ]
+            groups[:POINT].LABELS[idx] .= labels
         end
 
-        # Unique labels are required for each marker
         if length(unique(groups[:POINT].LABELS)) != length(groups[:POINT].LABELS)
             dups = String[]
             for i in 1:groups[:POINT].USED
                 if !in(groups[:POINT].LABELS[i], dups)
                     push!(dups, groups[:POINT].LABELS[i])
-                else # we have a duplicate
-                    m = match(r"\d+$", groups[:POINT].LABELS[i])
+                else
+                    m = match(r"_(?<num>\d+)$", groups[:POINT].LABELS[i])
 
-                    # Add a number at the end unless there already is one, in which case increment it
                     if m == nothing
-                        groups[:POINT].LABELS[i] *= "2"
+                        groups[:POINT].LABELS[i] *= "_2"
                         push!(dups, groups[:POINT].LABELS[i])
                     else
-                        newlabel = groups[:POINT].LABELS[i][1:(m.offset - 1)]*string(parse(m.match)+1)
+                        newlabel = groups[:POINT].LABELS[i][1:(m.offset - 1)]*string('_',tryparse(Int,m[:num])+1)
                         groups[:POINT].LABELS[i] = newlabel
                         push!(dups, groups[:POINT].LABELS[i])
                     end
@@ -154,17 +156,21 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
             end
         end
 
-        if length(groups[:ANALOG].LABELS) < groups[:ANALOG].USED # Some markers don't have labels
+        if any(isempty.(groups[:ANALOG].LABELS)) ||
+           length(groups[:ANALOG].LABELS) < groups[:ANALOG].USED # Some markers don't have labels
             i = 2
             while length(groups[:ANALOG].LABELS) < groups[:ANALOG].USED
                 if haskey(groups[:ANALOG].params, Symbol("LABEL",i)) # Check for the existence of a runoff labels group
-                    append!(groups[:ANALOG].LABELS, groups[:ANALOG].params[Symbol("LABEL",i)])
+                    append!(groups[:ANALOG].LABELS, groups[:ANALOG].params[Symbol("LABEL",i)].data)
+                    i += 1
                 else
-                    labels = [ "A"*string(i, pad=3) for i in length(groups[:ANALOG].LABELS):groups[:ANALOG].USED ]
-                    append!(groups[:ANALOG].LABELS, labels)
+                    push!(groups[:ANALOG].LABELS, "")
                 end
-                i += 1
             end
+
+            idx = findall(isempty, groups[:ANALOG].LABELS)
+            labels = [ "A"*string(i, pad=3) for i in 1:length(idx) ]
+            groups[:ANALOG].LABELS[idx] .= labels
         end
 
         if length(unique(groups[:ANALOG].LABELS)) != length(groups[:ANALOG].LABELS)
@@ -173,13 +179,13 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
                 if !in(groups[:ANALOG].LABELS[i], dups)
                     push!(dups, groups[:ANALOG].LABELS[i])
                 else
-                    m = match(r"\d+$", groups[:ANALOG].LABELS[i])
+                    m = match(r"_(?<num>\d+)$", groups[:ANALOG].LABELS[i])
 
                     if m == nothing
-                        groups[:ANALOG].LABELS[i] *= "2"
+                        groups[:ANALOG].LABELS[i] *= "_2"
                         push!(dups, groups[:ANALOG].LABELS[i])
                     else
-                        newlabel = groups[:ANALOG].LABELS[i][1:(m.offset - 1)]*string(parse(m.match)+1)
+                        newlabel = groups[:ANALOG].LABELS[i][1:(m.offset - 1)]*string('_',tryparse(Int,m[:num])+1)
                         groups[:ANALOG].LABELS[i] = newlabel
                         push!(dups, groups[:ANALOG].LABELS[i])
                     end
