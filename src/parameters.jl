@@ -144,7 +144,8 @@ end
 function _readarrayparameter(f::IO, FEND::Endian, ::Type{String}, dims)::Array{String}
     tdata = convert.(Char, read!(f, Array{UInt8}(undef, dims)))
     if length(dims) > 1
-        data = [ rstrip(String(@view(tdata[((i - 1) * dims[1] + 1):(i * dims[1])]))) for i in 1:(*)(dims[2:end]...)]
+        data = [ rstrip(x -> iscntrl(x) || isspace(x),
+                        String(@view(tdata[((i - 1) * dims[1] + 1):(i * dims[1])]))) for i in 1:(*)(dims[2:end]...)]
     else
         data = [ rstrip(String(tdata)) ]
     end
