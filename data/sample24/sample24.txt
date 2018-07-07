@@ -1,0 +1,1 @@
+This is a C3D file data from the Innovative Sports Training MotionMonitor.
