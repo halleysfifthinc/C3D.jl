@@ -72,7 +72,7 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     gid = read(f, Int8)
     @assert gid != 0
     name = transcode(String, read(f, abs(nl)))
-    @assert isvalid(name) && isascii(name)
+    @assert any(!iscntrl, name)
     symname = Symbol(replace(strip(name), r"[^a-zA-Z0-9_]" => '_'))
 
     if occursin(r"[^a-zA-Z0-9_ ]", name)
@@ -106,7 +106,7 @@ function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{F
     dl = read(f, UInt8)
     desc = transcode(String, read(f, dl))
 
-    if !iszero(dl) && !isascii(desc)
+    if !iszero(dl) && any(!iscntrl, desc)
         desc = ""
     end
 
@@ -134,7 +134,7 @@ function _readscalarparameter(f::IO, FEND::Endian, ::Type{T}) where T
 end
 
 function _readscalarparameter(f::IO, FEND::Endian, ::Type{String})::String
-    return rstrip(transcode(String, read(f, UInt8)))
+    return rstrip(x -> iscntrl(x) || isspace(x), transcode(String, read(f, UInt8)))
 end
 
 function _readarrayparameter(f::IO, FEND::Endian, ::Type{T}, dims) where T

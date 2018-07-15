@@ -24,14 +24,16 @@ Base.show(io::IO, g::Group) = show(io, keys(g.params))
 function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
     pos = position(f)
     nl = read(f, Int8)
+    @assert nl != 0
     isLocked = nl < 0 ? true : false
     gid = read(f, Int8)
-
+    @assert gid != 0
     name = transcode(String, read(f, abs(nl)))
+    @assert any(!iscntrl, name)
     symname = Symbol(replace(strip(name), r"[^a-zA-Z0-9_]" => '_'))
 
     if occursin(r"[^a-zA-Z0-9_ ]", name)
-        @warn "Group "*name*" has unofficially supported characters. 
+        @debug "Group $name at $pos has unofficially supported characters.
             Unexpected results may occur"
     end
 
