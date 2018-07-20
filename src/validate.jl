@@ -75,13 +75,15 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
                 # this implementation requires LABELS (for indexing)
                 @debug ":POINT is missing parameter :LABELS"
                 labels = [ "M"*string(i, pad=3) for i in 1:groups[:POINT].USED ]
-                push!(groups[:POINT],
-                      StringParameter(0, Int8(0), false, abs(groups[:POINT].gid), "LABELS", :LABELS, Int16(0), labels, UInt8(13), "Marker labels"))
+                groups[:POINT].params[:LABELS] =
+                      StringParameter(0, Int8(0), false, abs(groups[:POINT].gid), "LABELS", :LABELS, Int16(0), labels, UInt8(13), "Marker labels")
             elseif !haskey(groups[:POINT].params, :DESCRIPTIONS)
                 @debug ":POINT is missing parameter :DESCRIPTIONS"
             elseif !haskey(groups[:POINT].params, :UNITS)
                 @debug ":POINT is missing parameter :UNITS"
             end
+        elseif groups[:POINT].params[:LABELS] isa ScalarParameter # ie There is only one used marker (or the others are unlabeled)
+            groups[:POINT].params[:LABELS] = StringParameter(groups[:POINT].params[:LABELS])
         end
 
         # Valid labels are required for each marker by the C3DFile constructor
@@ -102,7 +104,7 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
             groups[:POINT].LABELS[idx] .= labels
         end
 
-        if length(unique(groups[:POINT].LABELS)) != length(groups[:POINT].LABELS)
+        if length(unique(groups[:POINT].LABELS)) !== length(groups[:POINT].LABELS)
             dups = String[]
             for i in 1:groups[:POINT].USED
                 if !in(groups[:POINT].LABELS[i], dups)
@@ -130,7 +132,7 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
         throw(ErrorException(msg))
     end
 
-    if signbit.(groups[:ANALOG].USED)
+    if signbit(groups[:ANALOG].USED)
         groups[:ANALOG].params[:USED] = unsigned(groups[:ANALOG].params[:USED])
     end
 
@@ -147,13 +149,15 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
             if !haskey(groups[:ANALOG].params, :LABELS)
                 @debug ":ANALOG is missing parameter :LABELS"
                 labels = [ "A"*string(i, pad=3) for i in 1:groups[:ANALOG].USED ]
-                push!(groups[:ANALOG],
-                      StringParameter(0, Int8(0), false, abs(groups[:ANALOG].gid), "LABELS", :LABELS, Int16(0), labels, UInt8(14), "Channel labels"))
+                groups[:ANALOG].params[:LABELS] =
+                      StringParameter(0, Int8(0), false, abs(groups[:ANALOG].gid), "LABELS", :LABELS, Int16(0), labels, UInt8(14), "Channel labels")
             elseif !haskey(groups[:ANALOG].params, :DESCRIPTIONS)
                 @debug ":ANALOG is missing parameter :DESCRIPTIONS"
             elseif !haskey(groups[:ANALOG].params, :UNITS)
                 @debug ":ANALOG is missing parameter :UNITS"
             end
+        elseif groups[:ANALOG].params[:LABELS] isa ScalarParameter
+            groups[:ANALOG].params[:LABELS] = StringParameter(groups[:ANALOG].params[:LABELS])
         end
 
         if any(isempty.(groups[:ANALOG].LABELS)) ||
@@ -173,7 +177,7 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
             groups[:ANALOG].LABELS[idx] .= labels
         end
 
-        if length(unique(groups[:ANALOG].LABELS)) != length(groups[:ANALOG].LABELS)
+        if length(unique(groups[:ANALOG].LABELS)) !== length(groups[:ANALOG].LABELS)
             dups = String[]
             for i in 1:groups[:ANALOG].USED
                 if !in(groups[:ANALOG].LABELS[i], dups)
