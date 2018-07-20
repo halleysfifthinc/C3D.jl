@@ -116,9 +116,14 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::
     end
 
     if haschannels
-        analog[:] = (analog .- groups[:ANALOG].OFFSET[1:numchannels]) .*
-                    groups[:ANALOG].GEN_SCALE .*
-                    groups[:ANALOG].SCALE[1:numchannels]
+        if numchannels == 1
+            analog[:] = (analog .- groups[:ANALOG].OFFSET) .*
+                        (groups[:ANALOG].GEN_SCALE * groups[:ANALOG].SCALE)
+        else
+            analog[:] = (analog .- groups[:ANALOG].OFFSET[1:numchannels]) .*
+                        groups[:ANALOG].GEN_SCALE .*
+                        groups[:ANALOG].SCALE[1:numchannels]
+        end
     end
 
     return (permutedims(point), permutedims(residuals), permutedims(analog))
