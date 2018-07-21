@@ -46,19 +46,6 @@ struct StringParameter <: AbstractParameter
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
 end
 
-function StringParameter(x::ScalarParameter{String})
-    return StringParameter(x.pos,
-                           x.nl,
-                           x.isLocked,
-                           x.gid,
-                           x.name,
-                           x.symname,
-                           x.np,
-                           [x.data],
-                           x.dl,
-                           x.desc)
-end
-
 struct ScalarParameter{T} <: AbstractParameter
     pos::Int
     nl::Int8 # Number of characters in group name
@@ -75,6 +62,19 @@ end
 function Base.unsigned(p::ScalarParameter)
     return ScalarParameter(p.pos, p.nl, p.isLocked, p.gid, p.name, p.symname, p.np,
                           unsigned(p.data), p.dl, p.desc)
+end
+
+function StringParameter(x::ScalarParameter{String})
+    return StringParameter(x.pos,
+                           x.nl,
+                           x.isLocked,
+                           x.gid,
+                           x.name,
+                           x.symname,
+                           x.np,
+                           [x.data],
+                           x.dl,
+                           x.desc)
 end
 
 function readparam(f::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{Float32,VaxFloatF}
