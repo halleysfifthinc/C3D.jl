@@ -80,7 +80,8 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::
         residxs = filter(x -> x % 4 == 0, 1:nb)
 
         pointtmp = Array{format}(undef, nb)
-        pointview = @view(pointtmp[pointidxs])
+        pointview = view(pointtmp, pointidxs)
+        resview = view(pointtmp, residxs)
     else
         point = Array{Float32,2}(undef, 0,0)
         residuals = Array{Float32,2}(undef, 0,0)
@@ -102,7 +103,7 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::
         if hasmarkers
             saferead!(f, pointtmp, FEND)
             point[:,i] = convert.(Float32, pointview) # Convert from `format` (eg Int16 or FType)
-            residuals[:,i] = pointtmp[residxs]
+            residuals[:,i] = convert.(Float32, resview)
         end
         if haschannels
             saferead!(f, analogtmp, FEND)
