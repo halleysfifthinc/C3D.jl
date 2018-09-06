@@ -4,4 +4,11 @@ authors = ["Allen Hill <allenofthehills@gmail.com>"]
 version = "0.2.0"
 
 [deps]
-VaxData = "cd31b0e8-6739-11e8-0670-d1d5e0f20447"
+VaxData = "a6f58a78-e649-57e2-81bc-1d865c7b74f7"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"] 
+
