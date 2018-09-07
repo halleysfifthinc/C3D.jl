@@ -8,4 +8,5 @@ include("bigdata.jl")
 include("singledata.jl")
 include("invalid.jl")
 include("blanklabels.jl")
+include("badformats.jl")
 
