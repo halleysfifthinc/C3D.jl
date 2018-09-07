@@ -138,13 +138,20 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
 
     if groups[:ANALOG].USED != 0 # There are analog channels
 
+        @label analogkeychanged
         if !(ranalog ⊆ analogkeys) # If there are analog channels, the required set of parameters is ranalog
-            d = setdiff(ranalog, analogkeys)
-            msg = ":ANALOG is missing required parameter(s)"
-            for p in d
-                msg *= " :"*string(p)
+            if :OFFSETS ∈ analogkeys
+                groups[:ANALOG].params[:OFFSET] = groups[:ANALOG].params[:OFFSETS]
+                delete!(groups[:ANALOG].params, :OFFSETS)
+                @goto analogkeychanged # OFFSETS might not be the only missing parameter
+            else
+                d = setdiff(ranalog, analogkeys)
+                msg = ":ANALOG is missing required parameter(s)"
+                for p in d
+                    msg *= " :"*string(p)
+                end
+                throw(ErrorException(msg))
             end
-            throw(ErrorException(msg))
         elseif !(descriptives ⊆ analogkeys) # Check that the descriptive parameters exist
             if !haskey(groups[:ANALOG].params, :LABELS)
                 @debug ":ANALOG is missing parameter :LABELS"
@@ -158,6 +165,17 @@ function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
             end
         elseif groups[:ANALOG].params[:LABELS] isa ScalarParameter
             groups[:ANALOG].params[:LABELS] = StringParameter(groups[:ANALOG].params[:LABELS])
+        end
+
+        # Pad scale and offset if shorter than :USED
+        l = length(groups[:ANALOG].SCALE)
+        if l < groups[:ANALOG].USED
+            append!(groups[:ANALOG].params[:SCALE].data, fill(Float32(1.0), groups[:ANALOG].USED - l))
+        end
+
+        l = length(groups[:ANALOG].OFFSET)
+        if l < groups[:ANALOG].USED
+            append!(groups[:ANALOG].params[:OFFSET].data, fill(Float32(1.0), groups[:ANALOG].USED - l))
         end
 
         if any(isempty.(groups[:ANALOG].LABELS)) ||
