@@ -20,7 +20,9 @@ struct C3DFile
     analog::Dict{String,Array{Float32,1}}
 end
 
-function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group}, point::AbstractArray, residuals::AbstractArray, analog::AbstractArray; invalidate::Bool=true)
+function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
+                 point::AbstractArray, residuals::AbstractArray, analog::AbstractArray;
+                 withmissings::Bool=true)
     fpoint = Dict{String,Array{Union{Missing, Float32},2}}()
     fresiduals = Dict{String,Array{Float32,1}}()
     fanalog = Dict{String,Array{Float32,1}}()
@@ -29,7 +31,7 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group}, point
         for (idx, symname) in enumerate(groups[:POINT].LABELS[1:groups[:POINT].USED])
             fpoint[symname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
             fresiduals[symname] = residuals[:,idx]
-            if invalidate
+            if withmissings
                 fpoint[symname][findall(x -> x == -1.0, fresiduals[symname]), :] .= missing
             end
         end
@@ -169,42 +171,50 @@ function saferead(io::IOStream, ::Type{VaxFloatF}, FEND::Endian, dims)::Array{Fl
     end
 end
 
-function readc3d(filename::AbstractString; invalidate=true)
-    if !isfile(filename)
-        error("File ", filename, " cannot be found")
+"""
+    readc3d(fn; withmissings=true)
+
+Read the C3D file `fn`. Keyword argument `withmissings` replaces invalid data points with
+`missing` values.
+
+See also: [`readc3dinfo`](@ref)
+"""
+function readc3d(fn::AbstractString; withmissings=true)
+    if !isfile(fn)
+        error("File ", fn, " cannot be found")
     end
 
-    file = open(filename, "r")
+    f = open(fn, "r")
 
-    groups, header, FEND, FType = _readparams(file)
+    groups, header, FEND, FType = _readparams(f)
 
     validate(header, groups, complete=false)
 
-    (point, residuals, analog) = readdata(file, groups, FEND, FType)
+    (point, residuals, analog) = readdata(f, groups, FEND, FType)
 
-    res = C3DFile(filename, header, groups, point, residuals, analog; invalidate=invalidate)
+    res = C3DFile(fn, header, groups, point, residuals, analog; withmissings=withmissings)
 
-    close(file)
+    close(f)
 
     return res
 end
 
-function _readparams(file::IOStream)
-    params_ptr = read(file, UInt8)
+function _readparams(f::IOStream)
+    params_ptr = read(f, UInt8)
 
-    if read(file, UInt8) != 0x50
-        error("File ", filename, " is not a valid C3D file")
+    if read(f, UInt8) != 0x50
+        error("File ", fn, " is not a valid C3D file")
     end
 
     # Jump to parameters block
-    seek(file, (params_ptr - 1) * 512)
+    seek(f, (params_ptr - 1) * 512)
 
     # Skip 2 reserved bytes
     # TODO: store bytes for saving modified files
-    read(file, UInt16)
+    read(f, UInt16)
 
-    paramblocks = read(file, UInt8)
-    proctype = read(file, Int8) - 83
+    paramblocks = read(f, UInt8)
+    proctype = read(f, Int8) - 83
 
     FType = Float32
 
@@ -223,10 +233,10 @@ function _readparams(file::IOStream)
         error("Malformed processor type. Expected 1, 2, or 3. Found ", proctype)
     end
 
-    mark(file)
-    header = readheader(file, FEND, FType)
-    reset(file)
-    unmark(file)
+    mark(f)
+    header = readheader(f, FEND, FType)
+    reset(f)
+    unmark(f)
 
     gs = Array{Group,1}()
     ps = Array{AbstractParameter,1}()
@@ -235,76 +245,76 @@ function _readparams(file::IOStream)
     fail = 0
     np = 0
 
-    read(file, UInt8)
-    if read(file, Int8) < 0
+    read(f, UInt8)
+    if read(f, Int8) < 0
         # Group
-        skip(file, -2)
-        push!(gs, readgroup(file, FEND, FType))
+        skip(f, -2)
+        push!(gs, readgroup(f, FEND, FType))
         moreparams = gs[end].np != 0 ? true : false
         lastparam = :GROUP
     else
         # Parameter
-        skip(file, -2)
-        push!(ps, readparam(file, FEND, FType))
+        skip(f, -2)
+        push!(ps, readparam(f, FEND, FType))
         moreparams = ps[end].np != 0 ? true : false
         lastparam = :PARAM
     end
 
     while moreparams
         # Mark current position in file in case the pointer is incorrect
-        mark(file)
+        mark(f)
         if lastparam == :GROUP
             np = gs[end].pos + gs[end].np + abs(gs[end].nl) + 2
             # Only seek if necessary
-            if np != position(file)
-                @debug "Pointer mismatch at position $(position(file)) where pointer was $np"
-                seek(file, np)
+            if np != position(f)
+                @debug "Pointer mismatch at position $(position(f)) where pointer was $np"
+                seek(f, np)
             end
         elseif lastparam == :PARAM
             np = ps[end].pos + ps[end].np + abs(ps[end].nl) + 2
-            if np != position(file)
-                @debug "Pointer mismatch at position $(position(file)) where pointer was $np"
-                seek(file, np)
+            if np != position(f)
+                @debug "Pointer mismatch at position $(position(f)) where pointer was $np"
+                seek(f, np)
             end
         elseif fail > 1 # lasparam == :NOP is a given at this point, this is the second failed attempt
-            @debug "Second failed parameter read attempt from $(position(file))"
+            @debug "Second failed parameter read attempt from $(position(f))"
             break
         end
 
         # Read the next two bytes to get the gid
-        read(file, UInt8)
-        local gid = read(file, Int8)
+        read(f, UInt8)
+        local gid = read(f, Int8)
         if gid < 0 # Group
             # Reset to the beginning of the group
-            skip(file, -2)
+            skip(f, -2)
             try
-              push!(gs, readgroup(file, FEND, FType))
+              push!(gs, readgroup(f, FEND, FType))
               moreparams = gs[end].np != 0 ? true : false # break if the pointer is 0 (ie the parameters are finished)
               lastparam = :GROUP
             catch e
                 # Last readgroup failed, possibly due to a bad pointer. Reset to the ending
                 # location of the last successfully read parameter and try again. Note the failure.
-                reset(file)
-                @debug "Read group failed, last parameter ended at $(position(file)), pointer at $np" fail
+                reset(f)
+                @debug "Read group failed, last parameter ended at $(position(f)), pointer at $np" fail
                 lastparam = :NOP
                 fail += 1
             finally
-                unmark(file) # Unmark the file regardless
+                unmark(f) # Unmark the file regardless
             end
         elseif gid > 0 # Parameter
             # Reset to the beginning of the parameter
-            skip(file, -2)
+            skip(f, -2)
             try
-              push!(ps, readparam(file, FEND, FType))
+              push!(ps, readparam(f, FEND, FType))
               moreparams = ps[end].np != 0 ? true : false
               lastparam = :PARAM
             catch e
-                reset(file)
-                @debug "Read group failed, last parameter ended at $(position(file)), pointer at $np" fail
+                reset(f)
+                @debug "Read group failed, last parameter ended at $(position(f)), pointer at $np" fail
                 lastparam = :NOP
                 fail += 1
             finally
-                unmark(file)
+                unmark(f)
             end
         else # Last parameter pointer is incorrect (assumption)
             # The group ID should never be zero, if it is, the most likely explanation is
@@ -330,20 +340,27 @@ function _readparams(file::IOStream)
     return (groups, header, FEND, FType)
 end
 
-function readparams(filename::AbstractString; valid=true)
-    if !isfile(filename)
-        error("File ", filename, " cannot be found")
+"""
+    readc3dinfo(fn; validate=true)
+
+Only read the C3D file header and parameters.
+
+See also: [`readc3d`](@ref)
+"""
+function readc3dinfo(fn::AbstractString; validate=true)
+    if !isfile(fn)
+        error("File ", fn, " cannot be found")
     end
 
-    file = open(filename, "r")
+    f = open(fn, "r")
 
-    groups, header, FEND, FType = _readparams(file)
+    groups, header, FEND, FType = _readparams(f)
 
-    if valid
+    if validate
         validate(header, groups, complete=false)
     end
 
-    close(file)
+    close(f)
 
     return groups
 end
