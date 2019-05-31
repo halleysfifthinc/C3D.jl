@@ -71,6 +71,9 @@ function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::
     # Read data in a transposed structure for better read/write speeds due to Julia being
     # column-order arrays
     numframes = convert(Int, groups[:POINT].FRAMES)
+    if numframes == typemax(UInt16) && haskey(groups, :TRIAL) && haskey(groups[:TRIAL].params, :ACTUAL_END_FIELD)
+        numframes = convert(Int, reinterpret(Int32, groups[:TRIAL].ACTUAL_END_FIELD)[1])
+    end
     nummarkers = convert(Int, groups[:POINT].USED)
     hasmarkers = !iszero(nummarkers)
     if hasmarkers
