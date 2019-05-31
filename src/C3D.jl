@@ -6,6 +6,8 @@ using VaxData
 
 export readc3d, readparams
 
+export C3DFile
+
 include("parameters.jl")
 include("groups.jl")
 include("header.jl")
