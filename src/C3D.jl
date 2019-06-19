@@ -280,12 +280,14 @@ function _readparams(f::IOStream)
         # Group
         skip(f, -2)
         push!(gs, readgroup(f, FEND, FType))
+        np = gs[end].pos + gs[end].np + abs(gs[end].nl) + 2
         moreparams = gs[end].np != 0 ? true : false
         lastparam = :GROUP
     else
         # Parameter
         skip(f, -2)
         push!(ps, readparam(f, FEND, FType))
+        np = ps[end].pos + ps[end].np + abs(ps[end].nl) + 2
         moreparams = ps[end].np != 0 ? true : false
         lastparam = :PARAM
     end
@@ -293,15 +295,8 @@ function _readparams(f::IOStream)
     while moreparams
         # Mark current position in file in case the pointer is incorrect
         mark(f)
-        if lastparam == :GROUP
-            np = gs[end].pos + gs[end].np + abs(gs[end].nl) + 2
+        if lastparam != :NOP
             # Only seek if necessary
-            if np != position(f)
-                @debug "Pointer mismatch at position $(position(f)) where pointer was $np"
-                seek(f, np)
-            end
-        elseif lastparam == :PARAM
-            np = ps[end].pos + ps[end].np + abs(ps[end].nl) + 2
             if np != position(f)
                 @debug "Pointer mismatch at position $(position(f)) where pointer was $np"
                 seek(f, np)
@@ -318,9 +313,10 @@ function _readparams(f::IOStream)
             # Reset to the beginning of the group
             skip(f, -2)
             try
-              push!(gs, readgroup(f, FEND, FType))
-              moreparams = gs[end].np != 0 ? true : false # break if the pointer is 0 (ie the parameters are finished)
-              lastparam = :GROUP
+                push!(gs, readgroup(f, FEND, FType))
+                np = gs[end].pos + gs[end].np + abs(gs[end].nl) + 2
+                moreparams = gs[end].np != 0 ? true : false # break if the pointer is 0 (ie the parameters are finished)
+                lastparam = :GROUP
             catch e
                 # Last readgroup failed, possibly due to a bad pointer. Reset to the ending
                 # location of the last successfully read parameter and try again. Note the failure.
@@ -335,9 +331,10 @@ function _readparams(f::IOStream)
             # Reset to the beginning of the parameter
             skip(f, -2)
             try
-              push!(ps, readparam(f, FEND, FType))
-              moreparams = ps[end].np != 0 ? true : false
-              lastparam = :PARAM
+                push!(ps, readparam(f, FEND, FType))
+                np = ps[end].pos + ps[end].np + abs(ps[end].nl) + 2
+                moreparams = ps[end].np != 0 ? true : false
+                lastparam = :PARAM
             catch e
                 reset(f)
                 @debug "Read group failed, last parameter ended at $(position(f)), pointer at $np" fail
