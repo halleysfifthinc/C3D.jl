@@ -241,7 +241,7 @@ function _readparams(f::IOStream)
 
     # Skip 2 reserved bytes
     # TODO: store bytes for saving modified files
-    read(f, UInt16)
+    skip(f, 2)
 
     paramblocks = read(f, UInt8)
     proctype = read(f, Int8) - 83
@@ -275,7 +275,7 @@ function _readparams(f::IOStream)
     fail = 0
     np = 0
 
-    read(f, UInt8)
+    skip(f, 1)
     if read(f, Int8) < 0
         # Group
         skip(f, -2)
@@ -312,7 +312,7 @@ function _readparams(f::IOStream)
         end
 
         # Read the next two bytes to get the gid
-        read(f, UInt8)
+        skip(f, 1)
         local gid = read(f, Int8)
         if gid < 0 # Group
             # Reset to the beginning of the group
