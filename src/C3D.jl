@@ -204,6 +204,31 @@ function readc3d(fn::AbstractString; withmissings=true)
     return res
 end
 
+"""
+    readc3dinfo(fn; validate=true)
+
+Only read the C3D file header and parameters.
+
+See also: [`readc3d`](@ref)
+"""
+function readc3dinfo(fn::AbstractString; validate=true)
+    if !isfile(fn)
+        error("File ", fn, " cannot be found")
+    end
+
+    f = open(fn, "r")
+
+    groups, header, FEND, FType = _readparams(f)
+
+    if validate
+        validate(header, groups, complete=false)
+    end
+
+    close(f)
+
+    return groups
+end
+
 function _readparams(f::IOStream)
     params_ptr = read(f, UInt8)
 
@@ -343,31 +368,6 @@ function _readparams(f::IOStream)
     end
 
     return (groups, header, FEND, FType)
-end
-
-"""
-    readc3dinfo(fn; validate=true)
-
-Only read the C3D file header and parameters.
-
-See also: [`readc3d`](@ref)
-"""
-function readc3dinfo(fn::AbstractString; validate=true)
-    if !isfile(fn)
-        error("File ", fn, " cannot be found")
-    end
-
-    f = open(fn, "r")
-
-    groups, header, FEND, FType = _readparams(f)
-
-    if validate
-        validate(header, groups, complete=false)
-    end
-
-    close(f)
-
-    return groups
 end
 
 end # module
