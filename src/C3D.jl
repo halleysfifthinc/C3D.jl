@@ -16,10 +16,10 @@ include("validate.jl")
 struct C3DFile
     name::String
     header::Header
-    groups::Dict{Symbol,Group}
-    point::Dict{String,Array{Union{Missing, Float32},2}}
+    groups::Dict{Symbol, Group}
+    point::Dict{String, Array{Union{Missing, Float32},2}}
     residuals::Dict{String, Array{Float32,1}}
-    analog::Dict{String,Array{Float32,1}}
+    analog::Dict{String, Array{Float32,1}}
 end
 
 function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
