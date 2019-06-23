@@ -18,7 +18,7 @@ struct C3DFile
     header::Header
     groups::Dict{Symbol, Group}
     point::Dict{String, Array{Union{Missing, Float32},2}}
-    residuals::Dict{String, Array{Float32,1}}
+    residuals::Dict{String, Array{Union{Missing, Float32},1}}
     analog::Dict{String, Array{Float32,1}}
 end
 
@@ -26,15 +26,24 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
                  point::AbstractArray, residuals::AbstractArray, analog::AbstractArray;
                  withmissings::Bool=true)
     fpoint = Dict{String,Array{Union{Missing, Float32},2}}()
-    fresiduals = Dict{String,Array{Float32,1}}()
+    fresiduals = Dict{String,Array{Union{Missing, Float32},1}}()
     fanalog = Dict{String,Array{Float32,1}}()
+
+    l = size(point, 1)
+    allpoints = 1:l
 
     if !iszero(groups[:POINT].USED)
         for (idx, symname) in enumerate(groups[:POINT].LABELS[1:groups[:POINT].USED])
             fpoint[symname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
             fresiduals[symname] = residuals[:,idx]
             if withmissings
-                fpoint[symname][findall(x -> x == -1.0, fresiduals[symname]), :] .= missing
+                invalidpoints = findall(x -> x === -1.0f0, fresiduals[symname])
+                calculatedpoints = findall(iszero, fresiduals[symname])
+                goodpoints = setdiff(allpoints, invalidpoints ∪ calculatedpoints)
+                fpoint[symname][invalidpoints, :] .= missing
+                fresiduals[symname][goodpoints] = calcresiduals(fresiduals[symname], abs(groups[:POINT].SCALE))[goodpoints]
+                fresiduals[symname][invalidpoints] .= missing
+                fresiduals[symname][calculatedpoints] .= 0.0f0
             end
         end
     end
@@ -61,6 +70,10 @@ function Base.show(io::IO, f::C3DFile)
               f.groups[:POINT].USED, " points, ",
               f.groups[:ANALOG].USED, " analog channels)")
     end
+end
+
+function calcresiduals(x::AbstractVector, scale)
+    residuals = (reinterpret.(UInt32, x) .>> 16) .& 0xff .* scale
 end
 
 function readdata(f::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
