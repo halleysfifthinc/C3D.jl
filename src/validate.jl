@@ -19,7 +19,7 @@ const pointsigncheck = ((:POINT, :USED),
 # const analogsigncheck = (:ANALOG, :USED)
 # const fpsigncheck = (:FORCE_PLATFORM, :ZERO)
 
-function validate(header::Header, groups::Dict{Symbol,Group}; complete=false)
+function validatec3d(header::Header, groups::Dict{Symbol,Group}; complete=false)
     # The following if-else ensures the minimum set of information needed to succesfully read a C3DFile
     if !(rgroups ⊆ keys(groups))
         if !haskey(groups, :ANALOG)

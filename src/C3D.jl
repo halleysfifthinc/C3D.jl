@@ -199,7 +199,7 @@ Read the C3D file at `fn`.
 - `validateparams::Bool = true`: Validates parameters against C3D requirements
 - `missingpoints::Bool = true`: Sets invalid points to `missing`
 """
-function readc3d(fn::AbstractString; paramsonly=false, validateparams=true,
+function readc3d(fn::AbstractString; paramsonly=false, validate=true,
                  missingpoints=true)
     if !isfile(fn)
         error("File ", fn, " cannot be found")
@@ -209,8 +209,8 @@ function readc3d(fn::AbstractString; paramsonly=false, validateparams=true,
 
     groups, header, FEND, FType = _readparams(f)
 
-    if validateparams
-        validate(header, groups, complete=false)
+    if validate
+        validatec3d(header, groups, complete=false)
     end
 
     if paramsonly
