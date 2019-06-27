@@ -4,7 +4,7 @@ using VaxData
 
 @enum Endian LE=1 BE=2
 
-export readc3d, readparams
+export readc3d
 
 export C3DFile
 
@@ -18,13 +18,13 @@ struct C3DFile
     header::Header
     groups::Dict{Symbol, Group}
     point::Dict{String, Array{Union{Missing, Float32},2}}
-    residuals::Dict{String, Array{Union{Missing, Float32},1}}
+    residual::Dict{String, Array{Union{Missing, Float32},1}}
     analog::Dict{String, Array{Float32,1}}
 end
 
 function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
                  point::AbstractArray, residuals::AbstractArray, analog::AbstractArray;
-                 withmissings::Bool=true)
+                 missingpoints::Bool=true)
     fpoint = Dict{String,Array{Union{Missing, Float32},2}}()
     fresiduals = Dict{String,Array{Union{Missing, Float32},1}}()
     fanalog = Dict{String,Array{Float32,1}}()
@@ -36,7 +36,7 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
         for (idx, symname) in enumerate(groups[:POINT].LABELS[1:groups[:POINT].USED])
             fpoint[symname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
             fresiduals[symname] = residuals[:,idx]
-            if withmissings
+            if missingpoints
                 invalidpoints = findall(x -> x === -1.0f0, fresiduals[symname])
                 calculatedpoints = findall(iszero, fresiduals[symname])
                 goodpoints = setdiff(allpoints, invalidpoints ∪ calculatedpoints)
@@ -190,14 +190,17 @@ function saferead(io::IOStream, ::Type{VaxFloatF}, FEND::Endian, dims)::Array{Fl
 end
 
 """
-    readc3d(fn; withmissings=true)
+    readc3d(fn)
 
-Read the C3D file `fn`. Keyword argument `withmissings` replaces invalid data points with
-`missing` values.
+Read the C3D file at `fn`.
 
-See also: [`readc3dinfo`](@ref)
+# Keyword arguments
+- `paramsonly::Bool = false`: Only reads the header and parameters
+- `validateparams::Bool = true`: Validates parameters against C3D requirements
+- `missingpoints::Bool = true`: Sets invalid points to `missing`
 """
-function readc3d(fn::AbstractString; withmissings=true)
+function readc3d(fn::AbstractString; paramsonly=false, validateparams=true,
+                 missingpoints=true)
     if !isfile(fn)
         error("File ", fn, " cannot be found")
     end
@@ -206,40 +209,23 @@ function readc3d(fn::AbstractString; withmissings=true)
 
     groups, header, FEND, FType = _readparams(f)
 
-    validate(header, groups, complete=false)
+    if validateparams
+        validate(header, groups, complete=false)
+    end
 
-    (point, residuals, analog) = readdata(f, groups, FEND, FType)
+    if paramsonly
+        point = Dict{String,Array{Union{Missing, Float32},2}}()
+        residual = Dict{String,Array{Union{Missing, Float32},1}}()
+        analog = Dict{String,Array{Float32,1}}()
+    else
+        (point, residual, analog) = readdata(f, groups, FEND, FType)
+    end
 
-    res = C3DFile(fn, header, groups, point, residuals, analog; withmissings=withmissings)
+    res = C3DFile(fn, header, groups, point, residual, analog; missingpoints=missingpoints)
 
     close(f)
 
     return res
-end
-
-"""
-    readc3dinfo(fn; validate=true)
-
-Only read the C3D file header and parameters.
-
-See also: [`readc3d`](@ref)
-"""
-function readc3dinfo(fn::AbstractString; validate=true)
-    if !isfile(fn)
-        error("File ", fn, " cannot be found")
-    end
-
-    f = open(fn, "r")
-
-    groups, header, FEND, FType = _readparams(f)
-
-    if validate
-        validate(header, groups, complete=false)
-    end
-
-    close(f)
-
-    return groups
 end
 
 function _readparams(f::IOStream)
