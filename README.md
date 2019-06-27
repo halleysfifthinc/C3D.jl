@@ -40,9 +40,9 @@ julia> pc_real.analog["FZ1"]
  -22.32
 ```
 
-#### Invalid data points
+#### Point residuals, invalid and calculated points
 
-According to the C3D format documentation, invalid data points are signified by setting the residual word to `-1.0`. This convention is respected by default by changing the 3D coordinates of invalid points to `missing`. If your C3D files do not respect this convention, or if you wish to ignore this for some other reason, this behavior can be disabled by setting keyword arg `withmissings=false` in the `readc3d` function.
+According to the C3D format documentation, invalid data points are signified by setting the residual word to `-1.0`. This convention is respected in C3D.jl by changing the residual and coordinates of invalid points/frames to `missing`. If your C3D files do not respect this convention, or if you wish to ignore this for some other reason, this behavior can be disabled by setting keyword arg `missingpoints=false` in the `readc3d` function. Convention is to signify calculated points (e.g. filtered, interpolated, etc) by setting the residual word to `0.0`.
 
 ```julia
 
@@ -56,7 +56,7 @@ julia> bball.point["2003"]
  missing  missing  missing
   ⋮
 
-julia> bball = readc3d("data/sample16/basketball.c3d"; withmissings=false)
+julia> bball = readc3d("data/sample16/basketball.c3d"; missingpoints=false)
 C3DFile("data/sample16/basketball.c3d")
 
 julia> bball.point["2003"]
@@ -67,9 +67,23 @@ julia> bball.point["2003"]
    ⋮
 ```
 
+Point residuals can be accessed using the `residual` field which is indexed by marker label.
+
+```julia
+julia> pc_real.residual["RFT2"]
+450-element Array{Union{Missing, Float32},1}:
+ 10.333334f0
+ 10.333334f0
+  9.666667f0
+  ⋮
+  2.0f0
+  2.0f0
+  2.0f0
+```
+
 ### Accessing C3D parameters
 
-The parameters can be accessed through the `group` field. Specific groups are indexed as Symbols.
+The parameters can be accessed through the `groups` field. Specific groups are indexed as Symbols.
 
 ```julia
 julia> pc_real.groups
@@ -113,10 +127,10 @@ C3D.StringParameter(3807, 6, false, 1, "LABELS", :LABELS, 211, ["RFT1", "RFT2", 
 
 ## Debugging
 
-There are two main steps to reading a C3D file: reading the parameters, and reading the point and/or analog data. In the event a file read fails, the stacktrace will show whether the error happened in `_readparams` or `readdata`. If the error occurred in `readdata`, try only reading the parameters, optionally setting the keyword argument `valid` to `false`:
+There are two main steps to reading a C3D file: reading the parameters, and reading the point and/or analog data. In the event a file read fails, the stacktrace will show whether the error happened in `_readparams` or `readdata`. If the error occurred in `readdata`, try only reading the parameters, optionally setting the keyword argument `validate` to `false`:
 
 ```julia
-julia> pc_real = readc3dinfo("data/sample01/Eb015pr.c3d")
+julia> pc_real = readc3d("data/sample01/Eb015pr.c3d"; paramsonly=true)
 Dict{Symbol,C3D.Group} with 5 entries:
   :POINT          => Symbol[:DESCRIPTIONS, :RATE, :DATA_START, :FRAMES, :USED, :UNITS, :Y_SCREEN, :LABELS, :X_SCREEN, :SCALE]
   :ANALOG         => Symbol[:DESCRIPTIONS, :RATE, :GEN_SCALE, :OFFSET, :USED, :UNITS, :LABELS, :SCALE]
@@ -124,7 +138,7 @@ Dict{Symbol,C3D.Group} with 5 entries:
   :SUBJECT        => Symbol[:WEIGHT, :NUMBER, :HEIGHT, :DATE_OF_BIRTH, :GENDER, :PROJECT, :TARGET_RADIUS, :NAME]
   :FPLOC          => Symbol[:INT, :OBJ, :MAX]
 
-julia> pc_real = readc3dinfo("data/sample01/Eb015pr.c3d", validate=false)
+julia> pc_real = readc3d("data/sample01/Eb015pr.c3d"; paramsonly=true, validate=false)
 Dict{Symbol,C3D.Group} with 5 entries:
   :POINT          => Symbol[:DESCRIPTIONS, :RATE, :DATA_START, :FRAMES, :USED, :UNITS, :Y_SCREEN, :LABELS, :X_SCREEN, :SCALE]
   :ANALOG         => Symbol[:DESCRIPTIONS, :RATE, :GEN_SCALE, :OFFSET, :USED, :UNITS, :LABELS, :SCALE]
@@ -141,4 +155,4 @@ Please open an issue if you have a file that is being read incorrectly.
 
 ## Roadmap
 
-I plan to eventually add support for saving files that have been modified and for creating new files, but this is not a usecase that I require currently or in the foreseeable future. If this is important to you, open an issue or submit a PR!
+I plan to eventually add support for saving files that have been modified and for creating new files, but this is not a use case that I require currently or in the foreseeable future. If this is important to you, open an issue or submit a PR!
