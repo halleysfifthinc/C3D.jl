@@ -207,7 +207,7 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
 
     f = open(fn, "r")
 
-    groups, header, FEND, FType = _readparams(f)
+    groups, header, FEND, FType = _readparams(fn, f)
 
     if validate
         validatec3d(header, groups, complete=false)
@@ -228,7 +228,7 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
     return res
 end
 
-function _readparams(f::IOStream)
+function _readparams(fn::String, f::IOStream)
     params_ptr = read(f, UInt8)
 
     if read(f, UInt8) != 0x50
