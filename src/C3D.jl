@@ -4,7 +4,8 @@ using VaxData
 
 @enum Endian LE=1 BE=2
 
-export readc3d
+export readc3d,
+       writetrc
 
 export C3DFile
 
@@ -21,6 +22,8 @@ struct C3DFile
     residual::Dict{String, Array{Union{Missing, Float32},1}}
     analog::Dict{String, Array{Float32,1}}
 end
+
+include("util.jl")
 
 function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
                  point::AbstractArray, residuals::AbstractArray, analog::AbstractArray;
