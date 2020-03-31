@@ -6,13 +6,13 @@ using DelimitedFiles, Printf
 Write the C3DFile `f` to a .trc format at `filename`.
 
 # Keyword arguments
-- `delim::Char='\t'`: The text delimiter to use
+- `delim::Char='\\t'`: The text delimiter to use
 - `strip_prefixes::Bool=true`: Strip marker label prefixes if they exist
 - `subject::String=""`: The subject (among multiple subjects) in the C3DFile to write
 - `prefixes::Vector{String}=[subject]`: Marker label prefixes to strip if
   `strip_prefixes == true`
 - `remove_unlabeled_markers::Bool=true`: Remove markers with empty labels, labels
-  matching `r"(\*\d+|M\d\d\d)"`
+  matching `r"(\\*\\d+|M\\d\\d\\d)"`
 - `lab_orientation::Matrix=Matrix(I, (3,3))`: Rotation to apply to markers before writing
 - `precision::Int=6`: Number of decimal places to print
 - `virtual_markers::Dict{String,Matrix}`: (Optional) Virtual markers (calculated with markers
