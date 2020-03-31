@@ -12,7 +12,7 @@ Write the C3DFile `f` to a .trc format at `filename`.
 - `prefixes::Vector{String}=[subject]`: Marker label prefixes to strip if
   `strip_prefixes == true`
 - `remove_unlabeled_markers::Bool=true`: Remove markers with empty labels, labels
-  matching r"(\*\d+|M\d\d\d)"
+  matching `r"(\*\d+|M\d\d\d)"`
 - `lab_orientation::Matrix=Matrix(I, (3,3))`: Rotation to apply to markers before writing
 - `precision::Int=6`: Number of decimal places to print
 - `virtual_markers::Dict{String,Matrix}`: (Optional) Virtual markers (calculated with markers
