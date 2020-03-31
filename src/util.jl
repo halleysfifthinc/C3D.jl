@@ -24,7 +24,7 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
                   virtual_markers::Dict{String,Matrix}=Dict{String,Matrix{Float32}}()) where T
     if subject !== ""
         if haskey(f.groups, :SUBJECTS)
-            any(subject == f.groups[:SUBJECTS].NAMES) || throw(ArgumentError("subject $subject does not exist in $f.groups[:SUBJECTS]"))
+            any(subject .== f.groups[:SUBJECTS].NAMES) || throw(ArgumentError("subject $subject does not exist in $f.groups[:SUBJECTS]"))
         elseif strip_prefixes && prefixes == [subject]
             @warn "subject $subject does not exist in $f.groups[:SUBJECTS] and may not be the correct prefix"
         end
@@ -53,7 +53,7 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
                 mkrnames_stripped = replace.(mkrnames, r => s"\g<label>")
             end
         elseif subject !== "" || prefixes !== [""]
-            if any(subject == prefixes)
+            if any(subject .== prefixes)
                 r = Regex("("*join(prefixes, '|')*
                           ")(?<label>\\w*)")
             else
@@ -94,9 +94,11 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
     # Header line
     write(io, string("Frame#", delim, "Time", delim))
     join(io, mkrnames_stripped, delim^3)
+    print(io, delim^3)
     if !isempty(virtual_markers)
         extra_mkrnames = keys(virtual_markers)
         join(io, extra_mkrnames, delim^3)
+        print(io, delim^3)
     end
     println(io)
 
@@ -120,7 +122,7 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
     writedlm(io, data, delim)
 
     open(filename, "w") do fio
-        write(fio, io)
+        write(fio, take!(io))
     end
 
     return filename
