@@ -38,6 +38,7 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
     mkrnames = copy(f.groups[:POINT].LABELS)
     if subject !== ""
         mkrnames = filter(x -> startswith(x, subject), mkrnames)
+        isempty(mkrnames) && @warn "no markers matched subject $subject"
     end
 
     if strip_prefixes
