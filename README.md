@@ -1,8 +1,8 @@
 # C3D.jl
 
-[![Build Status](https://travis-ci.org/halleysfifthinc/C3D.jl.svg?branch=master)](https://travis-ci.org/halleysfifthinc/C3D.jl)
-[![Build status](https://ci.appveyor.com/api/projects/status/23iuaa8lr0eav8s4/branch/master?svg=true)](https://ci.appveyor.com/project/halleysfifthinc/c3d-jl/branch/master)
+[![Build Status](https://travis-ci.com/halleysfifthinc/C3D.jl.svg?branch=master)](https://travis-ci.com/halleysfifthinc/C3D.jl)
 [![codecov](https://codecov.io/gh/halleysfifthinc/C3D.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/halleysfifthinc/C3D.jl)
+![Maintenance](https://img.shields.io/maintenance/yes/2020)
 
 C3D is the standard file format for data gathered using various systems (motion capture, force plate data, EMG, etc). The goal of this package is to offer full coverage of the C3D [file spec](https://www.c3d.org), as well as compatibility with files from major C3D compatible programs (Vicon Nexus, etc.).
 
