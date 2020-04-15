@@ -37,7 +37,7 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
     io = IOBuffer()
     len = (f.groups[:POINT].FRAMES == typemax(UInt16)) ?
         f.groups[:POINT].LONG_FRAMES : f.groups[:POINT].FRAMES
-    period = inv(Float64(f.groups[:POINT].RATE))
+    period = inv(f.groups[:POINT].RATE)
 
     mkrnames = copy(f.groups[:POINT].LABELS)
     if subject !== ""
@@ -115,16 +115,26 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
     write(io, '\n'^2)
 
     # Core data block
-    data = reduce(hcat, (f.point[mkrname]*lab_orientation for mkrname in mkrnames);
-                  init=collect(range(0; step=period, length=len))::Any)
-    if !isempty(virtual_markers)
-        data = reduce(hcat, (virtual_markers[mkrname]*lab_orientation for mkrname in extra_mkrnames);
-                      init=data)
+    et = promote_type(Float32, eltype(lab_orientation))
+    nummkr = length(mkrnames)
+    numxmkr = length(extra_mkrnames)
+    data = Matrix{et}(undef, len, 1+3*(nummkr + numxmkr))
+
+    data[:,1] .= range(zero(et), step=period, length=len)
+    for i in eachindex(mkrnames)
+        data[:,(2:4).+(i-1)*3] .= f.point[mkrnames[i]]*lab_orientation
     end
+    if !isempty(virtual_markers)
+        for i in eachindex(extra_mkrnames)
+            data[:,(2:4).+(i+nummkr)*3] .= virtual_markers[extra_mkrnames[i]]*lab_orientation
+        end
+    end
+
     data .= round.(data; digits=precision)
     data = Any[ 1:len data ]
     replace!(data, missing=>"")
     replace!(data, NaN=>"")
+
     writedlm(io, data, delim)
 
     open(filename, "w") do fio
