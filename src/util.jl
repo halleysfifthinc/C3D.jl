@@ -1,5 +1,9 @@
 using DelimitedFiles, Printf
 
+const eye3 = [true false false;
+              false true false;
+              false false true]
+
 """
     writetrc(filename, f; <keyword arguments>)
 
@@ -20,8 +24,8 @@ Write the C3DFile `f` to a .trc format at `filename`.
 """
 function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes::Bool=true,
                   subject::String="", prefixes::Vector{String}=[subject], precision::Int=6,
-                  remove_unlabeled_markers::Bool=true, lab_orientation::Matrix=Matrix(I, (3,3)),
-                  virtual_markers::Dict{String,Matrix}=Dict{String,Matrix{Float32}}()) where T
+                  remove_unlabeled_markers::Bool=true, lab_orientation::Matrix{T}=eye3,
+                  virtual_markers::Dict{String,Matrix{U}}=Dict{String,Matrix{Float32}}()) where {T,U}
     if subject !== ""
         if haskey(f.groups, :SUBJECTS)
             any(subject .== f.groups[:SUBJECTS].NAMES) || throw(ArgumentError("subject $subject does not exist in $f.groups[:SUBJECTS]"))
@@ -99,6 +103,8 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
         extra_mkrnames = keys(virtual_markers)
         join(io, extra_mkrnames, delim^3)
         print(io, delim^3)
+    else
+        extra_mkrnames = String[]
     end
     println(io)
 
