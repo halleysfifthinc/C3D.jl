@@ -115,18 +115,18 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
     write(io, '\n'^2)
 
     # Core data block
-    et = promote_type(Float32, eltype(lab_orientation))
+    et = promote_type(Float32, T, U)
     nummkr = length(mkrnames)
     numxmkr = length(extra_mkrnames)
     data = Matrix{et}(undef, len, 1+3*(nummkr + numxmkr))
 
     data[:,1] .= range(zero(et), step=period, length=len)
-    for i in eachindex(mkrnames)
-        data[:,(2:4).+(i-1)*3] .= f.point[mkrnames[i]]*lab_orientation
+    for (i, name) in enumerate(mkrnames)
+        data[:,(2:4).+(i-1)*3] .= coalesce.(f.point[name]*lab_orientation, convert(et, NaN))
     end
     if !isempty(virtual_markers)
-        for i in eachindex(extra_mkrnames)
-            data[:,(2:4).+(i+nummkr)*3] .= virtual_markers[extra_mkrnames[i]]*lab_orientation
+        for (i, name) in enumerate(extra_mkrnames)
+            data[:,(2:4).+(i-1+nummkr)*3] .= coalesce.(virtual_markers[name]*lab_orientation, convert(et, NaN))
         end
     end
 
