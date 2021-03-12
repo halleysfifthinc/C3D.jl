@@ -118,7 +118,7 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
     et = promote_type(Float32, T, U)
     nummkr = length(mkrnames)
     numxmkr = length(extra_mkrnames)
-    data = Matrix{et}(undef, len, 1+3*(nummkr + numxmkr))
+    data = Matrix{Union{Missing,et}}(undef, len, 1+3*(nummkr + numxmkr))
 
     data[:,1] .= range(zero(et), step=period, length=len)
     for (i, name) in enumerate(mkrnames)
