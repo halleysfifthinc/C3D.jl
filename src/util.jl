@@ -24,7 +24,7 @@ Write the C3DFile `f` to a .trc format at `filename`.
 """
 function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes::Bool=true,
                   subject::String="", prefixes::Vector{String}=[subject], precision::Int=6,
-                  remove_unlabeled_markers::Bool=true, lab_orientation::Matrix{T}=eye3,
+                  remove_unlabeled_markers::Bool=true, lab_orientation::AbstractMatrix{T}=eye3,
                   virtual_markers::Dict{String,Matrix{U}}=Dict{String,Matrix{Float32}}()) where {T,U}
     if subject !== ""
         if haskey(f.groups, :SUBJECTS)
