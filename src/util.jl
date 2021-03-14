@@ -90,7 +90,7 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
     print(io, f.groups[:POINT].RATE, delim)
     print(io, len, delim)
     print(io, length(mkrnames) + length(virtual_markers), delim)
-    print(io, f.groups[:POINT].UNITS, delim)
+    print(io, strip(String(f.groups[:POINT].UNITS), Char(0x00)), delim)
     print(io, f.groups[:POINT].RATE, delim)
     print(io, 1, delim)
     print(io, len, delim, '\n')
