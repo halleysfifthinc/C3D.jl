@@ -41,7 +41,7 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
 
     mkrnames = copy(f.groups[:POINT].LABELS)
     if subject !== ""
-        mkrnames = filter(x -> startswith(x, subject), mkrnames)
+        filter!(x -> startswith(x, subject), mkrnames)
         isempty(mkrnames) && @warn "no markers matched subject $subject"
     end
 
@@ -73,12 +73,21 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
     end
 
     if remove_unlabeled_markers
-        ids = findall(x -> isempty(x) || match(r"(\*\d+|M\d\d\d)", x) !== nothing, mkrnames)
-        ids_strip = findall(x -> isempty(x) || match(r"(\*\d+|M\d\d\d)", x) !== nothing, mkrnames_stripped)
+        ids = findall(x -> isempty(x) ||
+            match(r"(\*\d+|M\d\d\d)", x) !== nothing, mkrnames)
+        ids_strip = findall(x -> isempty(x) ||
+            match(r"(\*\d+|M\d\d\d)", x) !== nothing, mkrnames_stripped)
+
+        # mkrnames and mkrnames_stripped need to maintain the same order
         @assert ids == ids_strip
+
         deleteat!(mkrnames, ids)
         deleteat!(mkrnames_stripped, ids)
     end
+
+    ord = sortperm(mkrnames_stripped)
+    mkrnames = mkrnames[ord]
+    mkrnames_stripped = mkrnames_stripped[ord]
 
     # Header
     line1 = ["PathFileType", "4", "(X/Y/Z)", basename(filename)*'\n']
@@ -100,7 +109,7 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
     join(io, mkrnames_stripped, delim^3)
     print(io, delim^3)
     if !isempty(virtual_markers)
-        extra_mkrnames = keys(virtual_markers)
+        extra_mkrnames = sort!(collect(keys(virtual_markers)))
         join(io, extra_mkrnames, delim^3)
         print(io, delim^3)
     else
