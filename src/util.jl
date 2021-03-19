@@ -140,7 +140,7 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
     end
 
     data .= round.(data; digits=precision)
-    data = Any[ 1:len data ]
+    data = Any[ 1:len data fill("", len) ]
     replace!(data, missing=>"")
     replace!(data, NaN=>"")
 
