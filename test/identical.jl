@@ -13,16 +13,16 @@ function comparefiles(reference, candidates)
                 end
                 @testset "Compare the :$(refc3d.groups[grp].symname) parameters" begin
                     for param in keys(refc3d.groups[grp].params)
-                        if eltype(refc3d.groups[grp].params[param].data) <: Number
+                        if eltype(refc3d.groups[grp].params[param].payload.data) <: Number
                             if grp == :POINT && param == :SCALE
-                                @test abs.(refc3d.groups[grp].params[param].data) ≈ abs.(file.groups[grp].params[param].data)
+                                @test abs.(refc3d.groups[grp].params[param].payload.data) ≈ abs.(file.groups[grp].params[param].payload.data)
                             elseif grp == :POINT && param == :DATA_START && any(basename(candfn) .== ("TESTBPI.c3d", "TESTCPI.c3d", "TESTDPI.c3d"))
-                                @test file.groups[grp].params[param].data == 20
+                                @test file.groups[grp].params[param].payload.data == 20
                             else
-                                @test refc3d.groups[grp].params[param].data ≈ file.groups[grp].params[param].data
+                                @test refc3d.groups[grp].params[param].payload.data ≈ file.groups[grp].params[param].payload.data
                             end
                         else
-                            @test reduce(*,refc3d.groups[grp].params[param].data .== file.groups[grp].params[param].data)
+                            @test reduce(*,refc3d.groups[grp].params[param].payload.data .== file.groups[grp].params[param].payload.data)
                         end
                     end
                 end
