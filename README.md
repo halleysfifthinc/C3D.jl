@@ -100,11 +100,14 @@ Symbol[:DESCRIPTIONS, :RATE, :DATA_START, :FRAMES, :USED, :UNITS, :Y_SCREEN, :LA
 
 There are two ways to access a specific parameter. The first (and most convenient) directly references the data contained in the parameter.
 
+**BREAKING**: Previous versions (<v0.7.0) of C3D.jl used a different syntax for this:
+`pc_real.groups[:POINT].USED`. See PR#9 for the reasons for the change.
+
 ```julia
-julia> pc_real.groups[:POINT].USED
+julia> pc_real.groups[:POINT][:USED]
 26
 
-julia> pc_real.groups[:POINT].LABELS
+julia> pc_real.groups[:POINT][:LABELS]
 48-element Array{String,1}:
  "RFT1"
  "RFT2"

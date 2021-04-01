@@ -9,16 +9,22 @@ struct Group
     np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
     desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    params::Dict{Symbol,AbstractParameter}
+    params::Dict{Symbol,Parameter}
 end
 
-function Base.getproperty(g::Group, name::Symbol)
-    if name ∈ fieldnames(typeof(g))
-        return getfield(g, name)
-    else
-        return getfield(g, :params)[name].data
-    end
+function typedindex(g::Group, ::Type{T}, k) where T
+    r::T = getindex(g.params, k).payload.data
+    return r
 end
+
+function Base.getindex(g::Group, ::Type{T}, k::Symbol) where T
+    return typedindex(g, T, k)
+end
+
+function Base.getindex(g::Group, k::Symbol)
+    return getindex(g.params, k).payload.data
+end
+
 Base.show(io::IO, g::Group) = show(io, keys(g.params))
 
 function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
@@ -32,15 +38,15 @@ function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{F
     @assert any(!iscntrl, name)
     symname = Symbol(replace(strip(name), r"[^a-zA-Z0-9_]" => '_'))
 
-    if occursin(r"[^a-zA-Z0-9_ ]", name)
-        @debug "Group $name at $pos has unofficially supported characters.
-            Unexpected results may occur"
-    end
+    # if occursin(r"[^a-zA-Z0-9_ ]", name)
+    #     @debug "Group $name at $pos has unofficially supported characters.
+    #         Unexpected results may occur"
+    # end
 
     np = saferead(f, Int16, FEND)
     dl = read(f, UInt8)
     desc = transcode(String, read(f, dl))
 
-    return Group(pos, nl, isLocked, gid, name, symname, np, dl, desc, Dict{Symbol,AbstractParameter}())
+    return Group(pos, nl, isLocked, gid, name, symname, np, dl, desc, Dict{Symbol,Parameter}())
 end
 

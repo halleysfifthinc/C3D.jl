@@ -1,4 +1,4 @@
-using DelimitedFiles, Printf
+using DelimitedFiles
 
 const eye3 = [true false false;
               false true false;
@@ -28,41 +28,40 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
                   virtual_markers::Dict{String,Matrix{U}}=Dict{String,Matrix{Float32}}()) where {T,U}
     if subject !== ""
         if haskey(f.groups, :SUBJECTS)
-            any(subject .== f.groups[:SUBJECTS].NAMES) || throw(ArgumentError("subject $subject does not exist in $f.groups[:SUBJECTS]"))
+            any(subject .== f.groups[:SUBJECTS][Vector{String}, :NAMES]) || throw(ArgumentError("subject $subject does not exist in $f.groups[:SUBJECTS]"))
         elseif strip_prefixes && prefixes == [subject]
             @warn "subject $subject does not exist in $f.groups[:SUBJECTS] and may not be the correct prefix"
         end
     end
 
     io = IOBuffer()
-    len = (f.groups[:POINT].FRAMES == typemax(UInt16)) ?
-        f.groups[:POINT].LONG_FRAMES : f.groups[:POINT].FRAMES
-    period = inv(f.groups[:POINT].RATE)
+    len = (f.groups[:POINT][Int, :FRAMES] == typemax(UInt16)) ?
+        f.groups[:POINT][Int, :LONG_FRAMES] : f.groups[:POINT][Int, :FRAMES]
+    period = inv(f.groups[:POINT][Float64, :RATE])
 
-    mkrnames = copy(f.groups[:POINT].LABELS)
+    mkrnames = collect(keys(f.point))
     if subject !== ""
         filter!(x -> startswith(x, subject), mkrnames)
         isempty(mkrnames) && @warn "no markers matched subject $subject"
     end
 
     if strip_prefixes
-        if haskey(f.groups, :SUBJECTS) && f.groups[:SUBJECTS].USES_PREFIXES == 1
+        if haskey(f.groups, :SUBJECTS) && f.groups[:SUBJECTS][Int, :USES_PREFIXES] == 1
             if subject !== ""
-                subi = findfirst(==(subject), f.groups[:SUBJECTS].NAMES)
-                r = Regex("("*f.groups[:SUBJECTS].LABEL_PREFIXES[subi]*")(?<label>\\w*)")
+                subi = findfirst(==(subject), f.groups[:SUBJECTS][Vector{String}, :NAMES])
+                r = Regex("("*f.groups[:SUBJECTS][Vector{String}, :LABEL_PREFIXES][subi] *
+                        ")(?<label>\\w*)")
                 mkrnames_stripped = replace.(mkrnames, r => s"\g<label>")
             else
-                r = Regex("("*join([f.groups[:SUBJECTS].LABEL_PREFIXES; prefixes], '|')*
-                          ")(?<label>\\w*)")
+                r = Regex("("*join([f.groups[:SUBJECTS][Vector{String}, :LABEL_PREFIXES];
+                        prefixes], '|')*")(?<label>\\w*)")
                 mkrnames_stripped = replace.(mkrnames, r => s"\g<label>")
             end
         elseif subject !== "" || prefixes !== [""]
             if any(subject .== prefixes)
-                r = Regex("("*join(prefixes, '|')*
-                          ")(?<label>\\w*)")
+                r = Regex("("*join(prefixes, '|')*")(?<label>\\w*)")
             else
-                r = Regex("("*join([subject; prefixes], '|')*
-                          ")(?<label>\\w*)")
+                r = Regex("("*join([subject; prefixes], '|')*")(?<label>\\w*)")
             end
             mkrnames_stripped = replace.(mkrnames, r => s"\g<label>")
         else
@@ -95,12 +94,12 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
              "OrigDataStartFrame", "OrigNumFrames\n"]
     join(io, line1, delim)
     join(io, line2, delim)
-    print(io, f.groups[:POINT].RATE, delim)
-    print(io, f.groups[:POINT].RATE, delim)
+    print(io, f.groups[:POINT][Float32, :RATE], delim)
+    print(io, f.groups[:POINT][Float32, :RATE], delim)
     print(io, len, delim)
     print(io, length(mkrnames) + length(virtual_markers), delim)
-    print(io, strip(String(f.groups[:POINT].UNITS), Char(0x00)), delim)
-    print(io, f.groups[:POINT].RATE, delim)
+    print(io, strip(f.groups[:POINT][String, :UNITS], Char(0x00)), delim)
+    print(io, f.groups[:POINT][Float32, :RATE], delim)
     print(io, 1, delim)
     print(io, len, delim, '\n')
 
