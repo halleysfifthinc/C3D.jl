@@ -9,4 +9,5 @@ include("singledata.jl")
 include("invalid.jl")
 include("blanklabels.jl")
 include("badformats.jl")
+include("inference.jl")
 
