@@ -10,7 +10,7 @@ VaxData = "a6f58a78-e649-57e2-81bc-1d865c7b74f7"
 
 [compat]
 julia = "1"
-VaxData = "0.5"
+VaxData = "0.5,0.6"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
