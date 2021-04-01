@@ -60,30 +60,6 @@ function Parameter{StringParameter}(p::Parameter{ScalarParameter{String}})
         p.np, p.dl, p.desc, StringParameter([x.data]))
 end
 
-function Base.getproperty(param::Parameter{P}, name::Symbol) where P <: AbstractParameter
-    if name === :pos
-        return getfield(param, :pos)::Int
-    elseif name === :nl
-        return getfield(param, :nl)::Int8
-    elseif name === :isLocked
-        return getfield(param, :isLocked)::Bool
-    elseif name === :gid
-        return getfield(param, :gid)::Int8
-    elseif name === :name
-        return getfield(param, :name)::String
-    elseif name === :symname
-        return getfield(param, :symname)::Symbol
-    elseif name === :np
-        return getfield(param, :np)::Int16
-    elseif name === :dl
-        return getfield(param, :dl)::UInt8
-    elseif name === :desc
-        return getfield(param, :desc)::String
-    elseif name === :payload
-        return getfield(param, :payload)::P
-    end
-end
-
 function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{Float32,VaxFloatF}
     pos = position(io)
     nl = read(io, Int8)
@@ -117,6 +93,7 @@ function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{
 
     nd = read(io, UInt8)
     if nd > 0
+        # dims = (read!(io, Array{UInt8}(undef, nd))...)
         dims = NTuple{convert(Int, nd),Int}(read!(io, Array{UInt8}(undef, nd)))
         data = _readarrayparameter(io, FEND, T, dims)
     else
@@ -136,7 +113,7 @@ function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{
     # end
 
     if data isa AbstractArray
-        if all(size(data) .< 2) && !isempty(data)
+        if all(<(2), size(data)) && !isempty(data)
             # In the event of an 'array' parameter with only one element
             payload = ScalarParameter(data[1])
         elseif eltype(data) === String
