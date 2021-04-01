@@ -12,30 +12,17 @@ struct Group
     params::Dict{Symbol,Parameter}
 end
 
-function Base.getproperty(g::Group, name::Symbol)
-    if name === :pos
-        return getfield(g, :pos)::Int
-    elseif name === :nl
-        return getfield(g, :nl)::Int8
-    elseif name === :isLocked
-        return getfield(g, :isLocked)::Bool
-    elseif name === :gid
-        return getfield(g, :gid)::Int8
-    elseif name === :name
-        return getfield(g, :name)::String
-    elseif name === :symname
-        return getfield(g, :symname)::Symbol
-    elseif name === :np
-        return getfield(g, :np)::Int16
-    elseif name === :dl
-        return getfield(g, :dl)::UInt8
-    elseif name === :desc
-        return getfield(g, :desc)::String
-    elseif name === :params
-        return getfield(g, :params)::Dict{Symbol,Parameter}
-    else
-        return getfield(g, :params)[name].payload.data
-    end
+function typedindex(g::Group, ::Type{T}, k) where T
+    r::T = getindex(g.params, k).payload.data
+    return r
+end
+
+function Base.getindex(g::Group, ::Type{T}, k::Symbol) where T
+    return typedindex(g, T, k)
+end
+
+function Base.getindex(g::Group, k::Symbol)
+    return getindex(g.params, k).payload.data
 end
 
 Base.show(io::IO, g::Group) = show(io, keys(g.params))

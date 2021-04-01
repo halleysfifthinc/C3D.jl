@@ -59,8 +59,8 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
         end
     end
 
-    POINT_USED::Int = groups[:POINT].USED
-    ANALOG_USED::Int = groups[:ANALOG].USED
+    POINT_USED = groups[:POINT][Int, :USED]
+    ANALOG_USED = groups[:ANALOG][Int, :USED]
     if POINT_USED != 0 # There are markers
         # If there are markers, the additional set of required parameters is ratescale
         if !(ratescale ⊆ pointkeys)
@@ -95,7 +95,7 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
             groups[:POINT].params[:LABELS] = Parameter{StringParameter}(groups[:POINT].params[:LABELS])
         end
 
-        POINT_LABELS = groups[:POINT].params[:LABELS].payload.data::Vector{String}
+        POINT_LABELS = groups[:POINT][Vector{String}, :LABELS]
         # Valid labels are required for each marker by the C3DFile constructor
         if any(isempty, POINT_LABELS) ||
            length(POINT_LABELS) < POINT_USED # Some markers don't have labels
@@ -103,8 +103,7 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
             while length(POINT_LABELS) < POINT_USED
                 # Check for the existence of a runoff labels group
                 if haskey(groups[:POINT].params, Symbol("LABEL",i))
-                    append!(POINT_LABELS,
-                            groups[:POINT].params[Symbol("LABEL",i)].payload.data)
+                    append!(POINT_LABELS, groups[:POINT][Vector{String}, Symbol("LABEL",i)])
                     i += 1
                 else
                     push!(POINT_LABELS, "")
@@ -183,25 +182,25 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
         end
 
         # Pad scale and offset if shorter than :USED
-        l::Int = length(groups[:ANALOG].SCALE)
+        l = length(groups[:ANALOG][Vector{Float32}, :SCALE])
         if l < ANALOG_USED
-            append!(groups[:ANALOG].params[:SCALE].payload.data,
-                    fill(Float32(1.0), ANALOG_USED - l))
+            append!(groups[:ANALOG][Vector{Float32}, :SCALE],
+                    fill(one(Float32), ANALOG_USED - l))
         end
 
-        l = length(groups[:ANALOG].OFFSET)
+        l = length(groups[:ANALOG][Vector{Int16}, :OFFSET])
         if l < ANALOG_USED
-            append!(groups[:ANALOG].params[:OFFSET].payload.data,
-                    fill(Float32(1.0), ANALOG_USED - l))
+            append!(groups[:ANALOG][Vector{Int16}, :OFFSET],
+                    fill(one(Float32), ANALOG_USED - l))
         end
 
-        ANALOG_LABELS::Vector{String} = groups[:ANALOG].params[:LABELS].payload.data
+        ANALOG_LABELS = groups[:ANALOG][Vector{String}, :LABELS]
         if any(isempty, ANALOG_LABELS) ||
            length(ANALOG_LABELS) < ANALOG_USED # Some markers don't have labels
             i = 2
             while length(ANALOG_LABELS) < ANALOG_USED
                 if haskey(groups[:ANALOG].params, Symbol("LABEL",i)) # Check for the existence of a runoff labels group
-                    append!(ANALOG_LABELS, groups[:ANALOG].params[Symbol("LABEL",i)].payload.data::Vector{String})
+                    append!(ANALOG_LABELS, groups[:ANALOG][Vector{String}, Symbol("LABEL",i)])
                     i += 1
                 else
                     push!(ANALOG_LABELS, "")

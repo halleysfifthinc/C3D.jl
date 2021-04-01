@@ -35,8 +35,8 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
     l = size(point, 1)
     allpoints = 1:l
 
-    if !iszero(groups[:POINT].USED)
-        for (idx, symname) in enumerate(groups[:POINT].LABELS[1:groups[:POINT].USED])
+    if !iszero(groups[:POINT][Int, :USED])
+        for (idx, symname) in enumerate(groups[:POINT][Vector{String}, :LABELS][1:groups[:POINT][Int, :USED]][:])
             fpoint[symname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
             fresiduals[symname] = residuals[:,idx]
             if missingpoints
@@ -44,15 +44,15 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
                 calculatedpoints = findall(iszero, fresiduals[symname])
                 goodpoints = setdiff(allpoints, invalidpoints ∪ calculatedpoints)
                 fpoint[symname][invalidpoints, :] .= missing
-                fresiduals[symname][goodpoints] = calcresiduals(fresiduals[symname], abs(groups[:POINT].SCALE))[goodpoints]
+                fresiduals[symname][goodpoints] = calcresiduals(fresiduals[symname], abs(groups[:POINT][Float32, :SCALE]))[goodpoints]
                 fresiduals[symname][invalidpoints] .= missing
                 fresiduals[symname][calculatedpoints] .= 0.0f0
             end
         end
     end
 
-    if !iszero(groups[:ANALOG].USED)
-        for (idx, symname) in enumerate(groups[:ANALOG].LABELS[1:groups[:ANALOG].USED])
+    if !iszero(groups[:ANALOG][Int, :USED])
+        for (idx, symname) in enumerate(groups[:ANALOG][Vector{String}, :LABELS][1:groups[:ANALOG][Int, :USED]])
             fanalog[symname] = analog[:, idx]
         end
     end
@@ -64,14 +64,14 @@ function Base.show(io::IO, f::C3DFile)
     if get(io, :compact, true)
         print(io, "C3DFile(\"", f.name, "\")")
     else
-        length = (f.groups[:POINT].FRAMES == typemax(UInt16)) ?
-            f.groups[:POINT].LONG_FRAMES :
-            f.groups[:POINT].FRAMES
+        length = (f.groups[:POINT][Int, :FRAMES] == typemax(UInt16)) ?
+            f.groups[:POINT][Int, :LONG_FRAMES] :
+            f.groups[:POINT][Int, :FRAMES]
 
         print(io, "C3DFile(\"", f.name, "\", ",
               length, "sec, ",
-              f.groups[:POINT].USED, " points, ",
-              f.groups[:ANALOG].USED, " analog channels)")
+              f.groups[:POINT][Int, :USED], " points, ",
+              f.groups[:ANALOG][Int, :USED], " analog channels)")
     end
 end
 
@@ -80,17 +80,17 @@ function calcresiduals(x::AbstractVector, scale)
 end
 
 function readdata(io::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
-    seek(io, (groups[:POINT].DATA_START-1)*512)
+    seek(io, (groups[:POINT][Int, :DATA_START]-1)*512)
 
-    format = groups[:POINT].SCALE > 0 ? Int16 : FType
+    format = groups[:POINT][Float32, :SCALE] > 0 ? Int16 : FType
 
     # Read data in a transposed structure for better read/write speeds due to Julia being
     # column-order arrays
-    numframes::Int = groups[:POINT].FRAMES
-    if numframes == typemax(UInt16) && haskey(groups, :TRIAL) && haskey(groups[:TRIAL].params, :ACTUAL_END_FIELD)
-        numframes = convert(Int, reinterpret(Int32, groups[:TRIAL].ACTUAL_END_FIELD)[1])
+    numframes::Int = groups[:POINT][Int, :FRAMES]
+    if numframes == typemax(UInt16) && haskey(groups, :TRIAL) && haskey(groups[:TRIAL][:params], :ACTUAL_END_FIELD)
+        numframes = only(reinterpret(Int32, groups[:TRIAL][Vector{Int16}, :ACTUAL_END_FIELD]))
     end
-    nummarkers::Int = groups[:POINT].USED
+    nummarkers = groups[:POINT][Int, :USED]
     hasmarkers = !iszero(nummarkers)
     if hasmarkers
         point = Array{Float32,2}(undef, nummarkers*3, numframes)
@@ -108,11 +108,11 @@ function readdata(io::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType:
         residuals = Array{Float32,2}(undef, 0,0)
     end
 
-    numchannels::Int = groups[:ANALOG].USED
+    numchannels = groups[:ANALOG][Int, :USED]
     haschannels = !iszero(numchannels)
     if haschannels
         # Analog Samples Per Frame => ASPF
-        aspf::Int = groups[:ANALOG].RATE/groups[:POINT].RATE
+        aspf = convert(Int, groups[:ANALOG][Float32, :RATE]/groups[:POINT][Float32, :RATE])
         analog = Array{Float32,2}(undef, numchannels, aspf*numframes)
 
         analogtmp = Matrix{format}(undef, (numchannels,aspf))
@@ -134,20 +134,19 @@ function readdata(io::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType:
 
     if hasmarkers && format == Int16
         # Multiply or divide by [:point][:scale]
-        POINT_SCALE::Float32 = groups[:POINT].SCALE
+        POINT_SCALE = groups[:POINT][Float32, :SCALE]
         point .*= abs(POINT_SCALE)
     end
 
     if haschannels
         if numchannels == 1
-            ANALOG_OFFSET = groups[:ANALOG].OFFSET::Float32
-            SCALE = (groups[:ANALOG].GEN_SCALE * groups[:ANALOG].SCALE)::Float32
+            ANALOG_OFFSET = groups[:ANALOG][Float32, :OFFSET]
+            SCALE = (groups[:ANALOG][Float32, :GEN_SCALE] * groups[:ANALOG][Float32, :SCALE])
             analog .= (analog .- ANALOG_OFFSET) .* SCALE
         else
-            VECANALOG_OFFSET = convert(Vector{Float32},
-                groups[:ANALOG].OFFSET[1:numchannels])::Vector{Float32}
-            VECSCALE = convert(Vector{Float32}, groups[:ANALOG].GEN_SCALE .*
-                               groups[:ANALOG].SCALE[1:numchannels])::Vector{Float32}
+            VECANALOG_OFFSET = groups[:ANALOG][Vector{Int}, :OFFSET][1:numchannels]
+            VECSCALE = groups[:ANALOG][Float32, :GEN_SCALE] .*
+                            groups[:ANALOG][Vector{Float32}, :SCALE][1:numchannels]
 
             analog .= (analog .- VECANALOG_OFFSET) .* VECSCALE
         end
@@ -292,8 +291,8 @@ function _readparams(fn::String, io::IOStream)
         # Parameter
         skip(io, -2)
         push!(ps, readparam(io, FEND, FType))
-        np = ps[end].pos::Int + ps[end].np::Int16 + abs(ps[end].nl::Int8) + 2
-        moreparams = ps[end].np::Int16 != 0 ? true : false
+        np = ps[end].pos + ps[end].np + abs(ps[end].nl) + 2
+        moreparams = ps[end].np != 0 ? true : false
     end
 
     while moreparams
@@ -332,8 +331,8 @@ function _readparams(fn::String, io::IOStream)
             skip(io, -2)
             try
                 push!(ps, readparam(io, FEND, FType))
-                np = ps[end].pos::Int + ps[end].np::Int16 + abs(ps[end].nl::Int8) + 2
-                moreparams = ps[end].np::Int16 != 0 ? true : false
+                np = ps[end].pos + ps[end].np + abs(ps[end].nl) + 2
+                moreparams = ps[end].np != 0 ? true : false
                 fail = 0
             catch e
                 reset(io)
