@@ -22,10 +22,16 @@ Write the C3DFile `f` to a .trc format at `filename`.
 - `virtual_markers::Dict{String,Matrix}`: (Optional) Virtual markers (calculated with markers
   from `f`) to write to the .trc file
 """
-function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes::Bool=true,
-                  subject::String="", prefixes::Vector{String}=[subject], precision::Int=6,
-                  remove_unlabeled_markers::Bool=true, lab_orientation::AbstractMatrix{T}=eye3,
-                  virtual_markers::Dict{String,Matrix{U}}=Dict{String,Matrix{Float32}}()) where {T,U}
+function writetrc(filename::String, f::C3DFile;
+    delim::Char='\t',
+    precision::Int=6,
+    strip_prefixes::Bool=true,
+    remove_unlabeled_markers::Bool=true,
+    subject::String="",
+    prefixes::Vector{String}=[subject],
+    lab_orientation::AbstractMatrix{T}=eye3,
+    virtual_markers::Dict{String,Matrix{U}}=Dict{String,Matrix{Float32}}()
+) where {T,U}
     if subject !== ""
         if haskey(f.groups, :SUBJECTS)
             any(subject .== f.groups[:SUBJECTS][Vector{String}, :NAMES]) || throw(ArgumentError("subject $subject does not exist in $f.groups[:SUBJECTS]"))
@@ -124,17 +130,20 @@ function writetrc(filename::String, f::C3DFile; delim::Char='\t', strip_prefixes
 
     # Core data block
     et = promote_type(Float32, T, U)
+    nanet = convert(et, NaN)
     nummkr = length(mkrnames)
     numxmkr = length(extra_mkrnames)
     data = Matrix{Union{Missing,et}}(undef, len, 1+3*(nummkr + numxmkr))
 
     data[:,1] .= range(zero(et), step=period, length=len)
     for (i, name) in enumerate(mkrnames)
-        data[:,(2:4).+(i-1)*3] .= coalesce.(f.point[name]*lab_orientation, convert(et, NaN))
+        idxs = (2:4).+(i-1)*3
+        data[:, idxs] .= coalesce.(f.point[name]*lab_orientation, nanet)
     end
     if !isempty(virtual_markers)
         for (i, name) in enumerate(extra_mkrnames)
-            data[:,(2:4).+(i-1+nummkr)*3] .= coalesce.(virtual_markers[name]*lab_orientation, convert(et, NaN))
+            idxs = (2:4).+(i-1+nummkr)*3
+            data[:, idxs] .= coalesce.(virtual_markers[name]*lab_orientation, nanet)
         end
     end
 
