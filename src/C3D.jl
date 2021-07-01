@@ -27,7 +27,7 @@ include("util.jl")
 
 function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
                  point::AbstractArray, residuals::AbstractArray, analog::AbstractArray;
-                 missingpoints::Bool=true)
+                 missingpoints::Bool=true, strip_prefixes::Bool=false)
     fpoint = Dict{String,Array{Union{Missing, Float32},2}}()
     fresiduals = Dict{String,Array{Union{Missing, Float32},1}}()
     fanalog = Dict{String,Array{Float32,1}}()
@@ -35,25 +35,44 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
     l = size(point, 1)
     allpoints = 1:l
 
-    if !iszero(groups[:POINT][Int, :USED])
-        for (idx, symname) in enumerate(groups[:POINT][Vector{String}, :LABELS][1:groups[:POINT][Int, :USED]][:])
-            fpoint[symname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
-            fresiduals[symname] = residuals[:,idx]
+    if strip_prefixes
+        if haskey(groups, :SUBJECTS) && groups[:SUBJECTS][Int, :USES_PREFIXES] == 1
+            rgx = Regex("("*join(groups[:SUBJECTS][Vector{String}, :LABEL_PREFIXES], '|')*
+                        ")(?<label>\\w*)")
+        else
+            rgx = r":(?<label>\w*)"
+        end
+        @show rgx
+    end
+
+    numpts = groups[:POINT][Int, :USED]
+    if !iszero(numpts)
+        for (idx, ptname) in enumerate(groups[:POINT][Vector{String}, :LABELS][1:numpts])
+            if strip_prefixes
+                m = match(rgx, ptname)
+                @show m
+                if !isnothing(m) && !isnothing(m[:label])
+                    ptname = m[:label]
+                end
+            end
+
+            fpoint[ptname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
+            fresiduals[ptname] = residuals[:,idx]
             if missingpoints
-                invalidpoints = findall(x -> x === -1.0f0, fresiduals[symname])
-                calculatedpoints = findall(iszero, fresiduals[symname])
+                invalidpoints = findall(x -> x === -1.0f0, fresiduals[ptname])
+                calculatedpoints = findall(iszero, fresiduals[ptname])
                 goodpoints = setdiff(allpoints, invalidpoints ∪ calculatedpoints)
-                fpoint[symname][invalidpoints, :] .= missing
-                fresiduals[symname][goodpoints] = calcresiduals(fresiduals[symname], abs(groups[:POINT][Float32, :SCALE]))[goodpoints]
-                fresiduals[symname][invalidpoints] .= missing
-                fresiduals[symname][calculatedpoints] .= 0.0f0
+                fpoint[ptname][invalidpoints, :] .= missing
+                fresiduals[ptname][goodpoints] = calcresiduals(fresiduals[ptname], abs(groups[:POINT][Float32, :SCALE]))[goodpoints]
+                fresiduals[ptname][invalidpoints] .= missing
+                fresiduals[ptname][calculatedpoints] .= 0.0f0
             end
         end
     end
 
     if !iszero(groups[:ANALOG][Int, :USED])
-        for (idx, symname) in enumerate(groups[:ANALOG][Vector{String}, :LABELS][1:groups[:ANALOG][Int, :USED]])
-            fanalog[symname] = analog[:, idx]
+        for (idx, name) in enumerate(groups[:ANALOG][Vector{String}, :LABELS][1:groups[:ANALOG][Int, :USED]])
+            fanalog[name] = analog[:, idx]
         end
     end
 
@@ -207,7 +226,7 @@ Read the C3D file at `fn`.
 - `missingpoints::Bool = true`: Sets invalid points to `missing`
 """
 function readc3d(fn::AbstractString; paramsonly=false, validate=true,
-                 missingpoints=true)
+                 missingpoints=true, strip_prefixes=false)
     if !isfile(fn)
         error("File ", fn, " cannot be found")
     end
@@ -230,7 +249,8 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
 
     close(io)
 
-    res = C3DFile(fn, header, groups, point, residual, analog; missingpoints=missingpoints)
+    res = C3DFile(fn, header, groups, point, residual, analog;
+                  missingpoints, strip_prefixes)
 
     return res
 end
