@@ -42,7 +42,6 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
         else
             rgx = r":(?<label>\w*)"
         end
-        @show rgx
     end
 
     numpts = groups[:POINT][Int, :USED]
@@ -50,7 +49,6 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
         for (idx, ptname) in enumerate(groups[:POINT][Vector{String}, :LABELS][1:numpts])
             if strip_prefixes
                 m = match(rgx, ptname)
-                @show m
                 if !isnothing(m) && !isnothing(m[:label])
                     ptname = m[:label]
                 end
