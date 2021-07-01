@@ -6,9 +6,11 @@ version = "0.7.0"
 [deps]
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 VaxData = "a6f58a78-e649-57e2-81bc-1d865c7b74f7"
 
 [compat]
+Requires = "1"
 VaxData = "0.5,0.6"
 julia = "1.6"
 
