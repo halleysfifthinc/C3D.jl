@@ -32,6 +32,22 @@ function writetrc(filename::String, f::C3DFile;
     lab_orientation::AbstractMatrix{T}=eye3,
     virtual_markers::Dict{String,Matrix{U}}=Dict{String,Matrix{Float32}}()
 ) where {T,U}
+    open(filename, "w") do io
+        writetrc(io, f; delim, precision, strip_prefixes, remove_unlabeled_markers, subject,
+            prefixes, lab_orientation, virtual_markers)
+    end
+end
+
+function writetrc(io, f::C3DFile;
+    delim::Char='\t',
+    precision::Int=6,
+    strip_prefixes::Bool=true,
+    remove_unlabeled_markers::Bool=true,
+    subject::String="",
+    prefixes::Vector{String}=[subject],
+    lab_orientation::AbstractMatrix{T}=eye3,
+    virtual_markers::Dict{String,Matrix{U}}=Dict{String,Matrix{Float32}}()
+) where {T,U}
     if subject !== ""
         if haskey(f.groups, :SUBJECTS)
             any(subject .== f.groups[:SUBJECTS][Vector{String}, :NAMES]) || throw(ArgumentError("subject $subject does not exist in $f.groups[:SUBJECTS]"))
@@ -40,7 +56,6 @@ function writetrc(filename::String, f::C3DFile;
         end
     end
 
-    io = IOBuffer()
     len = (f.groups[:POINT][Int, :FRAMES] == typemax(UInt16)) ?
         f.groups[:POINT][Int, :LONG_FRAMES] : f.groups[:POINT][Int, :FRAMES]
     period = inv(f.groups[:POINT][Float64, :RATE])
@@ -95,7 +110,7 @@ function writetrc(filename::String, f::C3DFile;
     mkrnames_stripped = mkrnames_stripped[ord]
 
     # Header
-    line1 = ["PathFileType", "4", "(X/Y/Z)", basename(filename)*'\n']
+    line1 = ["PathFileType", "4", "(X/Y/Z)", basename(f.name)*'\n']
     line2 = ["DataRate", "CameraRate", "NumFrames", "NumMarkers", "Units", "OrigDataRate",
              "OrigDataStartFrame", "OrigNumFrames\n"]
     join(io, line1, delim)
@@ -154,10 +169,6 @@ function writetrc(filename::String, f::C3DFile;
 
     writedlm(io, data, delim)
 
-    open(filename, "w") do fio
-        write(fio, take!(io))
-    end
-
-    return filename
+    return nothing
 end
 
