@@ -12,6 +12,17 @@ struct Group
     params::Dict{Symbol,Parameter}
 end
 
+function typedindex(g::Group, ::Type{Vector{T}}, k) where T
+    local r::Vector{T}
+    if typeof(getindex(g.params, k).payload.data) <: Vector
+        r = getindex(g.params, k).payload.data
+    else
+        r = T[getindex(g.params, k).payload.data]
+    end
+
+    return r
+end
+
 function typedindex(g::Group, ::Type{T}, k) where T
     r::T = getindex(g.params, k).payload.data
     return r
