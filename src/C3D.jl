@@ -1,6 +1,6 @@
 module C3D
 
-using Requires, VaxData
+using VaxData
 
 @enum Endian LE=1 BE=2
 
@@ -381,10 +381,6 @@ function _readparams(fn::String, io::IOStream)
     end
 
     return (groups, header, FEND, FType)
-end
-
-function __init__()
-    @require DatasetManager="2ca6b172-e30b-458d-964f-9c975788bc07" include("dataset-source.jl")
 end
 
 end # module
