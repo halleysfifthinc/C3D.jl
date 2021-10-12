@@ -32,6 +32,14 @@ function Base.getindex(g::Group, ::Type{T}, k::Symbol) where T
     return typedindex(g, T, k)
 end
 
+Base.haskey(g::Group, key) = haskey(g.params, key)
+
+# TODO: Add get! method?
+function Base.get(g::Group, key, default)
+    _key = key isa Tuple ? last(key) : key
+    return haskey(g.params, _key) ? g[key] : default
+end
+
 function Base.getindex(g::Group, k::Symbol)
     return getindex(g.params, k).payload.data
 end

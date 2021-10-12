@@ -24,6 +24,7 @@ Write the C3DFile `f` to a .trc format at `filename`.
 """
 function writetrc(filename::String, f::C3DFile;
     delim::Char='\t',
+    # TODO: Add units kwarg and predicate precision on units
     precision::Int=6,
     strip_prefixes::Bool=true,
     remove_unlabeled_markers::Bool=true,
@@ -67,7 +68,12 @@ function writetrc(io, f::C3DFile;
     end
 
     if strip_prefixes
-        if haskey(f.groups, :SUBJECTS) && f.groups[:SUBJECTS][Int, :USES_PREFIXES] == 1
+        # Assume that LABEL_PREFIXES are used if present despite absence of USES_PREFIXES
+        # prompted by a c3d file from OptiTrack Motive 2.2.0
+        if haskey(f.groups, :SUBJECTS) && ((haskey(f.groups[:SUBJECTS], :USES_PREFIXES) &&
+            f.groups[:SUBJECTS][Int, :USES_PREFIXES] == 1) ||
+            (!haskey(f.groups[:SUBJECTS], :USES_PREFIXES) &&
+            haskey(f.groups[:SUBJECTS], :LABEL_PREFIXES)))
             if subject !== ""
                 subi = findfirst(==(subject), f.groups[:SUBJECTS][Vector{String}, :NAMES])
                 r = Regex("("*f.groups[:SUBJECTS][Vector{String}, :LABEL_PREFIXES][subi] *
