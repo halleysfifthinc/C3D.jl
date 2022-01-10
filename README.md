@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/halleysfifthinc/C3D.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/halleysfifthinc/C3D.jl/actions/workflows/CI.yml)
 [![codecov](https://codecov.io/gh/halleysfifthinc/C3D.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/halleysfifthinc/C3D.jl)
-![Maintenance](https://img.shields.io/maintenance/yes/2021)
+![Maintenance](https://img.shields.io/maintenance/yes/2022)
 
 C3D is the standard file format for data gathered using various systems (motion capture, force plate data, EMG, etc). The goal of this package is to offer full coverage of the C3D [file spec](https://www.c3d.org), as well as compatibility with files from major C3D compatible programs (Vicon Nexus, etc.).
 
