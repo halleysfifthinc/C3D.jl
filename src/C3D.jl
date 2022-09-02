@@ -4,8 +4,7 @@ using VaxData, SnoopPrecompile
 
 @enum Endian LE=1 BE=2
 
-export readc3d,
-       writetrc
+export readc3d, numpointframes, numanalogframes, writetrc
 
 export C3DFile
 
@@ -77,13 +76,38 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
     return C3DFile(name, header, groups, fpoint, fresiduals, fanalog)
 end
 
+numpointframes(f::C3DFile) = numpointframes(f.groups)
+
+function numpointframes(groups::Dict{Symbol,Group})::Int
+    numframes::Int = groups[:POINT][Int, :FRAMES]
+    if haskey(groups[:POINT].params, :LONG_FRAMES)
+        pointlongframes = convert(Int, groups[:POINT][Float32, :LONG_FRAMES])
+        if numframes ≤ typemax(UInt16) && numframes != pointlongframes
+            @debug "$f may be misformatted. POINT:FRAMES != POINT:LONG_FRAMES"
+        end
+        numframes = pointlongframes
+    end
+    if haskey(groups, :TRIAL) && haskey(groups[:TRIAL].params, :ACTUAL_START_FIELD) &&
+        haskey(groups[:TRIAL].params, :ACTUAL_END_FIELD)
+        trial_startend_field = only(reinterpret(Int32, groups[:TRIAL][Vector{Int16}, :ACTUAL_END_FIELD])) - only(reinterpret(Int32, groups[:TRIAL][Vector{Int16}, :ACTUAL_START_FIELD])) + 1
+        if numframes ≤ typemax(UInt16) && numframes != trial_startend_field
+            @debug "$f may be misformatted. POINT:FRAMES != POINT:LONG_FRAMES"
+        end
+        numframes = trial_startend_field
+    end
+    return numframes
+end
+
+function numanalogframes(f::C3DFile)
+    aspf = convert(Int, f.groups[:ANALOG][Float32, :RATE]/f.groups[:POINT][Float32, :RATE])
+    return numpointframes*aspf
+end
+
 function Base.show(io::IO, f::C3DFile)
     if get(io, :compact, true)
         print(io, "C3DFile(\"", f.name, "\")")
     else
-        length = (f.groups[:POINT][Int, :FRAMES] == typemax(UInt16)) ?
-            f.groups[:POINT][Int, :LONG_FRAMES] :
-            f.groups[:POINT][Int, :FRAMES]
+        length = numpointframes(f)/f.groups[:POINT][Float32, :RATE]
 
         print(io, "C3DFile(\"", f.name, "\", ",
               length, "sec, ",
@@ -103,10 +127,7 @@ function readdata(io::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType:
 
     # Read data in a transposed structure for better read/write speeds due to Julia being
     # column-order arrays
-    numframes::Int = groups[:POINT][Int, :FRAMES]
-    if numframes == typemax(UInt16) && haskey(groups, :TRIAL) && haskey(groups[:TRIAL][:params], :ACTUAL_END_FIELD)
-        numframes = only(reinterpret(Int32, groups[:TRIAL][Vector{Int16}, :ACTUAL_END_FIELD]))
-    end
+    numframes = numpointframes(groups)
     nummarkers = groups[:POINT][Int, :USED]
     hasmarkers = !iszero(nummarkers)
     if hasmarkers

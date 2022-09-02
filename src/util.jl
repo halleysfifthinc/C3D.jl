@@ -57,8 +57,7 @@ function writetrc(io, f::C3DFile;
         end
     end
 
-    len = (f.groups[:POINT][Int, :FRAMES] == typemax(UInt16)) ?
-        f.groups[:POINT][Int, :LONG_FRAMES] : f.groups[:POINT][Int, :FRAMES]
+    len = numpointframes(f)
     period = inv(f.groups[:POINT][Float64, :RATE])
 
     mkrnames = collect(keys(f.point))
