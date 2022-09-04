@@ -1,7 +1,23 @@
 @testset "Groups validation" begin
-    using C3D: validatec3d, MissingParametersError
+    using C3D: validatec3d, MissingParametersError, MissingGroupsError
     f = readc3d(joinpath(datadir, "sample01/Eb015pr.c3d"))
     header, groups = f.header, f.groups
+
+    @testset "Custom errors" begin
+        @test_nowarn MissingGroupsError(:hello)
+        @test_nowarn MissingGroupsError((:hello,:world))
+        @test_nowarn MissingGroupsError([:hello,:world])
+
+        @test sprint(showerror, MissingGroupsError(:POINT)) ==
+            "Required group(s) :POINT are missing"
+
+        @test_nowarn MissingParametersError(:POINT, :USED)
+        @test_nowarn MissingParametersError(:POINT, (:hello,:world))
+        @test_nowarn MissingParametersError(:POINT, [:hello,:world])
+
+        @test sprint(showerror, MissingParametersError(:POINT, :USED)) ==
+            "Group :POINT is missing required parameter(s) :USED"
+    end
 
     @testset "Missing parameters" begin
         bad_groups = deepcopy(groups)

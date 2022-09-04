@@ -1,5 +1,18 @@
 struct ValidateError <: Exception end
 
+struct MissingGroupsError <: Exception
+    groups::Vector{Symbol}
+end
+
+MissingGroupsError(group::Symbol) = MissingGroupsError([group])
+MissingGroupsError(groups::NTuple{N,Symbol}) where N = MissingGroupsError(collect(groups))
+
+function Base.showerror(io::IO, err::MissingGroupsError)
+    print(io, "Required group(s) :")
+    join(io, err.groups, ", :")
+    print(io, " are missing")
+end
+
 struct MissingParametersError <: Exception
     group::Symbol
     parameters::Vector{Symbol}
@@ -9,8 +22,8 @@ MissingParametersError(group, parameter::Symbol) = MissingParametersError(group,
 MissingParametersError(group, parameter::NTuple{N,Symbol}) where N = MissingParametersError(group, collect(parameter))
 
 function Base.showerror(io::IO, err::MissingParametersError)
-    print(io, "Group $(err.group) is missing required parameter(s) ")
-    join(io, err.parameters, ',')
+    print(io, "Group :$(err.group) is missing required parameter(s) :")
+    join(io, err.parameters, ", :")
 end
 
 const rgroups = (:POINT, :ANALOG)
@@ -44,12 +57,7 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
                 ScalarParameter(zero(Int16)))
         else
             d = setdiff(rgroups, keys(groups))
-            msg = "Required group(s)"
-            for p in d
-                msg *= " :"*string(p)
-            end
-            msg *= " are missing"
-            throw(ErrorException(msg))
+            throw(MissingGroupsError(d))
         end
     end
 
