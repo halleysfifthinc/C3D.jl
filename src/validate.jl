@@ -77,7 +77,7 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
         end
 
         if !(descriptives ⊆ pointkeys) # Check that the descriptive parameters exist
-            if !haskey(groups[:POINT].params, :LABELS)
+            if !haskey(groups[:POINT], :LABELS)
                 # While the C3D file can technically be read in the absence of a LABELS
                 # parameter, this implementation requires LABELS (for indexing)
                 @debug ":POINT is missing parameter :LABELS"
@@ -85,9 +85,9 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
                 groups[:POINT].params[:LABELS] = Parameter(0, Int8(0), false,
                     abs(groups[:POINT].gid), "LABELS", :LABELS, Int16(0), UInt8(13),
                     "Marker labels", StringParameter(labels))
-            elseif !haskey(groups[:POINT].params, :DESCRIPTIONS)
+            elseif !haskey(groups[:POINT], :DESCRIPTIONS)
                 @debug ":POINT is missing parameter :DESCRIPTIONS"
-            elseif !haskey(groups[:POINT].params, :UNITS)
+            elseif !haskey(groups[:POINT], :UNITS)
                 @debug ":POINT is missing parameter :UNITS"
             end
         elseif groups[:POINT].params[:LABELS] isa Parameter{ScalarParameter}
@@ -102,7 +102,7 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
             i = 2
             while length(POINT_LABELS) < POINT_USED
                 # Check for the existence of a runoff labels group
-                if haskey(groups[:POINT].params, Symbol("LABEL",i))
+                if haskey(groups[:POINT], Symbol("LABEL",i))
                     append!(POINT_LABELS, groups[:POINT][Vector{String}, Symbol("LABEL",i)])
                     i += 1
                 else
@@ -139,7 +139,7 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
 
     # Validate the :ANALOG group
     analogkeys = keys(groups[:ANALOG].params)
-    if !haskey(groups[:ANALOG].params, :USED)
+    if !haskey(groups[:ANALOG], :USED)
         msg = ":ANALOG is missing required parameter :USED"
         throw(ErrorException(msg))
     end
@@ -166,15 +166,15 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
                 throw(ErrorException(msg))
             end
         elseif !(descriptives ⊆ analogkeys) # Check that the descriptive parameters exist
-            if !haskey(groups[:ANALOG].params, :LABELS)
+            if !haskey(groups[:ANALOG], :LABELS)
                 @debug ":ANALOG is missing parameter :LABELS"
                 labels = [ "A"*string(i, pad=3) for i in 1:ANALOG_USED ]
                 groups[:ANALOG].params[:LABELS] = Parameter{StringParameter}(0, Int8(0),
                     false, abs(groups[:ANALOG].gid), "LABELS", :LABELS, Int16(0), UInt8(14),
                     "Channel labels", StringParameter(labels))
-            elseif !haskey(groups[:ANALOG].params, :DESCRIPTIONS)
+            elseif !haskey(groups[:ANALOG], :DESCRIPTIONS)
                 @debug ":ANALOG is missing parameter :DESCRIPTIONS"
-            elseif !haskey(groups[:ANALOG].params, :UNITS)
+            elseif !haskey(groups[:ANALOG], :UNITS)
                 @debug ":ANALOG is missing parameter :UNITS"
             end
         elseif groups[:ANALOG].params[:LABELS] isa ScalarParameter
@@ -199,7 +199,7 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
            length(ANALOG_LABELS) < ANALOG_USED # Some markers don't have labels
             i = 2
             while length(ANALOG_LABELS) < ANALOG_USED
-                if haskey(groups[:ANALOG].params, Symbol("LABEL",i)) # Check for the existence of a runoff labels group
+                if haskey(groups[:ANALOG], Symbol("LABEL",i)) # Check for the existence of a runoff labels group
                     append!(ANALOG_LABELS, groups[:ANALOG][Vector{String}, Symbol("LABEL",i)])
                     i += 1
                 else

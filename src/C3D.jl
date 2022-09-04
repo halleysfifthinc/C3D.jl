@@ -80,15 +80,15 @@ numpointframes(f::C3DFile) = numpointframes(f.groups)
 
 function numpointframes(groups::Dict{Symbol,Group})::Int
     numframes::Int = groups[:POINT][Int, :FRAMES]
-    if haskey(groups[:POINT].params, :LONG_FRAMES)
+    if haskey(groups[:POINT], :LONG_FRAMES)
         pointlongframes = convert(Int, groups[:POINT][Float32, :LONG_FRAMES])
         if numframes ≤ typemax(UInt16) && numframes != pointlongframes
             @debug "$f may be misformatted. POINT:FRAMES != POINT:LONG_FRAMES"
         end
         numframes = pointlongframes
     end
-    if haskey(groups, :TRIAL) && haskey(groups[:TRIAL].params, :ACTUAL_START_FIELD) &&
-        haskey(groups[:TRIAL].params, :ACTUAL_END_FIELD)
+    if haskey(groups, :TRIAL) && haskey(groups[:TRIAL], :ACTUAL_START_FIELD) &&
+        haskey(groups[:TRIAL], :ACTUAL_END_FIELD)
         trial_startend_field = only(reinterpret(Int32, groups[:TRIAL][Vector{Int16}, :ACTUAL_END_FIELD])) - only(reinterpret(Int32, groups[:TRIAL][Vector{Int16}, :ACTUAL_START_FIELD])) + 1
         if numframes ≤ typemax(UInt16) && numframes != trial_startend_field
             @debug "$f may be misformatted. POINT:FRAMES != POINT:LONG_FRAMES"
