@@ -4,6 +4,7 @@ cd(@__DIR__)
 datadir = joinpath("..", "data")
 
 include("identical.jl")
+include("validate.jl")
 include("bigdata.jl")
 include("singledata.jl")
 include("invalid.jl")

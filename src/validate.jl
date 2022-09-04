@@ -1,5 +1,18 @@
 struct ValidateError <: Exception end
 
+struct MissingParametersError <: Exception
+    group::Symbol
+    parameters::Vector{Symbol}
+end
+
+MissingParametersError(group, parameter::Symbol) = MissingParametersError(group, [parameter])
+MissingParametersError(group, parameter::NTuple{N,Symbol}) where N = MissingParametersError(group, collect(parameter))
+
+function Base.showerror(io::IO, err::MissingParametersError)
+    print(io, "Group $(err.group) is missing required parameter(s) ")
+    join(io, err.parameters, ',')
+end
+
 const rgroups = (:POINT, :ANALOG)
 
 const descriptives = (:LABELS, :DESCRIPTIONS, :UNITS)
@@ -45,11 +58,7 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
     if !(rpoint ⊆ pointkeys)
         # The minimum set of parameters in :POINT is rpoint
         d = setdiff(rpoint, pointkeys)
-        msg = ":POINT is missing required parameter(s)"
-        for p in d
-            msg *= " :"*string(p)
-        end
-        throw(ErrorException(msg))
+        throw(MissingParametersError(:POINT, d))
     end
 
     # Fix the sign for any point parameters that are likely to need it
@@ -57,6 +66,12 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
         if any(signbit, groups[group].params[param].payload.data)
             groups[group].params[param] = unsigned(groups[group].params[param])
         end
+    end
+
+    # Validate the :ANALOG group
+    analogkeys = keys(groups[:ANALOG].params)
+    if !haskey(groups[:ANALOG], :USED)
+        throw(MissingParametersError(:ANALOG, :USED))
     end
 
     POINT_USED = groups[:POINT][Int, :USED]
@@ -67,12 +82,8 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
             if !(:RATE ∈ pointkeys) && ANALOG_USED == 0
                 # If there is no analog data, POINT:RATE isn't technically required
             else
-                d = setdiff(rpoint, pointkeys)
-                msg = ":POINT is missing required parameter(s)"
-                for p in d
-                    msg *= " :"*string(p)
-                end
-                throw(ErrorException(msg))
+                d = setdiff(ratescale, pointkeys)
+                throw(MissingParametersError(:POINT, d))
             end
         end
 
@@ -137,13 +148,7 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
         end
     end # End validate :POINT
 
-    # Validate the :ANALOG group
-    analogkeys = keys(groups[:ANALOG].params)
-    if !haskey(groups[:ANALOG], :USED)
-        msg = ":ANALOG is missing required parameter :USED"
-        throw(ErrorException(msg))
-    end
-
+    # Further validate the :ANALOG group
     if signbit(ANALOG_USED)
         groups[:ANALOG].params[:USED] = unsigned(groups[:ANALOG].params[:USED])
     end
@@ -159,11 +164,7 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
                 @goto analogkeychanged # OFFSETS might not be the only missing parameter
             else
                 d = setdiff(ranalog, analogkeys)
-                msg = ":ANALOG is missing required parameter(s)"
-                for p in d
-                    msg *= " :"*string(p)
-                end
-                throw(ErrorException(msg))
+                throw(MissingParametersError(:ANALOG, d))
             end
         elseif !(descriptives ⊆ analogkeys) # Check that the descriptive parameters exist
             if !haskey(groups[:ANALOG], :LABELS)
