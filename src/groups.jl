@@ -12,24 +12,28 @@ struct Group
     params::Dict{Symbol,Parameter}
 end
 
+function Base.getindex(g::Group, k::Symbol)
+    return getindex(g.params, k).payload.data
+end
+
+function Base.getindex(g::Group, ::Type{T}, k::Symbol) where T
+    return typedindex(g, T, k)
+end
+
 function typedindex(g::Group, ::Type{Vector{T}}, k) where T
     local r::Vector{T}
-    if typeof(getindex(g.params, k).payload.data) <: Vector
-        r = getindex(g.params, k).payload.data
+    if typeof(g[k]) <: Vector
+        r = g[k]
     else
-        r = T[getindex(g.params, k).payload.data]
+        r = T[g[k]]
     end
 
     return r
 end
 
 function typedindex(g::Group, ::Type{T}, k) where T
-    r::T = getindex(g.params, k).payload.data
+    r::T = g[k]
     return r
-end
-
-function Base.getindex(g::Group, ::Type{T}, k::Symbol) where T
-    return typedindex(g, T, k)
 end
 
 Base.haskey(g::Group, key) = haskey(g.params, key)
@@ -37,11 +41,7 @@ Base.haskey(g::Group, key) = haskey(g.params, key)
 # TODO: Add get! method?
 function Base.get(g::Group, key, default)
     _key = key isa Tuple ? last(key) : key
-    return haskey(g.params, _key) ? g[key] : default
-end
-
-function Base.getindex(g::Group, k::Symbol)
-    return getindex(g.params, k).payload.data
+    return haskey(g, _key) ? g[key] : default
 end
 
 Base.show(io::IO, g::Group) = show(io, keys(g.params))
