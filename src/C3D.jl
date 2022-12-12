@@ -33,6 +33,7 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
 
     l = size(point, 1)
     allpoints = 1:l
+    numpts = groups[:POINT][Int, :USED]
 
     if strip_prefixes
         if haskey(groups, :SUBJECTS) && groups[:SUBJECTS][Int, :USES_PREFIXES] == 1
@@ -41,9 +42,11 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
         else
             rgx = r":(?<label>\w*)"
         end
+        allunique(map(x -> something(something(match(rgx, x), (;label=nothing))[:label], x),
+            groups[:POINT][Vector{String}, :LABELS][1:numpts])) ||
+            throw(ArgumentError("marker names would not be unique after removing subject prefixes"))
     end
 
-    numpts = groups[:POINT][Int, :USED]
     if !iszero(numpts)
         for (idx, ptname) in enumerate(groups[:POINT][Vector{String}, :LABELS][1:numpts])
             if strip_prefixes
