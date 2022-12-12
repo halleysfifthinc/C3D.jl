@@ -1,5 +1,6 @@
 [sample00]
 git-tree-sha1 = "9ee4cc5fb83d147164fa5c6010f73921ffea2009"
+lazy = true
 
     [[sample00.download]]
     sha256 = "01b86aefe9acd9992ab77e90772deed7fe5ea5e68947422a5afd7ff12304bcb0"
@@ -7,6 +8,7 @@ git-tree-sha1 = "9ee4cc5fb83d147164fa5c6010f73921ffea2009"
 
 [sample01]
 git-tree-sha1 = "318c299a26ba07c015fa86768512b677fbb7e64c"
+lazy = true
 
     [[sample01.download]]
     sha256 = "34f73835bf49b7184d02232acd39e8151e1c5ab112edd6d1f4b7f39aeba124b8"
@@ -14,6 +16,7 @@ git-tree-sha1 = "318c299a26ba07c015fa86768512b677fbb7e64c"
 
 [sample02]
 git-tree-sha1 = "cbc63ac38bd3fbf575f72b91fe48771ef2b756b9"
+lazy = true
 
     [[sample02.download]]
     sha256 = "160c3d48b3b545c588af1ef282c851cd00bc4e9d1ee58585909770c9477392be"
@@ -21,6 +24,7 @@ git-tree-sha1 = "cbc63ac38bd3fbf575f72b91fe48771ef2b756b9"
 
 [sample03]
 git-tree-sha1 = "2c4ef35a876b0cd162b3fd3998432e14a03b6add"
+lazy = true
 
     [[sample03.download]]
     sha256 = "b58ec3c2f93cce267175a990000e076c1327bb30f33564144fffcf62604829d6"
@@ -28,6 +32,7 @@ git-tree-sha1 = "2c4ef35a876b0cd162b3fd3998432e14a03b6add"
 
 [sample04]
 git-tree-sha1 = "17f73bd7fa66fa2d604ca26f1b46af46f112c80d"
+lazy = true
 
     [[sample04.download]]
     sha256 = "1339ee95eb5cb27174e323eb4f507d49a216b53cc0980e4917a94ef10649077c"
@@ -35,6 +40,7 @@ git-tree-sha1 = "17f73bd7fa66fa2d604ca26f1b46af46f112c80d"
 
 [sample05]
 git-tree-sha1 = "1751b2ec015200deaa60f4145299be8e7cdd57b7"
+lazy = true
 
     [[sample05.download]]
     sha256 = "7b95b7e80bd9d414b418aaaf7b142ae25b2a25fc1a122d41edb9fa2607b3302d"
@@ -42,6 +48,7 @@ git-tree-sha1 = "1751b2ec015200deaa60f4145299be8e7cdd57b7"
 
 [sample06]
 git-tree-sha1 = "5050ce501801bf6de9d4e48b923b191c3d200990"
+lazy = true
 
     [[sample06.download]]
     sha256 = "a360fbe2db5ac335c12e1bdadca3123269eeee16edf16814757af866b46973e4"
@@ -49,6 +56,7 @@ git-tree-sha1 = "5050ce501801bf6de9d4e48b923b191c3d200990"
 
 [sample07]
 git-tree-sha1 = "cfc751e97aa1e55db2a5a7eb2e023e2dac366cb7"
+lazy = true
 
     [[sample07.download]]
     sha256 = "967004ca646d1d438f02319283b1a7d25b95f4d6b186536f2ee0953569a1f1a8"
@@ -56,6 +64,7 @@ git-tree-sha1 = "cfc751e97aa1e55db2a5a7eb2e023e2dac366cb7"
 
 [sample08]
 git-tree-sha1 = "cf5bdbd2576883cf98b73953d91480d3d18f3af2"
+lazy = true
 
     [[sample08.download]]
     sha256 = "d56ba68f8ff5fe84f7e9d2080722383f42f9712557f93df846beb90405956d00"
@@ -63,6 +72,7 @@ git-tree-sha1 = "cf5bdbd2576883cf98b73953d91480d3d18f3af2"
 
 [sample09]
 git-tree-sha1 = "baba8ef91e981983cd3dc3f0c6782ea8bf7aefa3"
+lazy = true
 
     [[sample09.download]]
     sha256 = "d3be9679648f97ef887a3b81251d507c99ad0969b66c494697c3cbc442412b36"
@@ -70,6 +80,7 @@ git-tree-sha1 = "baba8ef91e981983cd3dc3f0c6782ea8bf7aefa3"
 
 [sample10]
 git-tree-sha1 = "49816a7a241bdd07ce7b051b0ce169686bd791e7"
+lazy = true
 
     [[sample10.download]]
     sha256 = "c9e5961f35367f9bc7895b47d199bf5b7f063182d525aaab876d8312a7e6f65a"
@@ -77,6 +88,7 @@ git-tree-sha1 = "49816a7a241bdd07ce7b051b0ce169686bd791e7"
 
 [sample11]
 git-tree-sha1 = "0916671fc4db816f374d1468daeeeedad25944ea"
+lazy = true
 
     [[sample11.download]]
     sha256 = "6f46b446a3f95b931731ac42d7befe6ba7d48074cd60f675e120a42033d646bc"
@@ -84,6 +96,7 @@ git-tree-sha1 = "0916671fc4db816f374d1468daeeeedad25944ea"
 
 [sample12]
 git-tree-sha1 = "c1a46fe3c4f5aeae13b05705441a636403abce43"
+lazy = true
 
     [[sample12.download]]
     sha256 = "04c0b3f9d361f91185b2b863692fdb27dca74cfdcc3b3f384c87ddb7bdaa8008"
@@ -91,6 +104,7 @@ git-tree-sha1 = "c1a46fe3c4f5aeae13b05705441a636403abce43"
 
 [sample13]
 git-tree-sha1 = "aae22ee86d52fff7d3f9b2083bc11c7f04b2ee57"
+lazy = true
 
     [[sample13.download]]
     sha256 = "ea7ea9b52422dd9e0db7d1e9cd8b8c08c2ac814078cf5a9aa3d07cb644a3ac2c"
@@ -98,6 +112,7 @@ git-tree-sha1 = "aae22ee86d52fff7d3f9b2083bc11c7f04b2ee57"
 
 [sample14]
 git-tree-sha1 = "b967e3807b69a8a9fbf3907cd22b3159ebfe99d0"
+lazy = true
 
     [[sample14.download]]
     sha256 = "f358dccee96207944653d965397fda4fd5bb181dcb5770d5b04232f62d714a89"
@@ -105,6 +120,7 @@ git-tree-sha1 = "b967e3807b69a8a9fbf3907cd22b3159ebfe99d0"
 
 [sample15]
 git-tree-sha1 = "d2655310c2eb12b8eb8a8e18478957a3a0ffc17c"
+lazy = true
 
     [[sample15.download]]
     sha256 = "b148d6e0b66585ab7e6e818d22908bcc70ad68d9bbd62431c519e30646e8f579"
@@ -112,6 +128,7 @@ git-tree-sha1 = "d2655310c2eb12b8eb8a8e18478957a3a0ffc17c"
 
 [sample16]
 git-tree-sha1 = "042cc43a45ace35e97473c6cf0d08e25f1c73fcb"
+lazy = true
 
     [[sample16.download]]
     sha256 = "30855e0ef15c8df304c8174bdc4c58acd2fed24bfd0c76d80396f0cf0b04a1b3"
@@ -119,6 +136,7 @@ git-tree-sha1 = "042cc43a45ace35e97473c6cf0d08e25f1c73fcb"
 
 [sample17]
 git-tree-sha1 = "6057753529bf1389fa71ed0047c12a0ac5dece6f"
+lazy = true
 
     [[sample17.download]]
     sha256 = "70bc176e90facbf7029be5d8285f9110065238e6addda194b8146d41ddcf2cd4"
@@ -126,6 +144,7 @@ git-tree-sha1 = "6057753529bf1389fa71ed0047c12a0ac5dece6f"
 
 [sample18]
 git-tree-sha1 = "4f69a21e6a78cf95a5ad5a0c7642025414c0621d"
+lazy = true
 
     [[sample18.download]]
     sha256 = "6eab28af39ab9fbc6ee517ab79c805dca94538658105c0ef85f8897dc91d5adc"
@@ -133,6 +152,7 @@ git-tree-sha1 = "4f69a21e6a78cf95a5ad5a0c7642025414c0621d"
 
 [sample19]
 git-tree-sha1 = "e5641f2acbf3259dba8ed2651178986caa1f435d"
+lazy = true
 
     [[sample19.download]]
     sha256 = "15f087de1f3cbe31f9cab172711751835ef067a006ea765ab1c39c28dd69cc2c"
@@ -140,6 +160,7 @@ git-tree-sha1 = "e5641f2acbf3259dba8ed2651178986caa1f435d"
 
 [sample20]
 git-tree-sha1 = "351640d8dbd1b6381e5a323194dc3a76ab193375"
+lazy = true
 
     [[sample20.download]]
     sha256 = "32048d6929d837d8fabd5d714a80b1e18e277796cff93f3c8c85df1f30a17233"
@@ -147,6 +168,7 @@ git-tree-sha1 = "351640d8dbd1b6381e5a323194dc3a76ab193375"
 
 [sample21]
 git-tree-sha1 = "ff2db1facb6a3a9407c85d3e26d28b6adc84a651"
+lazy = true
 
     [[sample21.download]]
     sha256 = "77e36d3c7b1749f5caa0e1329ec467944a51edd9ac6241af4d5e598b4a3547a8"
@@ -154,6 +176,7 @@ git-tree-sha1 = "ff2db1facb6a3a9407c85d3e26d28b6adc84a651"
 
 [sample22]
 git-tree-sha1 = "948acd2d3661b2997815be688e2ad677315b2156"
+lazy = true
 
     [[sample22.download]]
     sha256 = "d0de016c98550b0e327a2fb40a8b0fa89a2b0d50df4cae81d621c19e73178c65"
@@ -161,6 +184,7 @@ git-tree-sha1 = "948acd2d3661b2997815be688e2ad677315b2156"
 
 [sample23]
 git-tree-sha1 = "5dacd14f490fae7288e26e9d19112af88650b703"
+lazy = true
 
     [[sample23.download]]
     sha256 = "a37517755f42a9ba35056112ea45365cf880141b0ec6fe507c397411f77aeaaf"
@@ -168,6 +192,7 @@ git-tree-sha1 = "5dacd14f490fae7288e26e9d19112af88650b703"
 
 [sample24]
 git-tree-sha1 = "ebe7b8a8f37849f0a7f75526cc6f59ae5862d2d6"
+lazy = true
 
     [[sample24.download]]
     sha256 = "692d59ce0fc1a53d4d990928ad08ecbf61199b6379ef19d7d4914d84c09cf311"
@@ -175,6 +200,7 @@ git-tree-sha1 = "ebe7b8a8f37849f0a7f75526cc6f59ae5862d2d6"
 
 [sample25]
 git-tree-sha1 = "26cacf264930196d0f73648b35e96da63dcbac09"
+lazy = true
 
     [[sample25.download]]
     sha256 = "2c32bcdfdae2c536fb68e2f4a49a0e63fab25a70a8e73deb4092fa4aeaf290a7"
@@ -182,6 +208,7 @@ git-tree-sha1 = "26cacf264930196d0f73648b35e96da63dcbac09"
 
 [sample26]
 git-tree-sha1 = "2c09e20554c8099ecd3598dbff125c549bd95cf5"
+lazy = true
 
     [[sample26.download]]
     sha256 = "b3a528300b20471155c8d8052df82b2a3d73a1945c1d0555c1f9ed2a1fe616f6"
@@ -189,6 +216,7 @@ git-tree-sha1 = "2c09e20554c8099ecd3598dbff125c549bd95cf5"
 
 [sample27]
 git-tree-sha1 = "fb365a541944c0162144f87587ca6dad1c913ed9"
+lazy = true
 
     [[sample27.download]]
     sha256 = "61d97d7b58041ef17e04ecfeb2e79dc47ae1b85f070a36b77d1a5c39ee79b2c9"
@@ -196,6 +224,7 @@ git-tree-sha1 = "fb365a541944c0162144f87587ca6dad1c913ed9"
 
 [sample28]
 git-tree-sha1 = "a3366f64f71bf691589474a932d32a3946a360e3"
+lazy = true
 
     [[sample28.download]]
     sha256 = "cd98d8c05e78afdc279bb4206b4597fdeeebf709d7815f527cc1bd1b45b42600"
@@ -203,6 +232,7 @@ git-tree-sha1 = "a3366f64f71bf691589474a932d32a3946a360e3"
 
 [sample29]
 git-tree-sha1 = "9c8c85b79bf5120c0c06a06e5f9bc3cd80e618fb"
+lazy = true
 
     [[sample29.download]]
     sha256 = "289a9fefbd45ee835ac5a981494f300c38fe69e483e2c9be10d6033139a34b70"
@@ -210,6 +240,7 @@ git-tree-sha1 = "9c8c85b79bf5120c0c06a06e5f9bc3cd80e618fb"
 
 [sample30]
 git-tree-sha1 = "a3662b8590f861b064fb576afccd436b25ee329d"
+lazy = true
 
     [[sample30.download]]
     sha256 = "63870c8e83624fc411aca7d7f81d0dc711cda70a35538560a046e32c1982d39c"
@@ -217,6 +248,7 @@ git-tree-sha1 = "a3662b8590f861b064fb576afccd436b25ee329d"
 
 [sample31]
 git-tree-sha1 = "a8fbd5b4016dc0b4440a1a65fb02c45080a6ecc3"
+lazy = true
 
     [[sample31.download]]
     sha256 = "a7f9fb218e7b66e32aef8a90ac9a0a452eb56111bbee06481615839641aba93b"
@@ -224,6 +256,7 @@ git-tree-sha1 = "a8fbd5b4016dc0b4440a1a65fb02c45080a6ecc3"
 
 [sample32]
 git-tree-sha1 = "c8fc43afa3353d909acb646f7366d3efb4225d55"
+lazy = true
 
     [[sample32.download]]
     sha256 = "a064798ed56e7f00584b09ea035273194eb0987961842dd2a46d73346818236c"
@@ -231,6 +264,7 @@ git-tree-sha1 = "c8fc43afa3353d909acb646f7366d3efb4225d55"
 
 [sample33]
 git-tree-sha1 = "72187bf3fe60f3b42a779cb9474a257dfb1b55dc"
+lazy = true
 
     [[sample33.download]]
     sha256 = "8d8939a332fb84cdcf71b14ccedb6d4fc01a83bc22ec85fbc3979812ccfdd927"
@@ -238,6 +272,7 @@ git-tree-sha1 = "72187bf3fe60f3b42a779cb9474a257dfb1b55dc"
 
 [sample34]
 git-tree-sha1 = "c92239836ecc1f5de9639db695148a89c73d8440"
+lazy = true
 
     [[sample34.download]]
     sha256 = "007020bbcfc06cb4431897dd8cd108d5f889e859b10a9dcdfc9bc6e9abbdb8b6"
@@ -245,6 +280,7 @@ git-tree-sha1 = "c92239836ecc1f5de9639db695148a89c73d8440"
 
 [sample35]
 git-tree-sha1 = "07c625178514cb6476f5d9c0415c18422e7313db"
+lazy = true
 
     [[sample35.download]]
     sha256 = "418ee5ceb7c15830c4a5555f02a7d9f142f7e1740a1b719d8bb7c70a0f31353d"
@@ -252,6 +288,7 @@ git-tree-sha1 = "07c625178514cb6476f5d9c0415c18422e7313db"
 
 [sample36]
 git-tree-sha1 = "f8172a822e2d5927cb16f9289718484e2654fc93"
+lazy = true
 
     [[sample36.download]]
     sha256 = "5ad2e060edab5c5b02e62375000a66d811672807ed069a4b419ae19e2cd4a7ca"
