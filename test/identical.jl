@@ -49,34 +49,34 @@ function comparefiles(reference, candidates)
 end
 
 @testset "Comparing different files with identical data" begin
-    sample01 = ( ("sample01", "Eb015pr.c3d"),
-                 ("sample01", "Eb015pi.c3d"),
-                 ("sample01", "Eb015vr.c3d"),
-                 ("sample01", "Eb015vi.c3d"),
-                 ("sample01", "Eb015sr.c3d"),
-                 ("sample01", "Eb015si.c3d"))
+    sample01 = [ "Eb015pr.c3d",
+                 "Eb015pi.c3d",
+                 "Eb015vr.c3d",
+                 "Eb015vi.c3d",
+                 "Eb015sr.c3d",
+                 "Eb015si.c3d" ]
 
-    sample02 = ( ("sample02", "pc_real.c3d"),
-                 ("sample02", "pc_int.c3d"),
-                 ("sample02", "dec_real.c3d"),
-                 ("sample02", "dec_int.c3d"),
-                 ("sample02", "sgi_real.c3d"),
-                 ("sample02", "sgi_int.c3d"))
+    sample02 = [ "pc_real.c3d",
+                 "pc_int.c3d",
+                 "dec_real.c3d",
+                 "dec_int.c3d",
+                 "sgi_real.c3d",
+                 "sgi_int.c3d" ]
 
-    sample08 = ( ("sample08", "EB015PI.c3d"),
-                 ("sample08", "TESTAPI.c3d"),
-                 ("sample08", "TESTBPI.c3d"),
-                 ("sample08", "TESTCPI.c3d"),
-                 ("sample08", "TESTDPI.c3d"))
+    sample08 = [ "EB015PI.c3d",
+                 "TESTAPI.c3d",
+                 "TESTBPI.c3d",
+                 "TESTCPI.c3d",
+                 "TESTDPI.c3d" ]
 
     @testset "sample01 files" begin
-        comparefiles(joinpath(datadir, sample01[1]...), broadcast(x -> joinpath(datadir, x...), sample01[2:end]))
+        comparefiles(joinpath(artifact"sample01", sample01[1]), joinpath.(Ref(artifact"sample01"), sample01[2:end]))
     end
     @testset "sample02 files" begin
-        comparefiles(joinpath(datadir, sample02[1]...), broadcast(x -> joinpath(datadir, x...), sample02[2:end]))
+        comparefiles(joinpath(artifact"sample02", sample02[1]), joinpath.(Ref(artifact"sample02"), sample02[2:end]))
     end
     @testset "sample08 files" begin
-        comparefiles(joinpath(datadir, sample08[1]...), broadcast(x -> joinpath(datadir, x...), sample08[2:end]))
+        comparefiles(joinpath(artifact"sample08", sample08[1]), joinpath.(Ref(artifact"sample08"), sample08[2:end]))
     end
 end
 

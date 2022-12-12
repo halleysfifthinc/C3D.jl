@@ -1,4 +1,4 @@
-using C3D, Test
+using C3D, Test, Artifacts
 
 ## List of sample data archived from the C3D.org website on Dec 12, 2022
 # sample00 - Current C3D samples                            https://www.c3d.org/data/Sample00.zip
