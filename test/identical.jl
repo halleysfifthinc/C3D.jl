@@ -1,7 +1,9 @@
 function comparefiles(reference, candidates)
-    refc3d = @test_nowarn readc3d(reference; missingpoints=false)
+    @test readc3d(reference; missingpoints=false) isa C3DFile
+    refc3d = readc3d(reference; missingpoints=false)
     for candfn in candidates
-        file = @test_nowarn readc3d(candfn; missingpoints=false)
+        @test readc3d(candfn; missingpoints=false) isa C3DFile
+        file = readc3d(candfn; missingpoints=false)
 
         @testset "Parameters equivalency between files" begin
             @testset "Compare groups with $(file.name)" begin
