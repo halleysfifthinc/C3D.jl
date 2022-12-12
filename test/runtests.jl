@@ -40,6 +40,7 @@ using C3D, Test, LazyArtifacts
 # sample32 - Data collection errors                         https://www.c3d.org/data/Sample32.zip
 
 include("identical.jl")
+include("publicinterface.jl")
 include("validate.jl")
 include("bigdata.jl")
 include("singledata.jl")
