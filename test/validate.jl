@@ -1,6 +1,6 @@
 @testset "Groups validation" begin
     using C3D: validatec3d, MissingParametersError, MissingGroupsError
-    f = readc3d(joinpath(datadir, "sample01/Eb015pr.c3d"))
+    f = readc3d(joinpath(artifact"sample01", "Eb015pr.c3d"))
     header, groups = f.header, f.groups
 
     @testset "Custom errors" begin
