@@ -1,1 +1,0 @@
-A sample C3D file from a Vicon system with 128 channels of analog data.
