@@ -1,6 +1,6 @@
 module C3D
 
-using VaxData, SnoopPrecompile
+using VaxData, SnoopPrecompile, LazyArtifacts
 
 @enum Endian LE=1 BE=2
 
@@ -408,12 +408,12 @@ end
     path, io = mktemp()
     close(io)
     @precompile_all_calls begin
-        f = readc3d(joinpath(@__DIR__, "../", "data/sample01/Eb015pr.c3d"))
-        readc3d(joinpath(@__DIR__, "../", "data/sample01/Eb015pi.c3d"))
-        readc3d(joinpath(@__DIR__, "../", "data/sample01/Eb015sr.c3d"))
-        readc3d(joinpath(@__DIR__, "../", "data/sample01/Eb015si.c3d"))
-        readc3d(joinpath(@__DIR__, "../", "data/sample01/Eb015vr.c3d"))
-        readc3d(joinpath(@__DIR__, "../", "data/sample01/Eb015vi.c3d"))
+        f = readc3d(joinpath(artifact"sample01", "Eb015pr.c3d"))
+            readc3d(joinpath(artifact"sample01", "Eb015pi.c3d"))
+            readc3d(joinpath(artifact"sample01", "Eb015sr.c3d"))
+            readc3d(joinpath(artifact"sample01", "Eb015si.c3d"))
+            readc3d(joinpath(artifact"sample01", "Eb015vr.c3d"))
+            readc3d(joinpath(artifact"sample01", "Eb015vi.c3d"))
         writetrc(path, f)
     end
 end
