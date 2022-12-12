@@ -1,4 +1,4 @@
-using C3D, Test, Artifacts
+using C3D, Test, LazyArtifacts
 
 ## List of sample data archived from the C3D.org website on Dec 12, 2022
 # sample00 - Current C3D samples                            https://www.c3d.org/data/Sample00.zip
@@ -38,9 +38,6 @@ using C3D, Test, Artifacts
 # sample24 - Empty Parameters                               https://www.c3d.org/data/Sample24.zip
 # sample25 - floating-point to INTEGER conversion issues    https://www.c3d.org/data/Sample25.zip
 # sample32 - Data collection errors                         https://www.c3d.org/data/Sample32.zip
-
-cd(@__DIR__)
-datadir = joinpath("..", "data")
 
 include("identical.jl")
 include("validate.jl")
