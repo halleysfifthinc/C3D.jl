@@ -66,6 +66,13 @@ function writetrc(io, f::C3DFile;
         isempty(mkrnames) && @warn "no markers matched subject $subject"
     end
 
+    if !isdisjoint(keys(f.groups[:POINT]), (:ANGLES, :POWERS, :FORCES, :MOMENTS))
+        nonmarkers = reduce(vcat,
+            [ f.groups[:POINT][Vector{String}, key] for key in keys(f.groups[:POINT])
+                if key ∈ (:ANGLES, :POWERS, :FORCES, :MOMENTS) ])
+        filter!(!in(nonmarkers), mkrnames)
+    end
+
     if strip_prefixes
         # Assume that LABEL_PREFIXES are used if present despite absence of USES_PREFIXES
         # prompted by a c3d file from OptiTrack Motive 2.2.0
