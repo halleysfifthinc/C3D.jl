@@ -410,7 +410,18 @@ function _readparams(fn::String, io::IOStream)
     end
 
     for param in ps
-        groups[gids[param.gid]].params[param.symname] = param
+        if haskey(gids, param.gid)
+            groups[gids[param.gid]].params[param.symname] = param
+        else
+            groupsym = Symbol("GID_$(param.gid)_MISSING")
+            if !haskey(groups, groupsym)
+                groupname = string(groupsym)
+                groups[groupsym] = Group(0, Int8(length(groupname)), false, param.gid,
+                    groupname, groupsym, Int16(0), UInt8(31), "Group was not defined in header",
+                    Dict{Symbol,Parameter}())
+            end
+            groups[groupsym].params[param.symname] = param
+        end
     end
 
     return (groups, header, FEND, FType)

@@ -243,6 +243,22 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
         end
     end # End if analog channels exist
 
+    missing_groups = filter(!isnothing, map(x -> match(r"GID_(\d+)_MISSING", string(x)), collect(keys(groups))))
+
+    if !isempty(missing_groups)
+        for grp in missing_groups
+            if issubset(keys(groups[Symbol(grp.match)]), (:ACTUAL_START_FIELD, :ACTUAL_END_FIELD))
+                if !haskey(groups, :TRIAL)
+                    groups[:TRIAL] = Group(0, Int8(5), false, tryparse(Int8, grp[1]),
+                        "TRIAL", :TRIAL, Int16(0), UInt8(0), "",
+                        Dict{Symbol,Parameter}())
+                end
+                merge!(groups[:TRIAL].params, groups[Symbol(grp.match)].params)
+                delete!(groups, Symbol(grp.match))
+            end
+        end
+    end
+
     return nothing
 end
 
