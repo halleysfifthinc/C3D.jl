@@ -286,7 +286,7 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
     return res
 end
 
-function _readparams(fn::String, io::IOStream)
+function _readparams(fn::String, io::IO)
     params_ptr = read(io, UInt8)
 
     if read(io, UInt8) != 0x50

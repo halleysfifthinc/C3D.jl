@@ -1,4 +1,11 @@
-@testset "Groups validation" begin
+@testset "Validation" begin
+    let
+        io = IOBuffer(zeros(UInt8, 10))
+        path, _io = mktemp()
+        close(_io)
+        @test_throws r"not a valid C3D file" C3D._readparams(path, io)
+    end
+
     using C3D: validatec3d, MissingParametersError, MissingGroupsError
     f = readc3d(joinpath(artifact"sample01", "Eb015pr.c3d"))
     header, groups = f.header, f.groups
