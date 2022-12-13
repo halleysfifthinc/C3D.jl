@@ -13,4 +13,8 @@
     @test numpointframes(readc3d(artifact"sample36/36220framesf.c3d")) == 36220
     @test numpointframes(readc3d(artifact"sample36/72610framesi.c3d")) == 65535 # C3D.org mislabeled; confirmed via inspection in hex editor
     @test numpointframes(readc3d(artifact"sample36/72610framesf.c3d")) == 65535 # same for this one
+
+    @test numanalogframes(readc3d(artifact"sample36/18124framesi.c3d")) == 0
+    @test numanalogframes(readc3d(artifact"sample01/Eb015pr.c3d")) == 1800
+
 end
