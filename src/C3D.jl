@@ -256,10 +256,6 @@ Read the C3D file at `fn`.
 """
 function readc3d(fn::AbstractString; paramsonly=false, validate=true,
                  missingpoints=true, strip_prefixes=false)
-    if !isfile(fn)
-        error("File ", fn, " cannot be found")
-    end
-
     io = open(fn, "r")
 
     groups, header, FEND, FType = _readparams(fn, io)
