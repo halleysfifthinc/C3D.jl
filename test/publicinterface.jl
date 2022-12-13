@@ -17,4 +17,7 @@
     @test numanalogframes(readc3d(artifact"sample36/18124framesi.c3d")) == 0
     @test numanalogframes(readc3d(artifact"sample01/Eb015pr.c3d")) == 1800
 
+    f = readc3d(artifact"sample01/Eb015pr.c3d")
+    @test show(devnull, f) == nothing
+    @test show(devnull, MIME("text/plain"), f) == nothing
 end

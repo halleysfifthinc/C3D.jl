@@ -118,15 +118,59 @@ function numanalogframes(f::C3DFile)
 end
 
 function Base.show(io::IO, f::C3DFile)
-    if get(io, :compact, true)
-        print(io, "C3DFile(\"", f.name, "\")")
+    dispwidth = textwidth(f.name) + 11
+    cols = displaysize(io)[2]
+    if dispwidth > cols
+        i = 1
+        while textwidth(joinpath(splitpath(f.name)[i:end])) > cols
+            i += 1
+        end
+        name = joinpath(splitpath(f.name)[i+1:end])
+        if i > 1
+            name = joinpath("…/", name)
+        end
     else
-        length = numpointframes(f)/f.groups[:POINT][Float32, :RATE]
+        name = f.name
+    end
 
-        print(io, "C3DFile(\"", f.name, "\", ",
-              length, "sec, ",
-              f.groups[:POINT][Int, :USED], " points, ",
-              f.groups[:ANALOG][Int, :USED], " analog channels)")
+    print(io, "C3DFile(\"", name, "\")")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", f::C3DFile)
+    nframes = numpointframes(f)
+    fs = f.groups[:POINT][Float32, :RATE]
+
+    rem_frames = Int(rem(nframes, fs))
+    rem_str = "+$rem_frames"
+    nframes -= rem_frames
+
+    if nframes/fs > 3600
+        hour = Int(fld(nframes÷fs, 3600))
+        nframes -= hour*3600
+        hour_str = "$hour:"
+    else
+        hour_str = ""
+    end
+    if nframes/fs > 60
+        min = Int(fld(nframes÷fs, 60))
+        nframes -= min*60
+        min_str = "$min:"
+    else
+        min_str = "0:"
+    end
+
+    sec = Int(nframes÷fs)
+    sec_str = "$sec"
+
+    println(io, f)
+    print(io, "  ",
+          hour_str, min_str, sec_str, rem_str, " \e[37mframes\e[39m\n  ",
+          f.groups[:POINT][Int, :USED], " \e[37mpoints\e[39m ",
+          "@ $(round(Int, fs)) \e[37mHz\e[39m")
+    if f.groups[:ANALOG][:USED] > 0
+        print(io, "; ",
+              f.groups[:ANALOG][Int, :USED], " \e[37manalog channels\e[39m ",
+              "@ $(round(Int, f.groups[:ANALOG][:RATE])) \e[37mHz\e[39m")
     end
 end
 
