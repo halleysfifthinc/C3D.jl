@@ -1,4 +1,6 @@
 @testset "readc3d kwargs, etc" begin
+    @test readc3d(artifact"sample01/Eb015pr.c3d"; paramsonly=true) isa C3DFile
+    @test readc3d(artifact"sample01/Eb015pr.c3d"; paramsonly=true, validate=false) isa C3DFile
     @test readc3d(artifact"sample03/gait-pig.c3d"; strip_prefixes=true) isa C3DFile
 
     # issue #11
