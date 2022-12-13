@@ -36,6 +36,7 @@ function typedindex(g::Group, ::Type{T}, k) where T
     return r
 end
 
+Base.keys(g::Group) = keys(g.params)
 Base.haskey(g::Group, key) = haskey(g.params, key)
 
 # TODO: Add get! method?
