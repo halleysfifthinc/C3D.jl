@@ -109,8 +109,12 @@ function numpointframes(groups::Dict{Symbol,Group})::Int
 end
 
 function numanalogframes(f::C3DFile)
-    aspf = convert(Int, f.groups[:ANALOG][Float32, :RATE]/f.groups[:POINT][Float32, :RATE])
-    return numpointframes*aspf
+    if iszero(f.groups[:ANALOG][Int, :USED])
+        return 0
+    else
+        aspf = convert(Int, f.groups[:ANALOG][Float32, :RATE]/f.groups[:POINT][Float32, :RATE])
+        return numpointframes(f)*aspf
+    end
 end
 
 function Base.show(io::IO, f::C3DFile)
