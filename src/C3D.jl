@@ -265,6 +265,8 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
         point = Dict{String,Array{Union{Missing, Float32},2}}()
         residual = Dict{String,Array{Union{Missing, Float32},1}}()
         analog = Dict{String,Array{Float32,1}}()
+        close(io)
+        return C3DFile(fn, header, groups, point, residual, analog)
     else
         (point, residual, analog) = readdata(io, groups, FEND, FType)
     end
