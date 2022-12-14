@@ -1,12 +1,14 @@
 # C3D.jl
 
+[![version](https://juliahub.com/docs/C3D/version.svg)](https://juliahub.com/ui/Packages/C3D/Y0cAa)
+[![pkgeval](https://juliahub.com/docs/C3D/pkgeval.svg)](https://juliahub.com/ui/Packages/C3D/Y0cAa)
 [![CI](https://github.com/halleysfifthinc/C3D.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/halleysfifthinc/C3D.jl/actions/workflows/CI.yml)
 [![codecov](https://codecov.io/gh/halleysfifthinc/C3D.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/halleysfifthinc/C3D.jl)
-![Maintenance](https://img.shields.io/maintenance/yes/2022)
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 
-C3D is the standard file format for data gathered using various systems (motion capture, force plate data, EMG, etc). The goal of this package is to offer full coverage of the C3D [file spec](https://www.c3d.org), as well as compatibility with files from major C3D compatible programs (Vicon Nexus, etc.).
+C3D is a common file format for motion capture and other biomechanics related measurement systems (force plate data, EMG, etc). The goal of this package is to completely implement the [C3D file spec](https://www.c3d.org), and be compatible with files from major C3D producing programs (Vicon Nexus, etc.) where they might differ from or extend the C3D file spec.
 
-The current corpus of test data is a subset of the sample files found on the C3D [website](https://www.c3d.org/sampledata.html).
+Current test data is gathered from sample data found on the [C3D website](https://www.c3d.org/sampledata.html).
 Pull requests welcome! Please open an issue if you have a file that is not being read correctly.
 
 ## Usage
@@ -16,10 +18,14 @@ Pull requests welcome! Please open an issue if you have a file that is not being
 Marker and analog data are accessed through the `point` and `analog` fields. Note that all data is converted to Float32 upon reading, regardless of the original type (eg DEC types).
 
 ```julia
-julia> pc_real = readc3d("data/sample01/Eb015pr.c3d")
-C3DFile("data/sample01/Eb015pr.c3d")
+julia> # The artifacts with the test data can only be used from the `C3D.jl` directory when `LazyArtifacts` has been loaded
 
-julia> pc_real.point["LTH1"]
+julia> pc_real = readc3d(artifact"sample01/Eb015pr.c3d")
+C3DFile("~/.julia/artifacts/318c299a26ba07c015fa86768512b677fbb7e64c/Eb015pr.c3d")
+  0:9+0 frames
+  26 points @ 50 Hz; 16 analog channels @ 200 Hz
+
+  julia> pc_real.point["LTH1"]
 450×3 Array{Float32,2}:
  0.0         0.0     0.0
  0.0         0.0     0.0
@@ -45,9 +51,10 @@ julia> pc_real.analog["FZ1"]
 According to the C3D format documentation, invalid data points are signified by setting the residual word to `-1.0`. This convention is respected in C3D.jl by changing the residual and coordinates of invalid points/frames to `missing`. If your C3D files do not respect this convention, or if you wish to ignore this for some other reason, this behavior can be disabled by setting keyword arg `missingpoints=false` in the `readc3d` function. Convention is to signify calculated points (e.g. filtered, interpolated, etc) by setting the residual word to `0.0`.
 
 ```julia
-
-julia> bball = readc3d("data/sample16/basketball.c3d")
-C3DFile("data/sample16/basketball.c3d")
+julia> bball = readc3d(artifact"sample16/basketball.c3d")
+C3DFile("~/.julia/artifacts/042cc43a45ace35e97473c6cf0d08e25f1c73fcb/basketball.c3d")
+  0:1+9 frames
+  22 points @ 25 Hz
 
 julia> bball.point["2003"]
 34×3 Array{Union{Missing, Float32},2}:
@@ -57,7 +64,9 @@ julia> bball.point["2003"]
   ⋮
 
 julia> bball = readc3d("data/sample16/basketball.c3d"; missingpoints=false)
-C3DFile("data/sample16/basketball.c3d")
+C3DFile("~/.julia/artifacts/042cc43a45ace35e97473c6cf0d08e25f1c73fcb/basketball.c3d")
+  0:1+9 frames
+  22 points @ 25 Hz
 
 julia> bball.point["2003"]
 34×3 Array{Union{Missing, Float32},2}:
@@ -98,10 +107,7 @@ julia> pc_real.groups[:POINT]
 Symbol[:DESCRIPTIONS, :RATE, :DATA_START, :FRAMES, :USED, :UNITS, :Y_SCREEN, :LABELS, :X_SCREEN, :SCALE]
 ```
 
-There are two ways to access a specific parameter. The first (and most convenient) directly references the data contained in the parameter.
-
-**BREAKING**: Previous versions (<v0.7.0) of C3D.jl used a different syntax for this:
-`pc_real.groups[:POINT].USED`. See PR#9 for the reasons for the change.
+Parameter values can be accessed like this:
 
 ```julia
 julia> pc_real.groups[:POINT][:USED]
@@ -116,19 +122,15 @@ julia> pc_real.groups[:POINT][:LABELS]
  ""
  ""
  ""
+
+julia> # Or, if you know the type (and you need the type-stability)
+
+julia> pc_real.groups[:POINT][Int, :USED]
+26
+
 ```
 
-Alternately, it may be necessary to access the parameter (type) itself:
-
-```julia
-julia> pc_real.groups[:POINT].params[:USED]
-C3D.ScalarParameter{Int16}(4433, -4, true, 1, "USED", :USED, 30, 26, 0x17, "* Number of points used")
-
-julia> pc_real.groups[:POINT].params[:LABELS]
-C3D.StringParameter(3807, 6, false, 1, "LABELS", :LABELS, 211, ["RFT1", "RFT2", "RFT3",  …  "", "", ""], 0x0c, "Point labels")
-```
-
-## Debugging
+# Advanced: Debugging
 
 There are two main steps to reading a C3D file: reading the parameters, and reading the point and/or analog data. In the event a file read fails, the stacktrace will show whether the error happened in `_readparams` or `readdata`. If the error occurred in `readdata`, try only reading the parameters, optionally setting the keyword argument `validate` to `false`:
 
