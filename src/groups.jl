@@ -42,7 +42,7 @@ Base.haskey(g::Group, key) = haskey(g.params, key)
 # TODO: Add get! method?
 function Base.get(g::Group, key, default)
     _key = key isa Tuple ? last(key) : key
-    return haskey(g, _key) ? g[key] : default
+    return haskey(g, _key) ? g[key...] : default
 end
 
 Base.show(io::IO, g::Group) = show(io, keys(g.params))

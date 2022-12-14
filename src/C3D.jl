@@ -178,15 +178,42 @@ function calcresiduals(x::AbstractVector, scale)
     residuals = (reinterpret.(UInt32, x) .>> 16) .& 0xff .* scale
 end
 
-function readdata(io::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
+function readdata(io::IOStream, head::Header, groups::Dict{Symbol,Group}, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
     seek(io, (groups[:POINT][Int, :DATA_START]-1)*512)
 
     format = groups[:POINT][Float32, :SCALE] > 0 ? Int16 : FType
 
+    numframes::Int = numpointframes(groups)
+    nummarkers::Int = groups[:POINT][Int, :USED]
+    numchannels::Int = groups[:ANALOG][Int, :USED]
+    aspf::Int = convert(Int, get(groups[:ANALOG], (Float32, :RATE), groups[:POINT][Float32, :RATE])/
+        groups[:POINT][Float32, :RATE])
+
+    est_data_size = numframes*sizeof(format)*(nummarkers*4 + numchannels*aspf)
+    rem_file_size = stat(fd(io)).size - position(io)
+    @debug "Estimated DATA size: $(Base.format_bytes(est_data_size)); \
+        remaining file data: $(Base.format_bytes(rem_file_size))"
+    if est_data_size > rem_file_size
+        # Some combination of numframes, nummarkers, numchannels, aspf, or format is wrong
+        # Check any duplicated info and use instead
+        #
+        if nummarkers > head.npoints
+            # Needed to correctly read artifact"sample27/kyowadengyo.c3d"
+            nummarkers = head.npoints
+            groups[:POINT].params[:USED].payload = C3D.ScalarParameter{Int16}(nummarkers)
+        end
+
+        # Remaining checks will be withheld until triggering test cases are demonstrated
+        # if aspf > head.aspf
+        #     aspf = head.aspf
+        # end
+        # if numchannels > head.ampf/aspf
+        #     numchannels = head.ampf/aspf
+        # end
+    end
+
     # Read data in a transposed structure for better read/write speeds due to Julia being
     # column-order arrays
-    numframes = numpointframes(groups)
-    nummarkers = groups[:POINT][Int, :USED]
     hasmarkers = !iszero(nummarkers)
     if hasmarkers
         point = Array{Float32,2}(undef, nummarkers*3, numframes)
@@ -204,11 +231,9 @@ function readdata(io::IOStream, groups::Dict{Symbol,Group}, FEND::Endian, FType:
         residuals = Array{Float32,2}(undef, 0,0)
     end
 
-    numchannels = groups[:ANALOG][Int, :USED]
     haschannels = !iszero(numchannels)
     if haschannels
         # Analog Samples Per Frame => ASPF
-        aspf = convert(Int, groups[:ANALOG][Float32, :RATE]/groups[:POINT][Float32, :RATE])
         analog = Array{Float32,2}(undef, numchannels, aspf*numframes)
 
         analogtmp = Matrix{format}(undef, (numchannels,aspf))
@@ -319,7 +344,7 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
         close(io)
         return C3DFile(fn, header, groups, point, residual, analog)
     else
-        (point, residual, analog) = readdata(io, groups, FEND, FType)
+        (point, residual, analog) = readdata(io, header, groups, FEND, FType)
     end
 
     close(io)

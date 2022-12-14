@@ -5,7 +5,7 @@ struct ParameterTypeError <: Exception
     position::Int
 end
 
-struct Parameter{P<:AbstractParameter}
+mutable struct Parameter{P<:AbstractParameter}
     pos::Int
     nl::Int8 # Number of characters in group name
     isLocked::Bool # Locked if nl < 0
