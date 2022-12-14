@@ -190,8 +190,8 @@ function readdata(io::IOStream, head::Header, groups::Dict{Symbol,Group}, FEND::
     numframes::Int = numpointframes(groups)
     nummarkers::Int = groups[:POINT][Int, :USED]
     numchannels::Int = groups[:ANALOG][Int, :USED]
-    aspf::Int = convert(Int, get(groups[:ANALOG], (Float32, :RATE), groups[:POINT][Float32, :RATE])/
-        groups[:POINT][Float32, :RATE])
+    aspf::Int = convert(Int, get(groups[:ANALOG], (Float32, :RATE), get(groups[:POINT], (Float32, :RATE), head.pointrate))/
+        get(groups[:POINT], (Float32, :RATE), head.pointrate))
 
     est_data_size = numframes*sizeof(format)*(nummarkers*4 + numchannels*aspf)
     rem_file_size = stat(fd(io)).size - position(io)
