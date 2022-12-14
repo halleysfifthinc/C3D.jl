@@ -41,7 +41,7 @@ function readheader(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{
 
     eventtimes = saferead(f, FType, FEND, 18)
     eventflags = read!(f, Array{Bool}(undef, 18))
-    validevents = findall(iszero, eventflags) 
+    validevents = findall(iszero, eventflags)
 
     res3 = read(f, UInt16)
 
