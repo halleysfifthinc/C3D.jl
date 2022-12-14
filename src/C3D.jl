@@ -136,6 +136,9 @@ function Base.show(io::IO, f::C3DFile)
     print(io, "C3DFile(\"", name, "\")")
 end
 
+const RST = "\e[39m"
+const GRY = "\e[37m"
+
 function Base.show(io::IO, ::MIME"text/plain", f::C3DFile)
     nframes = numpointframes(f)
     fs = f.groups[:POINT][Float32, :RATE]
@@ -164,13 +167,13 @@ function Base.show(io::IO, ::MIME"text/plain", f::C3DFile)
 
     println(io, f)
     print(io, "  ",
-          hour_str, min_str, sec_str, rem_str, " \e[37mframes\e[39m\n  ",
-          f.groups[:POINT][Int, :USED], " \e[37mpoints\e[39m ",
-          "@ $(round(Int, fs)) \e[37mHz\e[39m")
+          hour_str, min_str, sec_str, rem_str, "$GRY frames$RST\n  ",
+          f.groups[:POINT][Int, :USED], "$GRY points$RST ",
+          "@ $(round(Int, fs))$GRY Hz$RST")
     if f.groups[:ANALOG][:USED] > 0
         print(io, "; ",
-              f.groups[:ANALOG][Int, :USED], " \e[37manalog channels\e[39m ",
-              "@ $(round(Int, f.groups[:ANALOG][:RATE])) \e[37mHz\e[39m")
+              f.groups[:ANALOG][Int, :USED], "$GRY analog channels$RST ",
+              "@ $(round(Int, f.groups[:ANALOG][:RATE]))$GRY Hz$RST")
     end
 end
 
