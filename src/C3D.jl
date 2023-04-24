@@ -1,6 +1,6 @@
 module C3D
 
-using VaxData, SnoopPrecompile, LazyArtifacts
+using VaxData, PrecompileTools, LazyArtifacts
 
 @enum Endian LE=1 BE=2
 
@@ -500,10 +500,10 @@ function _readparams(fn::String, io::IO)
     return (groups, header, FEND, FType)
 end
 
-@precompile_setup begin
+@setup_workload begin
     path, io = mktemp()
     close(io)
-    @precompile_all_calls begin
+    @compile_workload begin
         f = readc3d(joinpath(artifact"sample01", "Eb015pr.c3d"))
             readc3d(joinpath(artifact"sample01", "Eb015pi.c3d"))
             readc3d(joinpath(artifact"sample01", "Eb015sr.c3d"))
