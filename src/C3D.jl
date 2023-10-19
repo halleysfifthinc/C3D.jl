@@ -121,13 +121,19 @@ end
 
 function Base.show(io::IO, f::C3DFile)
     dispwidth = textwidth(f.name) + 11
-    cols = displaysize(io)[2]
+    cols = displaysize(io)[2] - 11
+    pathcomps = splitpath(f.name)
+
     if dispwidth > cols
-        i = 1
-        while textwidth(joinpath(splitpath(f.name)[i:end])) > cols
+        if first(pathcomps) == "/"
+            i = 2
+        else
+            i = 1
+        end
+        while length(joinpath(["…/"; pathcomps[i:end]])) > cols && i+1 < length(pathcomps)
             i += 1
         end
-        name = joinpath(splitpath(f.name)[i+1:end])
+        name = joinpath(pathcomps[i+1:end])
         if i > 1
             name = joinpath("…/", name)
         end
@@ -174,8 +180,10 @@ function Base.show(io::IO, ::MIME"text/plain", f::C3DFile)
             "@ $(round(Int, fs))$GRY Hz$RST")
       end
     if f.groups[:ANALOG][:USED] > 0
-        print(io, "; ",
-              f.groups[:ANALOG][Int, :USED], "$GRY analog channels$RST ",
+        if f.groups[:POINT][:USED] > 0
+            print(io, "; ")
+        end
+        print(io, f.groups[:ANALOG][Int, :USED], "$GRY analog channels$RST ",
               "@ $(round(Int, f.groups[:ANALOG][:RATE]))$GRY Hz$RST")
     end
 end
