@@ -1,6 +1,6 @@
 module C3D
 
-using VaxData, PrecompileTools, LazyArtifacts
+using VaxData, PrecompileTools, LazyArtifacts, Dates
 
 @enum Endian LE=1 BE=2
 
@@ -79,6 +79,8 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
     return C3DFile(name, header, groups, fpoint, fresiduals, fanalog)
 end
 
+C3DFile(fn::AbstractString) = readc3d(string(fn))
+
 numpointframes(f::C3DFile) = numpointframes(f.groups)
 
 function numpointframes(groups::Dict{Symbol,Group})::Int
@@ -144,29 +146,29 @@ function Base.show(io::IO, ::MIME"text/plain", f::C3DFile)
     fs = round(Int, f.groups[:POINT][Float32, :RATE])
 
     rem_frames = round(Int, rem(nframes, fs))
-    rem_str = "+$rem_frames"
+    rem_str = rem_frames > 0 ? '+'*lpad(rem_frames, ndigits(fs - 1), '0') : ""
     nframes -= rem_frames
 
-    if nframes/fs > 3600
-        hour = Int(fld(nframes÷fs, 3600))
-        nframes -= hour*3600
-        hour_str = "$hour:"
-    else
-        hour_str = ""
-    end
-    if nframes/fs > 60
-        min = Int(fld(nframes÷fs, 60))
-        nframes -= min*60
-        min_str = "$min:"
-    else
-        min_str = "0:"
-    end
-
-    sec = Int(nframes÷fs)
-    sec_str = "$sec"
+    tim = canonicalize(Dates.CompoundPeriod(Second(fld(nframes,fs))))
 
     println(io, f)
-    print(io, "  ", hour_str, min_str, sec_str, rem_str, "$GRY frames$RST\n  ")
+    print(io, "  Duration: ")
+    join(io, [Dates.value(first(tim.periods));
+        lpad.(Dates.value.(Iterators.rest(tim.periods, 2)), 2, '0')], ':')
+    print(io, rem_str, " $GRY")
+    if maximum(tim.periods) isa Hour
+        print(io, "hh:mm:ss")
+    elseif maximum(tim.periods) isa Minute
+        print(io, "mm:ss")
+    elseif maximum(tim.periods) isa Second
+        print(io, "s")
+    end
+    if rem_frames > 0
+        print(io, "+", 'f'^ndigits(fs-1), "$RST\n  ")
+    else
+        print(io, "$RST\n  ")
+    end
+
     if f.groups[:POINT][:USED] > 0
         print(io, f.groups[:POINT][Int, :USED], "$GRY points$RST ",
             "@ $(round(Int, fs))$GRY Hz$RST")
@@ -179,7 +181,7 @@ function Base.show(io::IO, ::MIME"text/plain", f::C3DFile)
 end
 
 function calcresiduals(x::AbstractVector, scale)
-    residuals = (reinterpret.(UInt32, x) .>> 16) .& 0xff .* scale
+    return (reinterpret.(UInt32, x) .>> 16) .& 0xff .* scale
 end
 
 function readdata(io::IOStream, head::Header, groups::Dict{Symbol,Group}, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
@@ -510,6 +512,8 @@ end
             readc3d(joinpath(artifact"sample01", "Eb015si.c3d"))
             readc3d(joinpath(artifact"sample01", "Eb015vr.c3d"))
             readc3d(joinpath(artifact"sample01", "Eb015vi.c3d"))
+        show(devnull, f)
+        show(devnull, MIME("text/plain"), f)
         writetrc(path, f)
     end
 end
