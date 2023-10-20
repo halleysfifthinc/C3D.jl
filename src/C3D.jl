@@ -114,7 +114,8 @@ function numanalogframes(f::C3DFile)
     if iszero(f.groups[:ANALOG][Int, :USED])
         return 0
     else
-        aspf = convert(Int, f.groups[:ANALOG][Float32, :RATE]/f.groups[:POINT][Float32, :RATE])
+        aspf = convert(Int, f.groups[:ANALOG][Float32, :RATE] /
+                            f.groups[:POINT][Float32, :RATE])
         return numpointframes(f)*aspf
     end
 end
@@ -159,15 +160,20 @@ function Base.show(io::IO, ::MIME"text/plain", f::C3DFile)
 
     println(io, f)
     print(io, "  Duration: ")
-    join(io, [Dates.value(first(tim.periods));
-        lpad.(Dates.value.(Iterators.rest(tim.periods, 2)), 2, '0')], ':')
+    if nframes == 0 # Duration less than a second
+        print(io, "0")
+    else
+        join(io, [Dates.value(first(tim.periods));
+            lpad.(Dates.value.(Iterators.rest(tim.periods, 2)), 2, '0')], ':')
+    end
     print(io, rem_str, " $GRY")
-    if maximum(tim.periods) isa Hour
+    if nframes > 0 && maximum(tim.periods) isa Hour
         print(io, "hh:mm:ss")
-    elseif maximum(tim.periods) isa Minute
+    elseif nframes > 0 && maximum(tim.periods) isa Minute
         print(io, "mm:ss")
-    elseif maximum(tim.periods) isa Second
-        print(io, "s")
+    else
+        print(io, nframes > 0 ?
+            's'^ndigits(Dates.value(first(filter(x -> x isa Second, tim.periods)))) : "s")
     end
     if rem_frames > 0
         print(io, "+", 'f'^ndigits(fs-1), "$RST\n  ")
