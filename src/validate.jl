@@ -50,11 +50,10 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
     # read a C3DFile
     if !(rgroups ⊆ keys(groups))
         if !haskey(groups, :ANALOG)
-            groups[:ANALOG] = Group(0, Int8(6), false, Int8(0), "ANALOG", :ANALOG, Int16(0),
-                UInt8(22), "Analog data parameters", Dict{Symbol,Parameter}())
-            groups[:ANALOG].params[:USED] = Parameter(0, Int8(5), false, Int8(0), "USED",
-                :USED, Int16(0), UInt8(30), "Number of analog channels used",
-                ScalarParameter(zero(Int16)))
+            groups[:ANALOG] = Group(0, 6, false, 0, "ANALOG", :ANALOG, 0, 22,
+                "Analog data parameters")
+            groups[:ANALOG].params[:USED] = Parameter(0, 5, false, 0, "USED", :USED, 0, 30,
+                "Number of analog channels used", ScalarParameter(zero(Int16)))
         else
             d = setdiff(rgroups, keys(groups))
             throw(MissingGroupsError(d))
@@ -101,8 +100,8 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
                 # parameter, this implementation requires LABELS (for indexing)
                 @debug ":POINT is missing parameter :LABELS"
                 labels = [ "M"*string(i, pad=3) for i in 1:POINT_USED ]
-                groups[:POINT].params[:LABELS] = Parameter(0, Int8(0), false,
-                    abs(groups[:POINT].gid), "LABELS", :LABELS, Int16(0), UInt8(13),
+                groups[:POINT].params[:LABELS] = Parameter(0, 0, false,
+                    abs(groups[:POINT].gid), "LABELS", :LABELS, 0, 13,
                     "Marker labels", StringParameter(labels))
             elseif !haskey(groups[:POINT], :DESCRIPTIONS)
                 @debug ":POINT is missing parameter :DESCRIPTIONS"
@@ -178,9 +177,9 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
             if !haskey(groups[:ANALOG], :LABELS)
                 @debug ":ANALOG is missing parameter :LABELS"
                 labels = [ "A"*string(i, pad=3) for i in 1:ANALOG_USED ]
-                groups[:ANALOG].params[:LABELS] = Parameter{StringParameter}(0, Int8(0),
-                    false, abs(groups[:ANALOG].gid), "LABELS", :LABELS, Int16(0), UInt8(14),
-                    "Channel labels", StringParameter(labels))
+                groups[:ANALOG].params[:LABELS] = Parameter{StringParameter}(0, 0, false,
+                    abs(groups[:ANALOG].gid), "LABELS", :LABELS, 0, 14, "Channel labels",
+                    StringParameter(labels))
             elseif !haskey(groups[:ANALOG], :DESCRIPTIONS)
                 @debug ":ANALOG is missing parameter :DESCRIPTIONS"
             elseif !haskey(groups[:ANALOG], :UNITS)
@@ -249,9 +248,8 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
         for grp in missing_groups
             if issubset(keys(groups[Symbol(grp.match)]), (:ACTUAL_START_FIELD, :ACTUAL_END_FIELD))
                 if !haskey(groups, :TRIAL)
-                    groups[:TRIAL] = Group(0, Int8(5), false, tryparse(Int8, grp[1]),
-                        "TRIAL", :TRIAL, Int16(0), UInt8(0), "",
-                        Dict{Symbol,Parameter}())
+                    groups[:TRIAL] = Group(0, 5, false, tryparse(Int8, grp[1]), "TRIAL",
+                        :TRIAL, 0, 0, "")
                 end
                 merge!(groups[:TRIAL].params, groups[Symbol(grp.match)].params)
                 delete!(groups, Symbol(grp.match))

@@ -12,6 +12,11 @@ struct Group
     params::Dict{Symbol,Parameter}
 end
 
+function Group(pos, nl, lock, gid, name, symname, np, dl, desc)
+    return Group(pos, convert(Int8, nl), lock, convert(Int8, gid), name, symname,
+        convert(Int16, np), convert(UInt8, dl), desc, Dict{Symbol,Parameter}())
+end
+
 function Base.getindex(g::Group, k::Symbol)
     return getindex(g.params, k).payload.data
 end

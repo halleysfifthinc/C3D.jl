@@ -18,6 +18,11 @@ mutable struct Parameter{P<:AbstractParameter}
     payload::P
 end
 
+function Parameter(pos, nl, lock, gid, name, symname, np, dl, desc, payload)
+    return Parameter(pos, convert(Int8, nl), lock, convert(Int8, gid), name, symname,
+        convert(Int16, np), convert(UInt8, dl), desc, payload)
+end
+
 # Parameter format description https://www.c3d.org/HTML/parameterformat1.htm
 struct ArrayParameter{T,N} <: AbstractParameter{T,N}
     ellen::Int8
@@ -34,6 +39,10 @@ end
 
 struct StringParameter <: AbstractParameter{String,1}
     data::Array{String,1}
+end
+
+function StringParameter(s::String)
+    return StringParameter([s])
 end
 
 struct ScalarParameter{T} <: AbstractParameter{T,0}
@@ -58,6 +67,21 @@ end
 function Parameter{StringParameter}(p::Parameter{ScalarParameter{String}})
     return Parameter{StringParameter}(p.pos, p.nl, p.isLocked, p.gid, p.name, p.symname,
         p.np, p.dl, p.desc, StringParameter([x.data]))
+end
+
+function Parameter(name::String, desc::String, payload::P; gid=0) where {P<:Union{Vector{String},String}}
+    return Parameter(0, length(name), false, gid, name, Symbol(name), 0, length(desc), desc,
+        StringParameter(payload))
+end
+
+function Parameter(name, desc, payload::AbstractArray{T,N}; gid=0) where {T<:Union{Int8,Int16,Float32},N}
+    return Parameter(0, length(name), false, gid, name, Symbol(name), 0, length(desc), desc,
+        ArrayParameter{T,N}(sizeof(T), ndims(payload), size(payload), payload))
+end
+
+function Parameter(name, desc, payload::T; gid=0) where {T}
+    return Parameter(0, length(name), false, gid, name, Symbol(name), 0, length(desc), desc,
+        ScalarParameter{T}(payload))
 end
 
 function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{Float32,VaxFloatF}
