@@ -32,10 +32,6 @@
         @test_throws MissingParametersError validatec3d(header, bad_groups)
 
         bad_groups = deepcopy(groups)
-        delete!(bad_groups[:POINT].params, :RATE)
-        @test_throws MissingParametersError validatec3d(header, bad_groups)
-
-        bad_groups = deepcopy(groups)
         delete!(bad_groups[:ANALOG].params, :USED)
         @test_throws MissingParametersError validatec3d(header, bad_groups)
     end

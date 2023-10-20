@@ -86,8 +86,9 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
     if POINT_USED != 0 # There are markers
         # If there are markers, the additional set of required parameters is ratescale
         if !(ratescale ⊆ pointkeys)
-            if !(:RATE ∈ pointkeys) && ANALOG_USED == 0
-                # If there is no analog data, POINT:RATE isn't technically required
+            if !(:RATE ∈ pointkeys)
+                groups[:POINT].params[:RATE] = Parameter("RATE", "Video sampling rate",
+                    header.pointrate; gid=groups[:POINT].gid)
             else
                 d = setdiff(ratescale, pointkeys)
                 throw(MissingParametersError(:POINT, d))
