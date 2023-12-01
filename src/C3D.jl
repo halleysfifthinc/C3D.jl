@@ -425,13 +425,13 @@ function _readparams(fn::String, io::IO)
         # Group
         skip(io, -2)
         push!(gs, readgroup(io, FEND, FType))
-        np = gs[end].pos + gs[end].np + abs(gs[end].nl) + 2
+        np = gs[end].pos + gs[end].np + length(gs[end]._name) + 2
         moreparams = gs[end].np != 0 ? true : false
     else
         # Parameter
         skip(io, -2)
         push!(ps, readparam(io, FEND, FType))
-        np = ps[end].pos + ps[end].np + abs(ps[end].nl) + 2
+        np = ps[end].pos + ps[end].np + length(ps[end]._name) + 2
         moreparams = ps[end].np != 0 ? true : false
     end
 
@@ -439,10 +439,10 @@ function _readparams(fn::String, io::IO)
         # Mark current position in file in case the pointer is incorrect
         mark(io)
         if fail === 0 && np != position(io)
-                # @debug "Pointer mismatch at position $(position(io)) where pointer was $np"
+                @debug "Pointer mismatch at position $(position(io)) where pointer was $np"
                 seek(io, np)
         elseif fail > 1 # this is the second failed attempt
-            # @debug "Second failed parameter read attempt from $(position(io))"
+            @debug "Second failed parameter read attempt from $(position(io))"
             break
         end
 
@@ -454,14 +454,14 @@ function _readparams(fn::String, io::IO)
             skip(io, -2)
             try
                 push!(gs, readgroup(io, FEND, FType))
-                np = gs[end].pos + gs[end].np + abs(gs[end].nl) + 2
+                np = gs[end].pos + gs[end].np + length(gs[end]._name) + 2
                 moreparams = gs[end].np != 0 ? true : false # break if the pointer is 0 (ie the parameters are finished)
                 fail = 0 # reset fail counter following a successful read
             catch e
                 # Last readgroup failed, possibly due to a bad pointer. Reset to the ending
                 # location of the last successfully read parameter and try again. Count the failure.
                 reset(io)
-                # @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail
+                @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,backtrace())
                 fail += 1
             finally
                 unmark(io) # Unmark the file regardless
@@ -471,12 +471,12 @@ function _readparams(fn::String, io::IO)
             skip(io, -2)
             try
                 push!(ps, readparam(io, FEND, FType))
-                np = ps[end].pos + ps[end].np + abs(ps[end].nl) + 2
+                np = ps[end].pos + ps[end].np + length(ps[end]._name) + 2
                 moreparams = ps[end].np != 0 ? true : false
                 fail = 0
             catch e
                 reset(io)
-                # @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail
+                @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,backtrace())
                 fail += 1
             finally
                 unmark(io)
@@ -485,7 +485,7 @@ function _readparams(fn::String, io::IO)
             # The group ID should never be zero, if it is, the most likely explanation is
             # that the pointer is incorrect (eg the pointer was not fixed when the previously
             # last parameter was deleted or moved)
-            # @debug "Bad last position. Assuming parameter section is finished."
+            @debug "Bad last position. Assuming parameter section is finished."
             break
         end
     end
@@ -494,22 +494,20 @@ function _readparams(fn::String, io::IO)
     gids = Dict{Int8,Symbol}()
 
     for group in gs
-        groups[group.symname] = group
-        gids[abs(group.gid)] = group.symname
+        groups[group.name] = group
+        gids[abs(group.gid)] = group.name
     end
 
     for param in ps
         if haskey(gids, param.gid)
-            groups[gids[param.gid]].params[param.symname] = param
+            groups[gids[param.gid]].params[param.name] = param
         else
             groupsym = Symbol("GID_$(param.gid)_MISSING")
             if !haskey(groups, groupsym)
                 groupname = string(groupsym)
-                groups[groupsym] = Group(0, Int8(length(groupname)), false, param.gid,
-                    groupname, groupsym, Int16(0), UInt8(31), "Group was not defined in header",
-                    Dict{Symbol,Parameter}())
+                groups[groupsym] = Group(groupname, "Group was not defined in header"; gid=param.gid)
             end
-            groups[groupsym].params[param.symname] = param
+            groups[groupsym].params[param.name] = param
         end
     end
 

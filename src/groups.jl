@@ -1,20 +1,22 @@
-# Group format description https://www.c3d.org/HTML/groupformat1.htm
+# Group format description https://www.c3d.org/HTML/Documents/groupformat1.htm
 struct Group
     pos::Int
-    nl::Int8 # Number of characters in group name
-    isLocked::Bool # Locked if nl < 0
     gid::Int8 # Group ID
-    name::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    symname::Symbol
+    locked::Bool
+    _name::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    name::Symbol
     np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
-    dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
-    desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
     params::Dict{Symbol,Parameter}
 end
 
-function Group(pos, nl, lock, gid, name, symname, np, dl, desc)
-    return Group(pos, convert(Int8, nl), lock, convert(Int8, gid), name, symname,
-        convert(Int16, np), convert(UInt8, dl), desc, Dict{Symbol,Parameter}())
+function Group(pos, gid, locked, name, np, desc, params=Dict{Symbol,Parameter}())
+    return Group(pos, convert(Int8, gid), locked, Vector{UInt8}(name), Symbol(name),
+        convert(Int16, np), Vector{UInt8}(desc), params)
+end
+
+function Group(name::String, desc::String, params=Dict{Symbol,Parameter}(); gid=0, locked=signbit(gid))
+    return Group(0, gid, locked, name, 0, desc, params)
 end
 
 function Base.getindex(g::Group, k::Symbol)
@@ -56,12 +58,12 @@ function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{F
     pos = position(f)
     nl = read(f, Int8)
     @assert nl != 0
-    isLocked = nl < 0 ? true : false
+    locked = signbit(nl)
     gid = read(f, Int8)
     @assert gid != 0
-    name = transcode(String, read(f, abs(nl)))
-    @assert any(!iscntrl, name)
-    symname = Symbol(replace(strip(name), r"[^a-zA-Z0-9_]" => '_'))
+    _name = read(f, abs(nl))
+    @assert any(!iscntrl∘Char, _name)
+    name = Symbol(replace(strip(transcode(String, copy(_name))), r"[^a-zA-Z0-9_]" => '_'))
 
     # if occursin(r"[^a-zA-Z0-9_ ]", name)
     #     @debug "Group $name at $pos has unofficially supported characters.
@@ -70,8 +72,7 @@ function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{F
 
     np = saferead(f, Int16, FEND)
     dl = read(f, UInt8)
-    desc = transcode(String, read(f, dl))
-
-    return Group(pos, nl, isLocked, gid, name, symname, np, dl, desc, Dict{Symbol,Parameter}())
+    desc = read(f, dl)
+    return Group(pos, gid, locked, _name, name, np, desc, Dict{Symbol,Parameter}())
 end
 

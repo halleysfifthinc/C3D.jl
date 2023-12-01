@@ -10,10 +10,10 @@ function comparefiles(reference, candidates)
                 @test keys(file.groups) ⊆ keys(refc3d.groups)
             end
             for grp in keys(refc3d.groups)
-                @testset "Compare :$(refc3d.groups[grp].symname) parameters with $(file.name)" begin
+                @testset "Compare :$(refc3d.groups[grp].name) parameters with $(file.name)" begin
                     @test keys(file.groups[grp].params) ⊆ keys(refc3d.groups[grp].params)
                 end
-                @testset "Compare the :$(refc3d.groups[grp].symname) parameters" begin
+                @testset "Compare the :$(refc3d.groups[grp].name) parameters" begin
                     for param in keys(refc3d.groups[grp].params)
                         if eltype(refc3d.groups[grp].params[param].payload.data) <: Number
                             if grp == :POINT && param == :SCALE
