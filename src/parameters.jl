@@ -5,25 +5,19 @@ struct ParameterTypeError <: Exception
     position::Int
 end
 
-mutable struct Parameter{P<:AbstractParameter}
+# Parameter format description https://www.c3d.org/HTML/Documents/parameterformat1.htm
+struct Parameter{P<:AbstractParameter}
     pos::Int
-    nl::Int8 # Number of characters in group name
-    isLocked::Bool # Locked if nl < 0
     gid::Int8 # Group ID
-    name::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    symname::Symbol
+    locked::Bool # Locked if nl < 0
+    _name::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    name::Symbol
     np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
-    dl::UInt8 # Number of characters in group description (nominally should be between 1 and 127)
-    desc::String # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
     payload::P
 end
 
-function Parameter(pos, nl, lock, gid, name, symname, np, dl, desc, payload)
-    return Parameter(pos, convert(Int8, nl), lock, convert(Int8, gid), name, symname,
-        convert(Int16, np), convert(UInt8, dl), desc, payload)
-end
-
-# Parameter format description https://www.c3d.org/HTML/parameterformat1.htm
+# Array format description https://www.c3d.org/HTML/Documents/parameterarrays1.htm
 struct ArrayParameter{T,N} <: AbstractParameter{T,N}
     ellen::Int8
     # -1 => Char data
@@ -31,7 +25,6 @@ struct ArrayParameter{T,N} <: AbstractParameter{T,N}
     #  2 => Int16 data
     #  4 => Float data
 
-    # Array format description https://www.c3d.org/HTML/parameterarrays1.htm
     nd::UInt8
     dims::NTuple{N,Int} # Vector of bytes (Int8 technically) describing array dimensions
     data::Array{T,N}
@@ -49,9 +42,31 @@ struct ScalarParameter{T} <: AbstractParameter{T,0}
     data::T
 end
 
+function Parameter(pos, gid, lock, name, np, desc, payload)
+    return Parameter(pos, convert(Int8, gid), lock, Vector{UInt8}(name), Symbol(name),
+        convert(Int16, np), Vector{UInt8}(desc), payload)
+end
+
+function Parameter(name, desc, payload::P; gid=0, locked=signbit(gid)) where {P<:Union{Vector{String},String}}
+    return Parameter(0, gid, locked, name, 0, desc, StringParameter(payload))
+end
+
+function Parameter(name, desc, payload::AbstractArray{T,N}; gid=0, locked=signbit(gid)) where {T<:Union{Int8,Int16,Float32},N}
+    return Parameter(0, gid, locked, name, 0, desc,
+        ArrayParameter{T,N}(sizeof(T), ndims(payload), size(payload), payload))
+end
+
+function Parameter(name, desc, payload::T; gid=0, locked=signbit(gid)) where {T}
+    return Parameter(0, gid, locked, name, 0, desc, ScalarParameter{T}(payload))
+end
+
+function Parameter{StringParameter}(p::Parameter{ScalarParameter{String}})
+    return Parameter{StringParameter}(p.pos, p.gid, p.locked, p._name, p.name,
+        p.np, p._desc, StringParameter(p.payload.data))
+end
+
 function Base.unsigned(p::Parameter{<:AbstractParameter{T}}) where {T <: Number}
-    return Parameter(p.pos, p.nl, p.isLocked, p.gid, p.name, p.symname,
-        p.np, p.dl, p.desc, unsigned(p.payload))
+    return Parameter(p.pos, p.gid, p.locked, p._name, p.name, p.np, p._desc, unsigned(p.payload))
 end
 
 function Base.unsigned(p::ArrayParameter{T,N}) where {T,N}
@@ -64,36 +79,16 @@ function Base.unsigned(p::ScalarParameter{T}) where T
     return ScalarParameter{uT}(unsigned(p.data))
 end
 
-function Parameter{StringParameter}(p::Parameter{ScalarParameter{String}})
-    return Parameter{StringParameter}(p.pos, p.nl, p.isLocked, p.gid, p.name, p.symname,
-        p.np, p.dl, p.desc, StringParameter([x.data]))
-end
-
-function Parameter(name::String, desc::String, payload::P; gid=0) where {P<:Union{Vector{String},String}}
-    return Parameter(0, length(name), false, gid, name, Symbol(name), 0, length(desc), desc,
-        StringParameter(payload))
-end
-
-function Parameter(name, desc, payload::AbstractArray{T,N}; gid=0) where {T<:Union{Int8,Int16,Float32},N}
-    return Parameter(0, length(name), false, gid, name, Symbol(name), 0, length(desc), desc,
-        ArrayParameter{T,N}(sizeof(T), ndims(payload), size(payload), payload))
-end
-
-function Parameter(name, desc, payload::T; gid=0) where {T}
-    return Parameter(0, length(name), false, gid, name, Symbol(name), 0, length(desc), desc,
-        ScalarParameter{T}(payload))
-end
-
 function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{Float32,VaxFloatF}
     pos = position(io)
     nl = read(io, Int8)
     @assert nl != 0
-    isLocked = nl < 0 ? true : false
+    locked = signbit(nl)
     gid = read(io, Int8)
     @assert gid != 0
-    name = transcode(String, read(io, abs(nl)))
-    @assert any(!iscntrl, name)
-    symname = Symbol(replace(strip(name), r"[^a-zA-Z0-9_]" => '_'))
+    _name = read(io, abs(nl))
+    @assert any(!iscntrl∘Char, _name)
+    name = Symbol(replace(strip(transcode(String, copy(_name))), r"[^a-zA-Z0-9_]" => '_'))
 
     # if occursin(r"[^a-zA-Z0-9_ ]", name)
     #     @debug "Parameter $name at $pos has unofficially supported characters.
@@ -125,9 +120,9 @@ function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{
     end
 
     dl = read(io, UInt8)
-    desc = transcode(String, read(io, dl))
+    desc = read(io, dl)
 
-    if any(iscntrl, desc)
+    if any(iscntrl∘Char, desc)
         desc = ""
     end
 
@@ -149,7 +144,7 @@ function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{
         payload = ScalarParameter(data)
     end
 
-    return Parameter(pos, nl, isLocked, gid, name, symname, np, dl, desc, payload)
+    return Parameter(pos, gid, locked, _name, name, np, desc, payload)
 end
 
 function _readscalarparameter(io::IO, FEND::Endian, ::Type{T}) where T
