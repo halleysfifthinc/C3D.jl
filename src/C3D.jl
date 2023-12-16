@@ -2,7 +2,17 @@ module C3D
 
 using VaxData, PrecompileTools, LazyArtifacts, Dates
 
-@enum Endian LE=1 BE=2
+abstract type AbstractEndian{T} end
+struct LittleEndian{T} <: AbstractEndian{T} end
+struct BigEndian{T} <: AbstractEndian{T} end
+const LE = LittleEndian
+const BE = BigEndian
+
+Base.eltype(::Type{<:AbstractEndian{T}}) where {T} = T
+(::Type{<:LE{T}})(::Type{NT}) where {T,NT} = LE{NT}
+(::Type{<:BE{T}})(::Type{NT}) where {T,NT} = BE{NT}
+(::Type{<:LE{T}})(::Type{OT}) where {T,OT<:AbstractEndian} = LE{eltype(OT)}
+(::Type{<:BE{T}})(::Type{OT}) where {T,OT<:AbstractEndian} = BE{eltype(OT)}
 
 export readc3d, numpointframes, numanalogframes, writetrc
 
@@ -13,9 +23,9 @@ include("groups.jl")
 include("header.jl")
 include("validate.jl")
 
-struct C3DFile
+struct C3DFile{END<:AbstractEndian}
     name::String
-    header::Header
+    header::Header{END}
     groups::Dict{Symbol, Group}
     point::Dict{String, Array{Union{Missing, Float32},2}}
     residual::Dict{String, Array{Union{Missing, Float32},1}}
@@ -198,10 +208,12 @@ function calcresiduals(x::AbstractVector, scale)
     return (reinterpret.(UInt32, x) .>> 16) .& 0xff .* scale
 end
 
-function readdata(io::IOStream, head::Header, groups::Dict{Symbol,Group}, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
+function readdata(
+    io::IOStream, head::Header, groups::Dict{Symbol,Group}, ::Type{END}
+    ) where {END<:AbstractEndian}
     seek(io, (groups[:POINT][Int, :DATA_START]-1)*512)
 
-    format = groups[:POINT][Float32, :SCALE] > 0 ? Int16 : FType
+    format = groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(END)
 
     numframes::Int = numpointframes(groups)
     nummarkers::Int = groups[:POINT][Int, :USED]
@@ -220,7 +232,7 @@ function readdata(io::IOStream, head::Header, groups::Dict{Symbol,Group}, FEND::
         if nummarkers > head.npoints
             # Needed to correctly read artifact"sample27/kyowadengyo.c3d"
             nummarkers = head.npoints
-            groups[:POINT].params[:USED].payload = C3D.ScalarParameter{Int16}(nummarkers)
+            groups[:POINT].params[:USED].payload.data = nummarkers
         end
 
         # Remaining checks will be withheld until triggering test cases are demonstrated
@@ -263,13 +275,13 @@ function readdata(io::IOStream, head::Header, groups::Dict{Symbol,Group}, FEND::
 
     @inbounds for i in 1:numframes
         if hasmarkers
-            saferead!(io, pointtmp, FEND)
-            point[:,i] = pointview
-            residuals[:,i] = resview
+            read!(io, pointtmp, END)
+            point[:,i] = pointview # convert's `pointtmp` element type in `setindex`
+            residuals[:,i] = resview # ditto
         end
         if haschannels
-            saferead!(io, analogtmp, FEND)
-            analog[:,((i-1)*aspf+1):(i*aspf)] = analogtmp
+            read!(io, analogtmp, END)
+            analog[:,((i-1)*aspf+1):(i*aspf)] = analogtmp # ditto
         end
     end
 
@@ -282,7 +294,7 @@ function readdata(io::IOStream, head::Header, groups::Dict{Symbol,Group}, FEND::
     if haschannels
         if numchannels == 1
             ANALOG_OFFSET = groups[:ANALOG][Float32, :OFFSET]
-            SCALE = (groups[:ANALOG][Float32, :GEN_SCALE] * groups[:ANALOG][Float32, :SCALE])
+            SCALE = groups[:ANALOG][Float32, :GEN_SCALE] * groups[:ANALOG][Float32, :SCALE]
             analog .= (analog .- ANALOG_OFFSET) .* SCALE
         else
             VECANALOG_OFFSET = groups[:ANALOG][Vector{Int}, :OFFSET][1:numchannels]
@@ -296,45 +308,44 @@ function readdata(io::IOStream, head::Header, groups::Dict{Symbol,Group}, FEND::
     return (permutedims(point), permutedims(residuals), permutedims(analog))
 end
 
-function saferead(io::IOStream, ::Type{T}, FEND::Endian) where T
-    if FEND == LE
-        return ltoh(read(io, T))
-    else
-        return ntoh(read(io, T))
-    end
+function Base.read(io::IO, ::Type{LittleEndian{T}}) where T
+    return ltoh(read(io, T))
 end
 
-function saferead!(io::IOStream, x::AbstractArray, FEND::Endian)
-    if FEND == LE
-        x .= ltoh.(read!(io, x))
-    else
-        x .= ntoh.(read!(io, x))
-    end
-    nothing
+function Base.read(io::IO, ::Type{BigEndian{T}}) where T
+    return ntoh(read(io, T))
 end
 
-function saferead(io::IOStream, ::Type{T}, FEND::Endian, dims)::Array{T} where T
-    if FEND == LE
-        return ltoh.(read!(io, Array{T}(undef, dims)))
-    else
-        return ntoh.(read!(io, Array{T}(undef, dims)))
-    end
+function Base.read(io::IO, ::Type{LittleEndian{VaxFloatF}})
+    return convert(Float32, ltoh(read(io, VaxFloatF)))
 end
 
-function saferead(io::IOStream, ::Type{VaxFloatF}, FEND::Endian)::Float32
-    if FEND == LE
-        return convert(Float32, ltoh(read(io, VaxFloatF)))
-    else
-        return convert(Float32, ntoh(read(io, VaxFloatF)))
-    end
+function Base.read(io::IO, ::Type{BigEndian{VaxFloatF}})
+    return convert(Float32, ntoh(read(io, VaxFloatF)))
 end
 
-function saferead(io::IOStream, ::Type{VaxFloatF}, FEND::Endian, dims::NTuple{N,Int})::Array{Float32,N} where N
-    if FEND == LE
-        return convert(Array{Float32,N}, ltoh.(read!(io, Array{VaxFloatF}(undef, dims))))
-    else
-        return convert(Array{Float32,N}, ntoh.(read!(io, Array{VaxFloatF}(undef, dims))))
-    end
+function Base.read!(io::IO, a::AbstractArray{T}, ::Type{<:LittleEndian{U}}) where {T,U}
+    read!(io, a)
+    a .= ltoh.(a)
+    return a
+end
+
+function Base.read!(io::IO, a::AbstractArray{T}, ::Type{<:BigEndian{U}}) where {T,U}
+    read!(io, a)
+    a .= ntoh.(a)
+    return a
+end
+
+function Base.read!(io::IO, a::AbstractArray{Float32}, ::Type{LittleEndian{VaxFloatF}})
+    _a = read!(io, similar(a, VaxFloatF))
+    a .= convert.(Float32, ltoh.(_a))
+    return a
+end
+
+function Base.read!(io::IO, a::AbstractArray{Float32}, ::Type{BigEndian{VaxFloatF}})
+    _a = read!(io, similar(a, VaxFloatF))
+    a .= convert.(Float32, ntoh.(_a))
+    return a
 end
 
 """
@@ -351,7 +362,7 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
                  missingpoints=true, strip_prefixes=false)
     io = open(fn, "r")
 
-    groups, header, FEND, FType = _readparams(fn, io)
+    groups, header, END = _readparams(fn, io)
 
     if validate
         validatec3d(header, groups)
@@ -364,10 +375,9 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
         close(io)
         return C3DFile(fn, header, groups, point, residual, analog)
     else
-        (point, residual, analog) = readdata(io, header, groups, FEND, FType)
+        (point, residual, analog) = readdata(io, header, groups, END)
+        close(io)
     end
-
-    close(io)
 
     res = C3DFile(fn, header, groups, point, residual, analog;
                   missingpoints, strip_prefixes)
@@ -397,20 +407,20 @@ function _readparams(fn::String, io::IO)
     # Deal with host big-endianness in the future
     if proctype == 1
         # little-endian
-        FEND = LE
+        END = LE{FType}
     elseif proctype == 2
         # DEC floats; little-endian
         FType = VaxFloatF
-        FEND = LE
+        END = LE{FType}
     elseif proctype == 3
         # big-endian
-        FEND = BE
+        END = BE{FType}
     else
         error("Malformed processor type. Expected 1, 2, or 3. Found ", proctype)
     end
 
     mark(io)
-    header = readheader(io, FEND, FType)
+    header = read(io, Header{END})
     reset(io)
     unmark(io)
 
@@ -424,13 +434,13 @@ function _readparams(fn::String, io::IO)
     if read(io, Int8) < 0
         # Group
         skip(io, -2)
-        push!(gs, readgroup(io, FEND, FType))
+        push!(gs, read(io, Group{END}))
         np = gs[end].pos + gs[end].np + length(gs[end]._name) + 2
         moreparams = gs[end].np != 0 ? true : false
     else
         # Parameter
         skip(io, -2)
-        push!(ps, readparam(io, FEND, FType))
+        push!(ps, readparam(io, END))
         np = ps[end].pos + ps[end].np + length(ps[end]._name) + 2
         moreparams = ps[end].np != 0 ? true : false
     end
@@ -453,7 +463,7 @@ function _readparams(fn::String, io::IO)
             # Reset to the beginning of the group
             skip(io, -2)
             try
-                push!(gs, readgroup(io, FEND, FType))
+                push!(gs, read(io, Group{END}))
                 np = gs[end].pos + gs[end].np + length(gs[end]._name) + 2
                 moreparams = gs[end].np != 0 ? true : false # break if the pointer is 0 (ie the parameters are finished)
                 fail = 0 # reset fail counter following a successful read
@@ -470,7 +480,7 @@ function _readparams(fn::String, io::IO)
             # Reset to the beginning of the parameter
             skip(io, -2)
             try
-                push!(ps, readparam(io, FEND, FType))
+                push!(ps, readparam(io, END))
                 np = ps[end].pos + ps[end].np + length(ps[end]._name) + 2
                 moreparams = ps[end].np != 0 ? true : false
                 fail = 0
@@ -505,13 +515,13 @@ function _readparams(fn::String, io::IO)
             groupsym = Symbol("GID_$(param.gid)_MISSING")
             if !haskey(groups, groupsym)
                 groupname = string(groupsym)
-                groups[groupsym] = Group(groupname, "Group was not defined in header"; gid=param.gid)
+                groups[groupsym] = Group{END}(groupname, "Group was not defined in header"; gid=param.gid)
             end
             groups[groupsym].params[param.name] = param
         end
     end
 
-    return (groups, header, FEND, FType)
+    return (groups, header, END)
 end
 
 @setup_workload begin

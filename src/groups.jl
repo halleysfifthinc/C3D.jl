@@ -1,5 +1,5 @@
 # Group format description https://www.c3d.org/HTML/Documents/groupformat1.htm
-struct Group
+struct Group{END<:AbstractEndian}
     pos::Int
     gid::Int8 # Group ID
     locked::Bool
@@ -10,13 +10,33 @@ struct Group
     params::Dict{Symbol,Parameter}
 end
 
-function Group(pos, gid, locked, name, np, desc, params=Dict{Symbol,Parameter}())
-    return Group(pos, convert(Int8, gid), locked, Vector{UInt8}(name), Symbol(name),
+function Group(
+    pos::Int, gid::Int8, locked::Bool, _name::Vector{UInt8}, name::Symbol, np::Int16,
+    _desc::Vector{UInt8}, params::Dict{Symbol,Parameter}
+)
+    return Group{LE{Float32}}(pos, gid, locked, _name, name, np, _desc, params)
+end
+
+function Group{END}(
+    pos, gid, locked, name, np, desc, params=Dict{Symbol,Parameter}()
+) where {END<:AbstractEndian}
+    return Group{END}(pos, convert(Int8, gid), locked, Vector{UInt8}(name), Symbol(name),
         convert(Int16, np), Vector{UInt8}(desc), params)
 end
 
+function Group(pos, gid, locked, name, np, desc, params=Dict{Symbol,Parameter}())
+    return Group{LE{Float32}}(pos, convert(Int8, gid), locked, Vector{UInt8}(name),
+        Symbol(name), convert(Int16, np), Vector{UInt8}(desc), params)
+end
+
+function Group{END}(
+    name::String, desc::String, params=Dict{Symbol,Parameter}(); gid=0, locked=signbit(gid)
+) where {END<:AbstractEndian}
+    return Group{END}(0, gid, locked, name, 0, desc, params)
+end
+
 function Group(name::String, desc::String, params=Dict{Symbol,Parameter}(); gid=0, locked=signbit(gid))
-    return Group(0, gid, locked, name, 0, desc, params)
+    return Group{LE{Float32}}(0, gid, locked, name, 0, desc, params)
 end
 
 function Base.getindex(g::Group, k::Symbol)
@@ -54,7 +74,7 @@ end
 
 Base.show(io::IO, g::Group) = show(io, keys(g.params))
 
-function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
+function Base.read(f::IO, ::Type{Group{END}}) where {END<:AbstractEndian}
     pos = position(f)
     nl = read(f, Int8)
     @assert nl != 0
@@ -70,9 +90,9 @@ function readgroup(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{F
     #         Unexpected results may occur"
     # end
 
-    np = saferead(f, Int16, FEND)
+    np = read(f, END(Int16))
     dl = read(f, UInt8)
     desc = read(f, dl)
-    return Group(pos, gid, locked, _name, name, np, desc, Dict{Symbol,Parameter}())
+    return Group{END}(pos, gid, locked, _name, name, np, desc, Dict{Symbol,Parameter}())
 end
 

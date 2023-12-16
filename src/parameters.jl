@@ -38,7 +38,7 @@ function StringParameter(s::String)
     return StringParameter([s])
 end
 
-struct ScalarParameter{T} <: AbstractParameter{T,0}
+mutable struct ScalarParameter{T} <: AbstractParameter{T,0}
     data::T
 end
 
@@ -79,7 +79,7 @@ function Base.unsigned(p::ScalarParameter{T}) where T
     return ScalarParameter{uT}(unsigned(p.data))
 end
 
-function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{Float32,VaxFloatF}
+function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
     pos = position(io)
     nl = read(io, Int8)
     @assert nl != 0
@@ -90,12 +90,10 @@ function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{
     @assert any(!iscntrl∘Char, _name)
     name = Symbol(replace(strip(transcode(String, copy(_name))), r"[^a-zA-Z0-9_]" => '_'))
 
-    # if occursin(r"[^a-zA-Z0-9_ ]", name)
-    #     @debug "Parameter $name at $pos has unofficially supported characters.
-    #         Unexpected results may occur"
-    # end
+    @debug "Parameter $name at $pos has unofficially supported characters.
+        Unexpected results may occur" maxlog=occursin(r"[^a-zA-Z0-9_ ]", name)
 
-    np = saferead(io, Int16, FEND)
+    np = read(io, END(Int16))
 
     ellen = read(io, Int8)
     if ellen == -1
@@ -105,7 +103,7 @@ function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{
     elseif ellen == 2
         T = Int16
     elseif ellen == 4
-        T = FType
+        T = eltype(END)
     else
         throw(ParameterTypeError(ellen, position(io)))
     end
@@ -114,9 +112,9 @@ function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{
     if nd > 0
         # dims = (read!(io, Array{UInt8}(undef, nd))...)
         dims = NTuple{convert(Int, nd),Int}(read!(io, Array{UInt8}(undef, nd)))
-        data = _readarrayparameter(io, FEND, T, dims)
+        data = _readarrayparameter(io, END(T), dims)
     else
-        data = _readscalarparameter(io, FEND, T)
+        data = _readscalarparameter(io, END(T))
     end
 
     dl = read(io, UInt8)
@@ -127,9 +125,7 @@ function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{
     end
 
     pointer = pos + np + abs(nl) + 2
-    # if position(io) != pointer
-    #     @debug "wrong pointer in $name" position(io) pointer
-    # end
+    @debug "wrong pointer in $name" position(io) pointer maxlog=(position(io) != pointer)
 
     if data isa AbstractArray
         if all(<(2), size(data)) && !isempty(data)
@@ -147,19 +143,21 @@ function readparam(io::IOStream, FEND::Endian, FType::Type{Y}) where Y <: Union{
     return Parameter(pos, gid, locked, _name, name, np, desc, payload)
 end
 
-function _readscalarparameter(io::IO, FEND::Endian, ::Type{T}) where T
-    return saferead(io, T, FEND)
+function _readscalarparameter(io::IO, ::Type{END}) where {END<:AbstractEndian}
+    return read(io, END)
 end
 
-function _readscalarparameter(io::IO, FEND::Endian, ::Type{String})::String
+function _readscalarparameter(io::IO, ::Type{<:AbstractEndian{String}})::String
     return rstrip(x -> iscntrl(x) || isspace(x), transcode(String, read(io, UInt8)))
 end
 
-function _readarrayparameter(io::IO, FEND::Endian, ::Type{T}, dims) where T
-    return saferead(io, T, FEND, dims)
+function _readarrayparameter(io::IO, ::Type{END}, dims) where {END<:AbstractEndian}
+    T = eltype(END) <: VaxFloat ? Float32 : eltype(END)
+    a = Array{T}(undef, dims)
+    return read!(io, a, END)
 end
 
-function _readarrayparameter(io::IO, FEND::Endian, ::Type{String}, dims)::Array{String}
+function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Array{String}
     tdata = convert.(Char, read!(io, Array{UInt8}(undef, dims)))
     if length(dims) > 1
         data = [ rstrip(x -> iscntrl(x) || isspace(x),
