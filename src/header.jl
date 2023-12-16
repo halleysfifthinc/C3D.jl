@@ -1,4 +1,4 @@
-struct Header
+struct Header{END<:AbstractEndian}
     paramptr::UInt8
     npoints::UInt16
     ampf::UInt16
@@ -16,30 +16,31 @@ struct Header
     res3::UInt16
 end
 
-function readheader(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{Float32,VaxFloatF}
+function Base.read(f::IOStream, ::Type{Header{END}}) where {END<:AbstractEndian}
     seek(f,0)
     paramptr = read(f, UInt8)
     read(f, Int8)
-    npoints = saferead(f, UInt16, FEND)
-    ampf = saferead(f, UInt16, FEND)
-    fframe = saferead(f, UInt16, FEND)
-    lframe = saferead(f, UInt16, FEND)
-    maxinterp = saferead(f, UInt16, FEND)
-    scale = saferead(f, FType, FEND)
-    datastart = saferead(f, UInt16, FEND)
-    aspf = saferead(f, UInt16, FEND)
-    pointrate = saferead(f, FType, FEND)
+    npoints = read(f, END(UInt16))
+    ampf = read(f, END(UInt16))
+    fframe = read(f, END(UInt16))
+    lframe = read(f, END(UInt16))
+    maxinterp = read(f, END(UInt16))
+    scale = read(f, END)
+    datastart = read(f, END(UInt16))
+    aspf = read(f, END(UInt16))
+    pointrate = read(f, END)
     res1 = read(f, 137*2)
 
-    tmp = saferead(f, UInt16, FEND)
-    tmp_lr = saferead(f, UInt16, FEND)
+    tmp = read(f, END(UInt16))
+    tmp_lr = read(f, END(UInt16))
     labelrange = (tmp == 0x3039) ? tmp_lr : nothing
 
-    char4 = (saferead(f, UInt16, FEND) == 0x3039)
+    char4 = (read(f, END(UInt16)) == 0x3039)
     skip(f, 2)
     res2 = read(f, UInt16)
 
-    eventtimes = saferead(f, FType, FEND, 18)
+    eventtimes = Vector{eltype(END)}(undef, 18)
+    read!(f, eventtimes, END)
     eventflags = read!(f, Array{Bool}(undef, 18))
     validevents = findall(iszero, eventflags)
 
@@ -56,7 +57,7 @@ function readheader(f::IOStream, FEND::Endian, FType::Type{T}) where T <: Union{
         push!(events[event], time)
     end
 
-    return Header(paramptr, npoints, ampf, fframe, lframe, maxinterp, scale,
+    return Header{END}(paramptr, npoints, ampf, fframe, lframe, maxinterp, scale,
                      datastart, aspf, pointrate, res1, labelrange, res2, events, res3)
 end
 
