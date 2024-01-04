@@ -2,22 +2,11 @@ module C3D
 
 using VaxData, PrecompileTools, LazyArtifacts, Dates
 
-abstract type AbstractEndian{T} end
-struct LittleEndian{T} <: AbstractEndian{T} end
-struct BigEndian{T} <: AbstractEndian{T} end
-const LE = LittleEndian
-const BE = BigEndian
-
-Base.eltype(::Type{<:AbstractEndian{T}}) where {T} = T
-(::Type{<:LE{T}})(::Type{NT}) where {T,NT} = LE{NT}
-(::Type{<:BE{T}})(::Type{NT}) where {T,NT} = BE{NT}
-(::Type{<:LE{T}})(::Type{OT}) where {T,OT<:AbstractEndian} = LE{eltype(OT)}
-(::Type{<:BE{T}})(::Type{OT}) where {T,OT<:AbstractEndian} = BE{eltype(OT)}
-
 export readc3d, numpointframes, numanalogframes, writetrc
 
 export C3DFile
 
+include("endian.jl")
 include("parameters.jl")
 include("groups.jl")
 include("header.jl")
@@ -129,6 +118,8 @@ function numanalogframes(f::C3DFile)
         return numpointframes(f)*aspf
     end
 end
+
+endianness(f::C3DFile{END}) where END = END
 
 function Base.show(io::IO, f::C3DFile)
     dispwidth = textwidth(f.name) + 11
@@ -306,46 +297,6 @@ function readdata(
     end
 
     return (permutedims(point), permutedims(residuals), permutedims(analog))
-end
-
-function Base.read(io::IO, ::Type{LittleEndian{T}}) where T
-    return ltoh(read(io, T))
-end
-
-function Base.read(io::IO, ::Type{BigEndian{T}}) where T
-    return ntoh(read(io, T))
-end
-
-function Base.read(io::IO, ::Type{LittleEndian{VaxFloatF}})
-    return convert(Float32, ltoh(read(io, VaxFloatF)))
-end
-
-function Base.read(io::IO, ::Type{BigEndian{VaxFloatF}})
-    return convert(Float32, ntoh(read(io, VaxFloatF)))
-end
-
-function Base.read!(io::IO, a::AbstractArray{T}, ::Type{<:LittleEndian{U}}) where {T,U}
-    read!(io, a)
-    a .= ltoh.(a)
-    return a
-end
-
-function Base.read!(io::IO, a::AbstractArray{T}, ::Type{<:BigEndian{U}}) where {T,U}
-    read!(io, a)
-    a .= ntoh.(a)
-    return a
-end
-
-function Base.read!(io::IO, a::AbstractArray{Float32}, ::Type{LittleEndian{VaxFloatF}})
-    _a = read!(io, similar(a, VaxFloatF))
-    a .= convert.(Float32, ltoh.(_a))
-    return a
-end
-
-function Base.read!(io::IO, a::AbstractArray{Float32}, ::Type{BigEndian{VaxFloatF}})
-    _a = read!(io, similar(a, VaxFloatF))
-    a .= convert.(Float32, ntoh.(_a))
-    return a
 end
 
 """
