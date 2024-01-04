@@ -50,3 +50,6 @@ include("badformats.jl")
 include("inference.jl")
 include("utils.jl")
 
+include("parameterdiffutils.jl")
+include("write.jl")
+

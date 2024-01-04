@@ -1,3 +1,4 @@
 [deps]
+DeepDiffs = "ab62b9b5-e342-54a8-a765-a90f495de1a6"
 LazyArtifacts = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

@@ -1,8 +1,11 @@
 abstract type AbstractParameter{T,N} end
 
 struct ParameterTypeError <: Exception
-    found::Int
-    position::Int
+    msg::String
+end
+
+function Base.showerror(io::IO, e::ParameterTypeError)
+    print(io, e.msg)
 end
 
 # Parameter format description https://www.c3d.org/HTML/Documents/parameterformat1.htm
@@ -19,7 +22,7 @@ end
 
 # Array format description https://www.c3d.org/HTML/Documents/parameterarrays1.htm
 struct ArrayParameter{T,N} <: AbstractParameter{T,N}
-    ellen::Int8
+    elsize::Int8
     # -1 => Char data
     #  1 => Byte data
     #  2 => Int16 data
@@ -71,12 +74,46 @@ end
 
 function Base.unsigned(p::ArrayParameter{T,N}) where {T,N}
     uT = unsigned(T)
-    return ArrayParameter{uT,N}(p.ellen, p.nd, p.dims, unsigned.(p.data))
+    return ArrayParameter{uT,N}(p.elsize, p.nd, p.dims, unsigned.(p.data))
 end
 
 function Base.unsigned(p::ScalarParameter{T}) where T
     uT = unsigned(T)
     return ScalarParameter{uT}(unsigned(p.data))
+end
+
+function _elsize(::Parameter{P}) where P <: Union{StringParameter,ScalarParameter{String}}
+    return 1
+end
+
+function _elsize(::Parameter{<:Union{ArrayParameter{T},ScalarParameter{T}}}) where T
+    return sizeof(T)
+end
+
+function _ndims(p::Parameter{StringParameter})
+    return length(p.payload.data) > 1 ? 2 : 1
+end
+
+_ndims(p::Parameter{ScalarParameter{String}}) = 1
+
+function _ndims(p::Parameter{ScalarParameter{T}}) where T
+    return 0
+end
+
+function _ndims(p::Parameter{ArrayParameter{T,N}}) where {T,N}
+    return Int(p.payload.nd)
+end
+
+function _size(p::Parameter{StringParameter})
+    return length(p.payload.data) > 1 ? (maximum(length, p.payload.data), length(p.payload.data)) : (length(only(p.payload.data)),)
+end
+
+function _size(p::Parameter{ScalarParameter{T}}) where T
+    return (length(p.payload.data),)
+end
+
+function _size(p::Parameter{ArrayParameter{T,N}}) where {T,N}
+    return p.payload.dims
 end
 
 function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
@@ -91,21 +128,21 @@ function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
     name = Symbol(replace(strip(transcode(String, copy(_name))), r"[^a-zA-Z0-9_]" => '_'))
 
     @debug "Parameter $name at $pos has unofficially supported characters.
-        Unexpected results may occur" maxlog=occursin(r"[^a-zA-Z0-9_ ]", name)
+        Unexpected results may occur" maxlog=occursin(r"[^a-zA-Z0-9_ ]", transcode(String, copy(_name)))
 
     np = read(io, END(Int16))
 
-    ellen = read(io, Int8)
-    if ellen == -1
+    elsize = read(io, Int8)
+    if elsize == -1
         T = String
-    elseif ellen == 1
+    elseif elsize == 1
         T = Int8
-    elseif ellen == 2
+    elseif elsize == 2
         T = Int16
-    elseif ellen == 4
+    elseif elsize == 4
         T = eltype(END)
     else
-        throw(ParameterTypeError(ellen, position(io)))
+        throw(ParameterTypeError("Bad parameter type size found. Got $(elsize), but only -1 (Char), 1 (Int8), 2 (Int16) and 4 (Float32) are valid"))
     end
 
     nd = read(io, UInt8)
@@ -134,7 +171,7 @@ function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
         elseif eltype(data) === String
             payload = StringParameter(data)
         else
-            payload = ArrayParameter(ellen, nd, dims, data)
+            payload = ArrayParameter(elsize, nd, dims, data)
         end
     else
         payload = ScalarParameter(data)
@@ -167,3 +204,55 @@ function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Ar
     end
     return data
 end
+
+function Base.write(
+    io::IO, p::Parameter{P}, ::Type{END}; last::Bool=false
+) where {P,END<:AbstractEndian}
+    nb = 0
+    nb += write(io, flipsign(Int8(length(p._name)), -1*p.locked))
+    nb += write(io, p.gid)
+    nb += write(io, p._name)
+
+    np::UInt16 = 2 + 1 + 1 + _ndims(p) +
+        sizeof(p.payload.data) + 1 + length(p._desc)
+    nb += write(io, last ? 0x0000 : END(UInt16)(np))
+
+    elsize = _elsize(p)
+    if P <: StringParameter || P <: ScalarParameter{String}
+        elsize = -1
+    end
+    ndims = _ndims(p)
+    dims = _size(p)
+
+    nb += write(io, elsize |> Int8)
+    nb += write(io, ndims |> Int8)
+    if ndims > 0
+        nb += sum(write.(io, Int8.(dims)))
+    end
+
+    elt = elsize == -1 ? Char :
+          elsize == 1  ? UInt8 :
+          elsize == 2 ? UInt16 : Float32
+
+    if elt <: Char
+        if ndims > 1
+            for s in p.payload.data
+                _nb = write(io, s)
+                _nb += write(io, collect(Iterators.repeated(0x00, Int(dims[1]) - _nb )))
+                nb += _nb
+            end
+        else
+            nb += write(io, p.payload.data)
+        end
+    else
+        nb += sum(write.(io, END(elt).(p.payload.data)))
+    end
+
+    nb += write(io, UInt8(length(p._desc)))
+    if !isempty(p._desc)
+        nb += write(io, p._desc)
+    end
+
+    return nb
+end
+

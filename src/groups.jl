@@ -64,6 +64,7 @@ function typedindex(g::Group, ::Type{T}, k) where T
 end
 
 Base.keys(g::Group) = keys(g.params)
+Base.values(g::Group) = values(g.params)
 Base.haskey(g::Group, key) = haskey(g.params, key)
 
 # TODO: Add get! method?
@@ -85,14 +86,26 @@ function Base.read(f::IO, ::Type{Group{END}}) where {END<:AbstractEndian}
     @assert any(!iscntrl∘Char, _name)
     name = Symbol(replace(strip(transcode(String, copy(_name))), r"[^a-zA-Z0-9_]" => '_'))
 
-    # if occursin(r"[^a-zA-Z0-9_ ]", name)
-    #     @debug "Group $name at $pos has unofficially supported characters.
-    #         Unexpected results may occur"
-    # end
+    @debug "Group $name at $pos has unofficially supported characters.
+        Unexpected results may occur" maxlog=occursin(r"[^a-zA-Z0-9_ ]", transcode(String, copy(_name)))
 
     np = read(f, END(Int16))
     dl = read(f, UInt8)
     desc = read(f, dl)
     return Group{END}(pos, gid, locked, _name, name, np, desc, Dict{Symbol,Parameter}())
+end
+
+function Base.write(io::IO, g::Group{END}; last::Bool=false) where {END}
+    nb = 0
+    nb += write(io, flipsign(UInt8(length(g._name)), -1*g.locked))
+    nb += write(io, g.gid)
+    nb += write(io, g._name)
+    nb += write(io, last ? 0x0000 : END(UInt16)(UInt16(length(g._desc) + 3)))
+    nb += write(io, UInt8(length(g._desc)))
+    if !isempty(g._desc)
+        nb += write(io, g._desc)
+    end
+
+    return nb
 end
 
