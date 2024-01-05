@@ -65,3 +65,11 @@ function Base.write(io::IO, x::BigEndian{T}) where {T}
     return write(io, hton.(x.val))
 end
 
+function Base.write(io::IO, x::LittleEndian{VaxFloatF})
+    return write(io, htol.(x.val).x)
+end
+
+function Base.write(io::IO, x::BigEndian{VaxFloatF})
+    return write(io, hton.(x.val).x)
+end
+
