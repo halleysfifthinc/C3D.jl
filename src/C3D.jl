@@ -185,7 +185,7 @@ function Base.show(io::IO, ::MIME"text/plain", f::C3DFile)
     if f.groups[:POINT][:USED] > 0
         print(io, f.groups[:POINT][Int, :USED], "$GRY points$RST ",
             "@ $(round(Int, fs))$GRY Hz$RST")
-      end
+    end
     if f.groups[:ANALOG][:USED] > 0
         if f.groups[:POINT][:USED] > 0
             print(io, "; ")
@@ -200,7 +200,7 @@ function calcresiduals(x::AbstractVector, scale)
 end
 
 function readdata(
-    io::IOStream, head::Header, groups::Dict{Symbol,Group}, ::Type{END}
+    io::IOStream, h::Header{END}, groups::Dict{Symbol,Group}
     ) where {END<:AbstractEndian}
     seek(io, (groups[:POINT][Int, :DATA_START]-1)*512)
 
@@ -326,7 +326,7 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
         close(io)
         return C3DFile(fn, header, groups, point, residual, analog)
     else
-        (point, residual, analog) = readdata(io, header, groups, END)
+        (point, residual, analog) = readdata(io, header, groups)
         close(io)
     end
 
@@ -351,19 +351,19 @@ function _readparams(fn::String, io::IO)
     skip(io, 2)
 
     paramblocks = read(io, UInt8)
-    proctype = read(io, Int8) - 83
+    proctype = read(io, Int8)
 
     FType = Float32
 
     # Deal with host big-endianness in the future
-    if proctype == 1
+    if proctype == 0x54
         # little-endian
         END = LE{FType}
-    elseif proctype == 2
+    elseif proctype == 0x55
         # DEC floats; little-endian
         FType = VaxFloatF
         END = LE{FType}
-    elseif proctype == 3
+    elseif proctype == 0x56
         # big-endian
         END = BE{FType}
     else
