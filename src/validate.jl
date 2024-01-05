@@ -48,6 +48,14 @@ const pointsigncheck = ((:POINT, :USED),
 function validatec3d(header::Header, groups::Dict{Symbol,Group})
     # The following if-else ensures the minimum set of information needed to succesfully
     # read a C3DFile
+
+    if !haskey(groups, :POINT)
+        groups[:POINT] = Group("POINT", "")
+    end
+    if !haskey(groups, :ANALOG)
+        groups[:ANALOG] = Group("ANALOG", "")
+    end
+
     if !(rgroups ⊆ keys(groups))
         if !haskey(groups, :ANALOG)
             groups[:ANALOG] = Group("ANALOG", "Analog data parameters")
@@ -61,9 +69,20 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
     # Validate the :POINT group
     pointkeys = keys(groups[:POINT].params)
     if !(rpoint ⊆ pointkeys)
-        # The minimum set of parameters in :POINT is rpoint
-        d = setdiff(rpoint, pointkeys)
-        throw(MissingParametersError(:POINT, d))
+        if !(:USED in pointkeys)
+            groups[:POINT].params[:USED] = Parameter("USED", "", header.npoints;
+                gid=groups[:POINT].gid)
+        end
+
+        if !(:FRAMES in pointkeys)
+            groups[:POINT].params[:FRAMES] = Parameter("FRAMES", "", header.lframe - header.fframe + 1;
+                gid=groups[:POINT].gid)
+        end
+
+        if !(:DATA_START in pointkeys)
+            groups[:POINT].params[:DATA_START] = Parameter("DATA_START", "", header.datastart;
+                gid=groups[:POINT].gid)
+        end
     end
 
     # Fix the sign for any point parameters that are likely to need it
@@ -76,7 +95,12 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
     # Validate the :ANALOG group
     analogkeys = keys(groups[:ANALOG].params)
     if !haskey(groups[:ANALOG], :USED)
-        throw(MissingParametersError(:ANALOG, :USED))
+        groups[:ANALOG].params[:USED] = Parameter("USED", "",
+            iszero(header.ampf) ? 0 : header.ampf÷header.aspf; gid=groups[:ANALOG].gid)
+    end
+
+    if iszero(groups[:POINT][:DATA_START])
+        groups[:POINT].params[:DATA_START].payload.data = header.datastart
     end
 
     POINT_USED = groups[:POINT][Int, :USED]
@@ -87,9 +111,11 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
             if !(:RATE ∈ pointkeys)
                 groups[:POINT].params[:RATE] = Parameter("RATE", "Video sampling rate",
                     header.pointrate; gid=groups[:POINT].gid)
-            else
-                d = setdiff(ratescale, pointkeys)
-                throw(MissingParametersError(:POINT, d))
+            end
+
+            if !(:SCALE in  pointkeys)
+                groups[:POINT].params[:SCALE] = Parameter("SCALE", "", header.scale;
+                    gid=groups[:POINT].gid)
             end
         end
 

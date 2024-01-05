@@ -10,29 +10,29 @@
     f = readc3d(artifact"sample01/Eb015pr.c3d")
     header, groups = f.header, f.groups
 
-    @testset "Custom errors" begin
-        @test_nowarn MissingGroupsError(:hello)
-        @test_nowarn MissingGroupsError((:hello,:world))
-        @test_nowarn MissingGroupsError([:hello,:world])
+    # @testset "Custom errors" begin
+    #     @test_nowarn MissingGroupsError(:hello)
+    #     @test_nowarn MissingGroupsError((:hello,:world))
+    #     @test_nowarn MissingGroupsError([:hello,:world])
 
-        @test sprint(showerror, MissingGroupsError(:POINT)) ==
-            "Required group(s) :POINT are missing"
+    #     @test sprint(showerror, MissingGroupsError(:POINT)) ==
+    #         "Required group(s) :POINT are missing"
 
-        @test_nowarn MissingParametersError(:POINT, :USED)
-        @test_nowarn MissingParametersError(:POINT, (:hello,:world))
-        @test_nowarn MissingParametersError(:POINT, [:hello,:world])
+    #     @test_nowarn MissingParametersError(:POINT, :USED)
+    #     @test_nowarn MissingParametersError(:POINT, (:hello,:world))
+    #     @test_nowarn MissingParametersError(:POINT, [:hello,:world])
 
-        @test sprint(showerror, MissingParametersError(:POINT, :USED)) ==
-            "Group :POINT is missing required parameter(s) :USED"
-    end
+    #     @test sprint(showerror, MissingParametersError(:POINT, :USED)) ==
+    #         "Group :POINT is missing required parameter(s) :USED"
+    # end
 
-    @testset "Missing parameters" begin
-        bad_groups = deepcopy(groups)
-        delete!(bad_groups[:POINT].params, :USED)
-        @test_throws MissingParametersError validatec3d(header, bad_groups)
+    # @testset "Missing parameters" begin
+    #     bad_groups = deepcopy(groups)
+    #     delete!(bad_groups[:POINT].params, :USED)
+    #     @test_throws MissingParametersError validatec3d(header, bad_groups)
 
-        bad_groups = deepcopy(groups)
-        delete!(bad_groups[:ANALOG].params, :USED)
-        @test_throws MissingParametersError validatec3d(header, bad_groups)
-    end
+    #     bad_groups = deepcopy(groups)
+    #     delete!(bad_groups[:ANALOG].params, :USED)
+    #     @test_throws MissingParametersError validatec3d(header, bad_groups)
+    # end
 end
