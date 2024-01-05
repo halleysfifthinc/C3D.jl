@@ -379,102 +379,104 @@ function _readparams(fn::String, io::IO)
     mark(io)
     header = read(io, Header{END})
     reset(io)
-    unmark(io)
-
-    gs = Array{Group,1}()
-    ps = Array{Parameter,1}()
-    moreparams = true
-    fail = 0
-    np = 0
-
-    skip(io, 1)
-    if read(io, Int8) < 0
-        # Group
-        skip(io, -2)
-        push!(gs, read(io, Group{END}))
-        np = gs[end].pos + gs[end].np + length(gs[end]._name) + 2
-        moreparams = gs[end].np != 0 ? true : false
-    else
-        # Parameter
-        skip(io, -2)
-        push!(ps, readparam(io, END))
-        np = ps[end].pos + ps[end].np + length(ps[end]._name) + 2
-        moreparams = ps[end].np != 0 ? true : false
-    end
-
-    while moreparams
-        # Mark current position in file in case the pointer is incorrect
-        mark(io)
-        if fail === 0 && np != position(io)
-                @debug "Pointer mismatch at position $(position(io)) where pointer was $np"
-                seek(io, np)
-        elseif fail > 1 # this is the second failed attempt
-            @debug "Second failed parameter read attempt from $(position(io))"
-            break
-        end
-
-        # Read the next two bytes to get the gid
-        skip(io, 1)
-        local gid = read(io, Int8)
-        if gid < 0 # Group
-            # Reset to the beginning of the group
-            skip(io, -2)
-            try
-                push!(gs, read(io, Group{END}))
-                np = gs[end].pos + gs[end].np + length(gs[end]._name) + 2
-                moreparams = gs[end].np != 0 ? true : false # break if the pointer is 0 (ie the parameters are finished)
-                fail = 0 # reset fail counter following a successful read
-            catch e
-                # Last readgroup failed, possibly due to a bad pointer. Reset to the ending
-                # location of the last successfully read parameter and try again. Count the failure.
-                reset(io)
-                @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,backtrace())
-                fail += 1
-            finally
-                unmark(io) # Unmark the file regardless
-            end
-        elseif gid > 0 # Parameter
-            # Reset to the beginning of the parameter
-            skip(io, -2)
-            try
-                push!(ps, readparam(io, END))
-                np = ps[end].pos + ps[end].np + length(ps[end]._name) + 2
-                moreparams = ps[end].np != 0 ? true : false
-                fail = 0
-            catch e
-                reset(io)
-                @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,backtrace())
-                fail += 1
-            finally
-                unmark(io)
-            end
-        else # Last parameter pointer is incorrect (assumption)
-            # The group ID should never be zero, if it is, the most likely explanation is
-            # that the pointer is incorrect (eg the pointer was not fixed when the previously
-            # last parameter was deleted or moved)
-            @debug "Bad last position. Assuming parameter section is finished."
-            break
-        end
-    end
 
     groups = Dict{Symbol,Group}()
-    gids = Dict{Int8,Symbol}()
+    if !iszero(paramblocks)
+        gs = Array{Group,1}()
+        ps = Array{Parameter,1}()
+        moreparams = true
+        fail = 0
+        np = 0
 
-    for group in gs
-        groups[group.name] = group
-        gids[abs(group.gid)] = group.name
-    end
-
-    for param in ps
-        if haskey(gids, param.gid)
-            groups[gids[param.gid]].params[param.name] = param
+        skip(io, 1)
+        if read(io, Int8) < 0
+            # Group
+            skip(io, -2)
+            push!(gs, read(io, Group{END}))
+            np = gs[end].pos + gs[end].np + length(gs[end]._name) + 2
+            moreparams = gs[end].np != 0 ? true : false
         else
-            groupsym = Symbol("GID_$(param.gid)_MISSING")
-            if !haskey(groups, groupsym)
-                groupname = string(groupsym)
-                groups[groupsym] = Group{END}(groupname, "Group was not defined in header"; gid=param.gid)
+            # Parameter
+            skip(io, -2)
+            push!(ps, readparam(io, END))
+            np = ps[end].pos + ps[end].np + length(ps[end]._name) + 2
+            moreparams = ps[end].np != 0 ? true : false
+        end
+
+        while moreparams
+            # Mark current position in file in case the pointer is incorrect
+            mark(io)
+            if fail === 0 && np != position(io)
+                    @debug "Pointer mismatch at position $(position(io)) where pointer was $np"
+                    seek(io, np)
+            elseif fail > 1 # this is the second failed attempt
+                @debug "Second failed parameter read attempt from $(position(io))"
+                break
             end
-            groups[groupsym].params[param.name] = param
+
+            # Read the next two bytes to get the gid
+            skip(io, 1)
+            local gid = read(io, Int8)
+            if gid < 0 # Group
+                # Reset to the beginning of the group
+                skip(io, -2)
+                try
+                    push!(gs, read(io, Group{END}))
+                    np = gs[end].pos + gs[end].np + length(gs[end]._name) + 2
+                    moreparams = gs[end].np != 0 ? true : false # break if the pointer is 0 (ie the parameters are finished)
+                    fail = 0 # reset fail counter following a successful read
+                catch e
+                    # Last readgroup failed, possibly due to a bad pointer. Reset to the ending
+                    # location of the last successfully read parameter and try again. Count the failure.
+                    reset(io)
+                    @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,backtrace())
+                    fail += 1
+                finally
+                    unmark(io) # Unmark the file regardless
+                end
+            elseif gid > 0 # Parameter
+                # Reset to the beginning of the parameter
+                skip(io, -2)
+                try
+                    push!(ps, readparam(io, END))
+                    np = ps[end].pos + ps[end].np + length(ps[end]._name) + 2
+                    moreparams = ps[end].np != 0 ? true : false
+                    fail = 0
+                catch e
+                    reset(io)
+                    @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,backtrace())
+                    fail += 1
+                finally
+                    unmark(io)
+                end
+            else # Last parameter pointer is incorrect (assumption)
+                # The group ID should never be zero, if it is, the most likely explanation is
+                # that the pointer is incorrect (eg the pointer was not fixed when the previously
+                # last parameter was deleted or moved)
+                @debug "Bad last position. Assuming parameter section is finished."
+                break
+            end
+        end
+
+        groups = Dict{Symbol,Group}()
+        gids = Dict{Int8,Symbol}()
+
+        for group in gs
+            groups[group.name] = group
+            gids[abs(group.gid)] = group.name
+        end
+
+        for param in ps
+            if haskey(gids, param.gid)
+                groups[gids[param.gid]].params[param.name] = param
+            else
+                groupsym = Symbol("GID_$(param.gid)_MISSING")
+                if !haskey(groups, groupsym)
+                    groupname = string(groupsym)
+                    groups[groupsym] = Group{END}(groupname, "Group was not defined in header"; gid=param.gid)
+                end
+                groups[groupsym].params[param.name] = param
+            end
         end
     end
 
