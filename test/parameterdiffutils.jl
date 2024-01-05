@@ -1,49 +1,6 @@
 using DeepDiffs
 using C3D: endianness, readparam
 
-struct Repeated{T}
-    r::T
-    n::Int
-end
-
-function Base.show(io::IO, r::Repeated{T}) where T
-    print(io, repr(r.r), "{$(r.n)}")
-end
-
-Base.iterate(r::Repeated, state=1) = state > r.n ? nothing : (r.r, state+1)
-Base.eltype(::Type{Repeated{T}}) where T = T
-Base.length(r::Repeated) = r.n
-Base.size(r::Repeated) = (r.n,)
-Base.size(r::Repeated, dim) = (dim == 1) ? r.n : 1
-
-function Base.getindex(r::Repeated, i)
-    1 ≤ i ≤ r.n || throw(BoundsError(r, i))
-    return r.r
-end
-
-Base.firstindex(r::Repeated) = 1
-Base.lastindex(r::Repeated) = length(r)
-
-function condense(a::AbstractVector)
-    b = similar(a, (0,))
-    l = nothing
-    c = 1
-
-    for v in a
-        if isnothing(l)
-            push!(b, v)
-        elseif v == l
-            if c > 3
-                push!(b, Repeated(v, c+1))
-            else
-                c += 1
-            end
-        else
-            l = v
-        end
-    end
-end
-
 struct ParameterComparison
     ref::Vector{Any}
     comp::Vector{Any}
