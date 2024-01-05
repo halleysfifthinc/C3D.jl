@@ -10,7 +10,6 @@ include("endian.jl")
 include("parameters.jl")
 include("groups.jl")
 include("header.jl")
-include("validate.jl")
 
 struct C3DFile{END<:AbstractEndian}
     name::String
@@ -21,6 +20,7 @@ struct C3DFile{END<:AbstractEndian}
     analog::Dict{String, Array{Float32,1}}
 end
 
+include("validate.jl")
 include("util.jl")
 
 function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
@@ -120,6 +120,30 @@ function numanalogframes(f::C3DFile)
 end
 
 endianness(f::C3DFile{END}) where END = END
+
+groups(f::C3DFile) = collect(values(f.groups))
+parameters(f::C3DFile) = collect(Iterators.flatten((values(group) for group in groups(f))))
+
+function Header{END}(f::C3DFile{OEND}) where {END<:AbstractEndian,OEND<:AbstractEndian}
+    h = f.header
+    paramptr::UInt8 = 2
+    datafmt::UInt8 = 0x50
+    npoints::UInt16 = f.groups[:POINT][Int, :USED]
+    pointrate::Float32 = get(f.groups[:POINT], (Float32, :RATE), h.pointrate)
+    if isinteger(get(f.groups[:ANALOG], (Float32, :RATE), pointrate)/pointrate)
+        aspf = convert(UInt16, get(f.groups[:ANALOG], (Float32, :RATE), pointrate)/pointrate)
+    else
+        throw(ArgumentError("ANALOG:RATE is not an integer multiple of POINT:RATE; writing out-of-spec C3DFiles is not supported"))
+    end
+    ampf::UInt16 = aspf*f.groups[:ANALOG][Int, :USED]
+
+    datastart::UInt8 = 1+round(sum(writesize, Iterators.flatten((groups(f), parameters(f))))/512, RoundUp)
+
+    return Header{END}(paramptr, datafmt, npoints, ampf, h.fframe, h.lframe, h.maxinterp,
+        h.scale, datastart, aspf, pointrate, h.res1, h.labeltype, h.numevents, h.res2,
+        h.evtimes, h.evstat, h.res3, h.evlabels, h.res4)
+end
+Header(f::C3DFile{END}) where END = Header{END}(f)
 
 function Base.show(io::IO, f::C3DFile)
     dispwidth = textwidth(f.name) + 11
