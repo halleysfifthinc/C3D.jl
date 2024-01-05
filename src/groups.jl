@@ -109,3 +109,7 @@ function Base.write(io::IO, g::Group{END}; last::Bool=false) where {END}
     return nb
 end
 
+function writesize(g::Group{END}) where {END}
+    return 5 + length(g._name) + length(g._desc)
+end
+
