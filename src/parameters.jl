@@ -256,3 +256,7 @@ function Base.write(
     return nb
 end
 
+function writesize(p::Parameter{P}) where {P}
+    return 7 + length(p._name) + length(p._desc) + _ndims(p) + prod(_size(p))*_elsize(p)
+end
+

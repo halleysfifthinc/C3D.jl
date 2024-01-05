@@ -1,4 +1,4 @@
-using C3D: _elsize, _ndims, _size
+using C3D: _elsize, _ndims, _size, writesize
 
 function compare_header_write(fn)
     ref = open(fn) do io
@@ -35,6 +35,7 @@ end
             gs = keys(f.groups)
 
             for g in gs
+                @test write(IOBuffer(), f.groups[g]) == writesize(f.groups[g])
                 @test ==(compare_parameters(f, g))
             end
         end
@@ -50,6 +51,7 @@ end
             ps = [ (g,p) for g in gs for p in keys(f.groups[g].params) ]
 
             for (g,p) in ps
+                @test write(IOBuffer(), f.groups[g].params[p], endianness(f)) == writesize(f.groups[g].params[p])
                 expr = :(==(compare_parameters($f, :GROUP, :PARAMETER)))
                 expr.args[2].args[3] = QuoteNode(g) # replace :GROUP with g
                 expr.args[2].args[4] = QuoteNode(p)
