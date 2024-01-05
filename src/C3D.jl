@@ -209,30 +209,36 @@ function readdata(
     numframes::Int = numpointframes(groups)
     nummarkers::Int = groups[:POINT][Int, :USED]
     numchannels::Int = groups[:ANALOG][Int, :USED]
-    aspf::Int = convert(Int, get(groups[:ANALOG], (Float32, :RATE), get(groups[:POINT], (Float32, :RATE), head.pointrate))/
-        get(groups[:POINT], (Float32, :RATE), head.pointrate))
+    pointrate = get(groups[:POINT], (Float32, :RATE), h.pointrate)
+    if isinteger(get(groups[:ANALOG], (Float32, :RATE), pointrate)/pointrate)
+        aspf::Int = convert(Int, get(groups[:ANALOG], (Float32, :RATE), pointrate)/pointrate)
+    else
+        aspf = h.aspf
+    end
 
     est_data_size = numframes*sizeof(format)*(nummarkers*4 + numchannels*aspf)
     rem_file_size = stat(fd(io)).size - position(io)
-    @debug "Estimated DATA size: $(Base.format_bytes(est_data_size)); \
-        remaining file data: $(Base.format_bytes(rem_file_size))"
     if est_data_size > rem_file_size
+        @debug "Estimated DATA size: $(Base.format_bytes(est_data_size)); \
+            remaining file data: $(Base.format_bytes(rem_file_size))"
         # Some combination of numframes, nummarkers, numchannels, aspf, or format is wrong
+        # (or the end of the file has been cut off)
         # Check any duplicated info and use instead
         #
-        if nummarkers > head.npoints
+        if nummarkers > h.npoints
             # Needed to correctly read artifact"sample27/kyowadengyo.c3d"
-            nummarkers = head.npoints
+            nummarkers = h.npoints
             groups[:POINT].params[:USED].payload.data = nummarkers
         end
 
         # Remaining checks will be withheld until triggering test cases are demonstrated
-        # if aspf > head.aspf
-        #     aspf = head.aspf
+        # if numchannels > h.ampf/aspf
+        #     numchannels = h.ampf/aspf
         # end
-        # if numchannels > head.ampf/aspf
-        #     numchannels = head.ampf/aspf
-        # end
+        # est_data_size = numframes*sizeof(format)*(nummarkers*4 + numchannels*aspf)
+        # rem_file_size = stat(fd(io)).size - position(io)
+        # @debug "Estimated DATA size: $(Base.format_bytes(est_data_size)); \
+        #     remaining file data: $(Base.format_bytes(rem_file_size))"
     end
 
     # Read data in a transposed structure for better read/write speeds due to Julia being
