@@ -37,6 +37,9 @@ function comparefiles(reference, candidates)
                     @testset "$sig" begin
                         @test haskey(file.point,sig)
                         @test all(isapprox.(refc3d.point[sig], file.point[sig]; atol=0.3))
+                        @test refc3d.residual[sig] ≈ file.residual[sig]
+                        @test mapreduce((x,y) -> isapprox(x, y, atol=1), |, refc3d.cameras[sig], file.cameras[sig])
+
                     end
                 end
                 for sig in keys(refc3d.analog)
