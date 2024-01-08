@@ -1,11 +1,19 @@
 function calcresiduals(x::AbstractVector, scale)
-    return (reinterpret.(UInt32, x) .>> 16) .& 0xff .* scale
+    return (convert.(Int16, x) .% UInt8) .* abs(scale)
 end
 
 function readdata(
     io::IOStream, h::Header{END}, groups::Dict{Symbol,Group}
     ) where {END<:AbstractEndian}
-    seek(io, (groups[:POINT][Int, :DATA_START]-1)*512)
+    if iszero(groups[:POINT][Int, :DATA_START]-1)
+        if !iszero(h.datastart-1)
+            seek(io, (h.datastart-1)*512)
+        else
+            throw(ArgumentError("DATA_START missing/incorrect; cannot read file"))
+        end
+    else
+        seek(io, (groups[:POINT][Int, :DATA_START]-1)*512)
+    end
 
     format = groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(END)
 
@@ -20,7 +28,8 @@ function readdata(
     end
 
     est_data_size = numframes*sizeof(format)*(nummarkers*4 + numchannels*aspf)
-    rem_file_size = stat(fd(io)).size - position(io)
+    _iosize = stat(fd(io)).size
+    rem_file_size = _iosize - position(io)
     if est_data_size > rem_file_size
         @debug "Estimated DATA size: $(Base.format_bytes(est_data_size)); \
             remaining file data: $(Base.format_bytes(rem_file_size))"
@@ -48,8 +57,8 @@ function readdata(
     # column-order arrays
     hasmarkers = !iszero(nummarkers)
     if hasmarkers
-        point = Array{Float32,2}(undef, nummarkers*3, numframes)
-        residuals = Array{Float32,2}(undef, nummarkers, numframes)
+        point = zeros(Float32, nummarkers*3, numframes)
+        residuals = zeros(Int32, nummarkers, numframes)
 
         nb = nummarkers*4
         pointidxs = filter(x -> x % 4 != 0, 1:nb)
@@ -60,13 +69,13 @@ function readdata(
         resview = view(pointtmp, residxs)
     else
         point = Array{Float32,2}(undef, 0,0)
-        residuals = Array{Float32,2}(undef, 0,0)
+        residuals = Array{Int32,2}(undef, 0,0)
     end
 
     haschannels = !iszero(numchannels)
     if haschannels
         # Analog Samples Per Frame => ASPF
-        analog = Array{Float32,2}(undef, numchannels, aspf*numframes)
+        analog = zeros(Float32, numchannels, aspf*numframes)
 
         analogtmp = Matrix{format}(undef, (numchannels,aspf))
     else
@@ -75,13 +84,25 @@ function readdata(
 
     @inbounds for i in 1:numframes
         if hasmarkers
-            read!(io, pointtmp, END)
-            point[:,i] = pointview # convert's `pointtmp` element type in `setindex`
-            residuals[:,i] = resview # ditto
+            if _iosize - position(io) > sizeof(pointtmp)
+                read!(io, pointtmp, END)
+                point[:,i] = pointview # convert's `pointtmp` element type in `setindex`
+                residuals[:,i] = resview # ditto
+            else
+                @debug "End-of-file reached before expected; frame$(length(i:numframes) > 1 ? "s" : "") $(i:numframes) \
+                    are missing"
+                break
+            end
         end
         if haschannels
-            read!(io, analogtmp, END)
-            analog[:,((i-1)*aspf+1):(i*aspf)] = analogtmp # ditto
+            if _iosize - position(io) > sizeof(analogtmp)
+                read!(io, analogtmp, END)
+                analog[:,((i-1)*aspf+1):(i*aspf)] = analogtmp # ditto
+            else
+                @debug "End-of-file reached before expected; frame$(length(i:numframes) > 1 ? "s" : "") $(i:numframes) \
+                    are missing"
+                break
+            end
         end
     end
 
@@ -129,11 +150,12 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
     end
 
     if paramsonly
-        point = Dict{String,Array{Union{Missing, Float32},2}}()
-        residual = Dict{String,Array{Union{Missing, Float32},1}}()
-        analog = Dict{String,Array{Float32,1}}()
+        point = Dict{String,Matrix{Union{Missing, Float32}}}()
+        residual = Dict{String,Vector{Union{Missing, Float32}}}()
+        cameras = Dict{String,Vector{UInt8}}()
+        analog = Dict{String,Vector{Float32}}()
         close(io)
-        return C3DFile(fn, header, groups, point, residual, analog)
+        return C3DFile(fn, header, groups, point, residual, cameras, analog)
     else
         (point, residual, analog) = readdata(io, header, groups)
         close(io)

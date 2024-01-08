@@ -17,19 +17,23 @@ struct C3DFile{END<:AbstractEndian}
     groups::Dict{Symbol, Group}
     point::Dict{String, Array{Union{Missing, Float32},2}}
     residual::Dict{String, Array{Union{Missing, Float32},1}}
+    cameras::Dict{String, Vector{UInt8}}
     analog::Dict{String, Array{Float32,1}}
 end
 
 include("read.jl")
 include("validate.jl")
+include("edit.jl")
+include("write.jl")
 include("util.jl")
 
 function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
                  point::AbstractArray, residuals::AbstractArray, analog::AbstractArray;
                  missingpoints::Bool=true, strip_prefixes::Bool=false)
-    fpoint = Dict{String,Array{Union{Missing, Float32},2}}()
-    fresiduals = Dict{String,Array{Union{Missing, Float32},1}}()
-    fanalog = Dict{String,Array{Float32,1}}()
+    fpoint = Dict{String,Matrix{Union{Missing, Float32}}}()
+    fresiduals = Dict{String,Vector{Union{Missing, Float32}}}()
+    cameras = Dict{String,Vector{UInt8}}()
+    fanalog = Dict{String,Vector{Float32}}()
 
     l = size(point, 1)
     allpoints = 1:l
@@ -58,12 +62,14 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
 
             fpoint[ptname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
             fresiduals[ptname] = residuals[:,idx]
+            cameras[ptname] = ((convert.(Int32, @view(residuals[:,idx])) .>> 8) .& 0xff) .% UInt8
+            invalidpoints = findall(x -> convert(Int32, x) % Int16 < 0, fresiduals[ptname])
+            calculatedpoints = findall(iszero, fresiduals[ptname])
+            goodpoints = setdiff(allpoints, invalidpoints ∪ calculatedpoints)
+            fresiduals[ptname][goodpoints] = calcresiduals(fresiduals[ptname][goodpoints], abs(groups[:POINT][Float32, :SCALE]))
+
             if missingpoints
-                invalidpoints = findall(x -> x === -1.0f0, fresiduals[ptname])
-                calculatedpoints = findall(iszero, fresiduals[ptname])
-                goodpoints = setdiff(allpoints, invalidpoints ∪ calculatedpoints)
                 fpoint[ptname][invalidpoints, :] .= missing
-                fresiduals[ptname][goodpoints] = calcresiduals(fresiduals[ptname], abs(groups[:POINT][Float32, :SCALE]))[goodpoints]
                 fresiduals[ptname][invalidpoints] .= missing
                 fresiduals[ptname][calculatedpoints] .= 0.0f0
             end
@@ -76,7 +82,7 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
         end
     end
 
-    return C3DFile(name, header, groups, fpoint, fresiduals, fanalog)
+    return C3DFile(name, header, groups, fpoint, fresiduals, cameras, fanalog)
 end
 
 C3DFile(fn::AbstractString) = readc3d(string(fn))
