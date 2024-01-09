@@ -9,15 +9,15 @@ function Base.showerror(io::IO, e::ParameterTypeError)
 end
 
 # Parameter format description https://www.c3d.org/HTML/Documents/parameterformat1.htm
-struct Parameter{P<:AbstractParameter}
-    pos::Int
+mutable struct Parameter{P<:AbstractParameter}
+    const pos::Int
     gid::Int8 # Group ID
-    locked::Bool # Locked if nl < 0
-    _name::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    name::Symbol
-    np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
-    _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    payload::P
+    const locked::Bool # Locked if nl < 0
+    const _name::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    const name::Symbol
+    const np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
+    const _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    const payload::P
 end
 
 # Array format description https://www.c3d.org/HTML/Documents/parameterarrays1.htm
