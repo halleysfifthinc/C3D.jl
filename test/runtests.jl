@@ -40,6 +40,8 @@ using TOML: parsefile
 # sample35 - ANALOG EMG data from MEGAWIN                   https://www.c3d.org/data/Sample35.zip
 # sample36 - C3D POINT:FRAMES test suite                    https://www.c3d.org/data/Sample36.zip
 
+include("testutils.jl")
+
 include("identical.jl")
 include("publicinterface.jl")
 include("validate.jl")
@@ -51,6 +53,5 @@ include("badformats.jl")
 include("inference.jl")
 include("utils.jl")
 
-include("parameterdiffutils.jl")
 include("write.jl")
 
