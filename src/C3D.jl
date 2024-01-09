@@ -157,18 +157,19 @@ function Base.show(io::IO, f::C3DFile)
     cols = displaysize(io)[2] - 11
     pathcomps = splitpath(f.name)
 
-    if dispwidth > cols
-        if first(pathcomps) == "/"
-            i = 2
-        else
-            i = 1
-        end
-        while length(joinpath(["…/"; pathcomps[i:end]])) > cols && i+1 < length(pathcomps)
+    if get(io, :limit, false) || dispwidth > cols
+        i = first(pathcomps) == "/" ? 2 : 1
+
+        @views while sum(textwidth, pathcomps[i:end]) + length(pathcomps) - i + 3 > cols &&
+          i+1 < length(pathcomps)
             i += 1
         end
-        name = joinpath(pathcomps[i+1:end])
+
         if i > 1
-            name = joinpath("…/", name)
+            pathcomps[i] = "…/"
+            @views name = joinpath(pathcomps[i:end])
+        else
+            @views name = joinpath(pathcomps[i+1:end])
         end
     else
         name = f.name
