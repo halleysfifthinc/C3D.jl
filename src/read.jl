@@ -84,7 +84,7 @@ function readdata(
 
     @inbounds for i in 1:numframes
         if hasmarkers
-            if _iosize - position(io) > sizeof(pointtmp)
+            if _iosize - position(io) ≥ sizeof(pointtmp)
                 read!(io, pointtmp, END)
                 point[:,i] = pointview # convert's `pointtmp` element type in `setindex`
                 residuals[:,i] = resview # ditto
@@ -95,7 +95,7 @@ function readdata(
             end
         end
         if haschannels
-            if _iosize - position(io) > sizeof(analogtmp)
+            if _iosize - position(io) ≥ sizeof(analogtmp)
                 read!(io, analogtmp, END)
                 analog[:,((i-1)*aspf+1):(i*aspf)] = analogtmp # ditto
             else
@@ -198,7 +198,7 @@ function _readparams(fn::String, io::IO)
         # big-endian
         END = BE{FType}
     else
-        error("Malformed processor type. Expected 1, 2, or 3. Found ", proctype)
+        error("Malformed processor type. Expected 0x54, 0x55, or 0x56. Found ", proctype)
     end
 
     mark(io)
