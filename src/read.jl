@@ -86,8 +86,8 @@ function readdata(
         if hasmarkers
             if _iosize - position(io) ≥ sizeof(pointtmp)
                 read!(io, pointtmp, END)
-                point[:,i] = pointview # convert's `pointtmp` element type in `setindex`
-                residuals[:,i] = resview # ditto
+                point[:,i] .= convert.(Float32, pointview)
+                residuals[:,i] .= convert.(Int32, resview)
             else
                 @debug "End-of-file reached before expected; frame$(length(i:numframes) > 1 ? "s" : "") $(i:numframes) \
                     are missing"
@@ -97,7 +97,7 @@ function readdata(
         if haschannels
             if _iosize - position(io) ≥ sizeof(analogtmp)
                 read!(io, analogtmp, END)
-                analog[:,((i-1)*aspf+1):(i*aspf)] = analogtmp # ditto
+                analog[:,((i-1)*aspf+1):(i*aspf)] .= convert.(Float32, analogtmp)
             else
                 @debug "End-of-file reached before expected; frame$(length(i:numframes) > 1 ? "s" : "") $(i:numframes) \
                     are missing"
