@@ -43,15 +43,15 @@ function comparefiles(reference, candidate)
             for sig in keys(ref.point)
                 @testset "$sig" begin
                     @test haskey(cand.point,sig)
-                    @test all(isapprox.(ref.point[sig], cand.point[sig]; atol=0.3))
-                    @test ref.residual[sig] ≈ cand.residual[sig]
-                    @test mapreduce((x,y) -> isapprox(x, y, atol=1), |, ref.cameras[sig], cand.cameras[sig])
+                    @test all(isapprox.(ref.point[sig], cand.point[sig]; atol=0.3)) skip=(!haskey(cand.point, sig))
+                    @test ref.residual[sig] ≈ cand.residual[sig] skip=(!haskey(cand.point, sig))
+                    @test mapreduce((x,y) -> isapprox(x, y, atol=1), |, ref.cameras[sig], cand.cameras[sig]) skip=(!haskey(cand.point, sig))
                 end
             end
             for sig in keys(ref.analog)
                 @testset "$sig" begin
                     @test haskey(cand.analog,sig)
-                    @test all(isapprox.(ref.analog[sig], cand.analog[sig]; atol=0.3))
+                    @test all(isapprox.(ref.analog[sig], cand.analog[sig]; atol=0.3)) skip=(!haskey(cand.analog, sig))
                 end
             end
         end
