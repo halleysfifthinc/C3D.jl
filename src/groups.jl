@@ -75,6 +75,27 @@ end
 
 Base.show(io::IO, g::Group) = show(io, keys(g.params))
 
+function Base.show(io::IO, ::MIME"text/plain", g::Group)
+    print(io, "Group(:$(g.name))")
+
+    if !isempty(g._desc)
+        print(io, ", ")
+        printstyled(io, "\"", transcode(String, copy(g._desc)), "\""; color=:light_black)
+    end
+
+    println(io)
+
+    rows, = displaysize(io)
+    for (i,p) in enumerate(values(g.params))
+        if i+4 ≥ rows
+            print(io, "  \u22ee")
+            break
+        else
+            println(io, "  $(g.name)", p)
+        end
+    end
+end
+
 function Base.read(io::IO, ::Type{Group{END}}) where {END<:AbstractEndian}
     pos = position(io)
     nl = read(io, Int8)

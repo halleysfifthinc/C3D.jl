@@ -82,8 +82,58 @@ function Base.unsigned(p::ScalarParameter{T}) where T
     return ScalarParameter{uT}(unsigned(p.data))
 end
 
+function Base.show(io::IO, p::Parameter{P}) where P
+    print(io, ":$(p.name)")
+
+    elsize = _elsize(p)
+    elt = elsize == -1 ? String :
+          elsize == 1  ? UInt8 :
+          elsize == 2 ? UInt16 : Float32
+
+    printstyled(io, "::$elt "; color=:light_black)
+    if elt <: String
+        if _ndims(p) > 1
+            printstyled(io, "@ $(_size(p)[2:end]) "; bold=true, color=:light_black)
+        end
+    elseif _ndims(p) > 1
+        printstyled(io, "@ $(_size(p)) "; bold=true, color=:light_black)
+    end
+
+    # TODO: Print numbers in REPL number literal colors
+    if elt <: String && _ndims(p) == 1
+        print(io, repr(p.payload.data))
+    else
+        print(io, p.payload.data)
+    end
+end
+
+function Base.show(io::IO, ::MIME"text/plain", p::Parameter{P}) where P
+    print(io, "Parameter(:$(p.name)")
+    if !isempty(p._desc)
+        print(io, ", ")
+        printstyled(io, "\"", transcode(String, copy(p._desc)), "\""; color=:light_black)
+    end
+    print(io, ")")
+    elsize = _elsize(p)
+    elt = elsize == -1 ? String :
+          elsize == 1  ? UInt8 :
+          elsize == 2 ? UInt16 : Float32
+
+    printstyled(io, "::$elt "; color=:light_black)
+    if elt <: String
+        if _ndims(p) > 1
+            printstyled(io, "@ $(_size(p)[2:end]) "; bold=true, color=:light_black)
+        end
+    elseif _ndims(p) > 1
+        printstyled(io, "@ $(_size(p)) "; bold=true, color=:light_black)
+    end
+
+
+    print(io, "\n  ", p.payload.data)
+end
+
 function _elsize(::Parameter{P}) where P <: Union{StringParameter,ScalarParameter{String}}
-    return 1
+    return -1
 end
 
 function _elsize(::Parameter{<:Union{ArrayParameter{T},ScalarParameter{T}}}) where T
@@ -213,13 +263,10 @@ function Base.write(
     nb += write(io, p.gid)
     nb += write(io, p._name)
 
-    np::UInt16 = 5 + _ndims(p) + prod(_size(p))*_elsize(p) + length(p._desc)
+    np::UInt16 = 5 + _ndims(p) + prod(_size(p))*abs(_elsize(p)) + length(p._desc)
     nb += write(io, last ? 0x0000 : END(UInt16)(np))
 
     elsize = _elsize(p)
-    if P <: StringParameter || P <: ScalarParameter{String}
-        elsize = -1
-    end
     ndims = _ndims(p)
     dims = _size(p)
 
@@ -264,6 +311,6 @@ function Base.write(
 end
 
 function writesize(p::Parameter{P}) where {P}
-    return 7 + length(p._name) + length(p._desc) + _ndims(p) + prod(_size(p))*_elsize(p)
+    return 7 + length(p._name) + length(p._desc) + _ndims(p) + prod(_size(p))*abs(_elsize(p))
 end
 
