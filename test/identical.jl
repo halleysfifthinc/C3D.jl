@@ -20,13 +20,13 @@
                  "TESTDPI.c3d" ]
 
     @testset "sample01 files" begin
-        comparefiles(joinpath(artifact"sample01", sample01[1]), joinpath.(Ref(artifact"sample01"), sample01[2:end]))
+        comparefiles.(Ref(joinpath(artifact"sample01", sample01[1])), joinpath.(Ref(artifact"sample01"), sample01[2:end]))
     end
     @testset "sample02 files" begin
-        comparefiles(joinpath(artifact"sample02", sample02[1]), joinpath.(Ref(artifact"sample02"), sample02[2:end]))
+        comparefiles.(Ref(joinpath(artifact"sample02", sample02[1])), joinpath.(Ref(artifact"sample02"), sample02[2:end]))
     end
     @testset "sample08 files" begin
-        comparefiles(joinpath(artifact"sample08", sample08[1]), joinpath.(Ref(artifact"sample08"), sample08[2:end]))
+        comparefiles.(Ref(joinpath(artifact"sample08", sample08[1])), joinpath.(Ref(artifact"sample08"), sample08[2:end]))
     end
 end
 
