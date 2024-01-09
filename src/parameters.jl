@@ -101,7 +101,7 @@ function _ndims(p::Parameter{ScalarParameter{T}}) where T
 end
 
 function _ndims(p::Parameter{ArrayParameter{T,N}}) where {T,N}
-    return Int(p.payload.nd)
+    return ndims(p.payload.data)
 end
 
 function _size(p::Parameter{StringParameter})
@@ -213,8 +213,7 @@ function Base.write(
     nb += write(io, p.gid)
     nb += write(io, p._name)
 
-    np::UInt16 = 2 + 1 + 1 + _ndims(p) +
-        sizeof(p.payload.data) + 1 + length(p._desc)
+    np::UInt16 = 5 + _ndims(p) + prod(_size(p))*_elsize(p) + length(p._desc)
     nb += write(io, last ? 0x0000 : END(UInt16)(np))
 
     elsize = _elsize(p)
@@ -242,7 +241,11 @@ function Base.write(
                 nb += _nb
             end
         else
-            nb += write(io, p.payload.data)
+            if p.payload.data isa Vector{String}
+                nb += write(io, only(p.payload.data))
+            else
+                nb += write(io, p.payload.data)
+            end
         end
     else
         nb += sum(write.(io, END(elt).(p.payload.data)))
