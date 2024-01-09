@@ -75,23 +75,27 @@ end
 
 Base.show(io::IO, g::Group) = show(io, keys(g.params))
 
-function Base.read(f::IO, ::Type{Group{END}}) where {END<:AbstractEndian}
-    pos = position(f)
-    nl = read(f, Int8)
+function Base.read(io::IO, ::Type{Group{END}}) where {END<:AbstractEndian}
+    pos = position(io)
+    nl = read(io, Int8)
     @assert nl != 0
     locked = signbit(nl)
-    gid = read(f, Int8)
+    gid = read(io, Int8)
     @assert gid != 0
-    _name = read(f, abs(nl))
+    _name = read(io, abs(nl))
     @assert any(!iscntrl∘Char, _name)
     name = Symbol(replace(strip(transcode(String, copy(_name))), r"[^a-zA-Z0-9_]" => '_'))
 
     @debug "Group $name at $pos has unofficially supported characters.
         Unexpected results may occur" maxlog=occursin(r"[^a-zA-Z0-9_ ]", transcode(String, copy(_name)))
 
-    np = read(f, END(Int16))
-    dl = read(f, UInt8)
-    desc = read(f, dl)
+    np = read(io, END(Int16))
+
+    dl = read(io, UInt8)
+    desc = read(io, dl)
+
+    pointer = pos + np + abs(nl) + 2
+    @debug "wrong pointer in $name" position(io), pointer maxlog=(position(io) != pointer)
     return Group{END}(pos, gid, locked, _name, name, np, desc, Dict{Symbol,Parameter}())
 end
 
@@ -100,7 +104,7 @@ function Base.write(io::IO, g::Group{END}; last::Bool=false) where {END}
     nb += write(io, flipsign(UInt8(length(g._name)), -1*g.locked))
     nb += write(io, g.gid)
     nb += write(io, g._name)
-    nb += write(io, last ? 0x0000 : END(UInt16)(UInt16(length(g._desc) + 3)))
+    nb += write(io, last ? 0x0000 : END(Int16)(UInt16(length(g._desc) + 3)))
     nb += write(io, UInt8(length(g._desc)))
     if !isempty(g._desc)
         nb += write(io, g._desc)
