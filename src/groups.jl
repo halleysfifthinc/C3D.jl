@@ -1,13 +1,13 @@
 # Group format description https://www.c3d.org/HTML/Documents/groupformat1.htm
-struct Group{END<:AbstractEndian}
-    pos::Int
+mutable struct Group{END<:AbstractEndian}
+    const pos::Int
     gid::Int8 # Group ID
-    locked::Bool
-    _name::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    name::Symbol
-    np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
-    _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    params::Dict{Symbol,Parameter}
+    const locked::Bool
+    const _name::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    const name::Symbol
+    const np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
+    const _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    const params::Dict{Symbol,Parameter}
 end
 
 function Group(
