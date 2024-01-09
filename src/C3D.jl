@@ -23,7 +23,6 @@ end
 
 include("read.jl")
 include("validate.jl")
-include("edit.jl")
 include("write.jl")
 include("util.jl")
 
