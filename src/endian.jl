@@ -8,8 +8,6 @@ end
 const LE = LittleEndian
 const BE = BigEndian
 
-export AbstractEndian, LittleEndian, BigEndian, LE, BE
-
 Base.eltype(::Type{<:AbstractEndian{T}}) where {T} = T
 (END::Type{<:AbstractEndian{T}})(x::U) where {T,U} = END(convert(T, x))
 LE{T}(::Type{NT}) where {T,NT} = LE{NT}
