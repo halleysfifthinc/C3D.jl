@@ -231,7 +231,7 @@ function Base.write(
 
     elt = elsize == -1 ? Char :
           elsize == 1  ? UInt8 :
-          elsize == 2 ? UInt16 : Float32
+          elsize == 2 ? UInt16 : eltype(END)
 
     if elt <: Char
         if ndims > 1
