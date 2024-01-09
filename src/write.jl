@@ -124,7 +124,7 @@ function writec3d(io, f::C3DFile{END}) where END
     end
 
     # Parameter section header
-    nb += write(io, 0x1234) # Ignored/unused; not required to reproduce
+    nb += write(io, 0x5001) # by convention, not required by spec, but some software is strict
     nb += write(io, Int8(header.datastart - 2)) # Size of parameter section in 512-byte blocks
     if END <: BigEndian
         nb += write(io, 0x56)
