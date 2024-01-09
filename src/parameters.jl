@@ -105,7 +105,7 @@ function _ndims(p::Parameter{ArrayParameter{T,N}}) where {T,N}
 end
 
 function _size(p::Parameter{StringParameter})
-    return length(p.payload.data) > 1 ? (maximum(length, p.payload.data), length(p.payload.data)) : (length(only(p.payload.data)),)
+    return length(p.payload.data) > 1 ? (maximum(length, p.payload.data), length(p.payload.data)) : (isempty(p.payload.data) ? 0 : length(only(p.payload.data)),)
 end
 
 function _size(p::Parameter{ScalarParameter{T}}) where T
@@ -113,7 +113,7 @@ function _size(p::Parameter{ScalarParameter{T}}) where T
 end
 
 function _size(p::Parameter{ArrayParameter{T,N}}) where {T,N}
-    return p.payload.dims
+    return size(p.payload.data)
 end
 
 function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
@@ -242,7 +242,11 @@ function Base.write(
             end
         else
             if p.payload.data isa Vector{String}
-                nb += write(io, only(p.payload.data))
+                if isempty(p.payload.data)
+                    nb += sum(x -> write(io, 0x00), Iterators.repeated(0x00, prod(dims)); init=0)
+                else
+                    nb += write(io, only(p.payload.data))
+                end
             else
                 nb += write(io, p.payload.data)
             end
