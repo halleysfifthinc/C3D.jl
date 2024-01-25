@@ -8,50 +8,50 @@ function comparefiles(reference, candidate)
     @test readc3d(candidate; missingpoints=false) isa C3DFile
     cand = readc3d(candidate; missingpoints=false)
 
-    @testset "Parameters equivalency between files" begin
-        @testset "Compare groups with $(reference)" begin
-            @test keys(ref.groups) ⊆ keys(cand.groups)
-        end
-        for grp in keys(ref.groups)
-            @testset "Compare :$(ref.groups[grp].name) parameters with $(reference)" begin
-                @test keys(cand.groups[grp].params) ⊆ keys(ref.groups[grp].params)
-            end
-            @testset "Compare the :$(ref.groups[grp].name) parameters" begin
-                for param in keys(ref.groups[grp].params)
-                    if eltype(ref.groups[grp].params[param].payload.data) <: Number
-                        if grp == :POINT && param == :SCALE
-                            @test abs.(ref.groups[grp].params[param].payload.data) ≈ abs.(cand.groups[grp].params[param].payload.data)
-                        elseif grp == :POINT && param == :DATA_START
-                            if any(basename(candidate) .== ("TESTBPI.c3d", "TESTCPI.c3d", "TESTDPI.c3d"))
-                                @test cand.groups[grp].params[param].payload.data == 20
+    @testset "Comparison between $(basename(reference)) and $(basename(candidate))" begin
+        @testset "Parameters equivalency between files" begin
+            @testset "Compare groups with C3DFile(\"…/$(basename(reference))\")" begin
+                @test keys(ref.groups) ⊆ keys(cand.groups)
+                for grp in keys(ref.groups)
+                    @testset "Compare the :$(ref.groups[grp].name) parameters with C3DFile(\"…/$(basename(reference))\")" begin
+                        @test keys(ref.groups[grp].params) ⊆ keys(cand.groups[grp].params)
+                        for param in keys(ref.groups[grp].params)
+                            if eltype(ref.groups[grp].params[param].payload.data) <: Number
+                                if grp == :POINT && param == :SCALE
+                                    @test abs.(ref.groups[grp].params[param].payload.data) ≈ abs.(cand.groups[grp].params[param].payload.data)
+                                elseif grp == :POINT && param == :DATA_START
+                                    if any(basename(candidate) .== ("TESTBPI.c3d", "TESTCPI.c3d", "TESTDPI.c3d"))
+                                        @test cand.groups[grp].params[param].payload.data == 20
+                                    else
+                                        continue
+                                    end
+                                else
+                                    @test ref.groups[grp].params[param].payload.data ≈ cand.groups[grp].params[param].payload.data
+                                end
                             else
-                                continue
+                                @test ref.groups[grp].params[param].payload.data == cand.groups[grp].params[param].payload.data
                             end
-                        else
-                            @test ref.groups[grp].params[param].payload.data ≈ cand.groups[grp].params[param].payload.data
                         end
-                    else
-                        @test reduce(*,ref.groups[grp].params[param].payload.data .== cand.groups[grp].params[param].payload.data)
                     end
                 end
             end
         end
-    end
 
-    @testset "Data equivalency between file types" begin
-        @testset "Ensure data equivalency between $(candidate) and $(reference)" begin
-            for sig in keys(ref.point)
-                @testset "$sig" begin
-                    @test haskey(cand.point,sig)
-                    @test all(isapprox.(ref.point[sig], cand.point[sig]; atol=0.3)) skip=(!haskey(cand.point, sig))
-                    @test ref.residual[sig] ≈ cand.residual[sig] skip=(!haskey(cand.point, sig))
-                    @test mapreduce((x,y) -> isapprox(x, y, atol=1), |, ref.cameras[sig], cand.cameras[sig]) skip=(!haskey(cand.point, sig))
+        @testset "Data equivalency between file types" begin
+            @testset "Ensure data equivalency between C3DFile(\"…/$(basename(candidate))\") and C3DFile(\"…/$(basename(reference))\")" begin
+                for sig in keys(ref.point)
+                    @testset "$sig" begin
+                        @test haskey(cand.point,sig)
+                        @test all(isapprox.(ref.point[sig], cand.point[sig]; atol=0.3)) skip=(!haskey(cand.point, sig))
+                        @test ref.residual[sig] ≈ cand.residual[sig] skip=(!haskey(cand.point, sig))
+                        @test mapreduce((x,y) -> isapprox(x, y, atol=1), |, ref.cameras[sig], cand.cameras[sig]) skip=(!haskey(cand.point, sig))
+                    end
                 end
-            end
-            for sig in keys(ref.analog)
-                @testset "$sig" begin
-                    @test haskey(cand.analog,sig)
-                    @test all(isapprox.(ref.analog[sig], cand.analog[sig]; atol=0.3)) skip=(!haskey(cand.analog, sig))
+                for sig in keys(ref.analog)
+                    @testset "$sig" begin
+                        @test haskey(cand.analog,sig)
+                        @test all(isapprox.(ref.analog[sig], cand.analog[sig]; atol=0.3)) skip=(!haskey(cand.analog, sig))
+                    end
                 end
             end
         end
