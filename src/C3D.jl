@@ -236,13 +236,10 @@ end
     @compile_workload begin
         f = readc3d(joinpath(artifact"sample01", "Eb015pr.c3d"))
             readc3d(joinpath(artifact"sample01", "Eb015pi.c3d"))
-            readc3d(joinpath(artifact"sample01", "Eb015sr.c3d"))
-            readc3d(joinpath(artifact"sample01", "Eb015si.c3d"))
-            readc3d(joinpath(artifact"sample01", "Eb015vr.c3d"))
-            readc3d(joinpath(artifact"sample01", "Eb015vi.c3d"))
         show(devnull, f)
         show(devnull, MIME("text/plain"), f)
         writetrc(path, f)
+        writec3d(path, f)
     end
 end
 
