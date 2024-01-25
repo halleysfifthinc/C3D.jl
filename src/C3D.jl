@@ -1,6 +1,6 @@
 module C3D
 
-using VaxData, PrecompileTools, LazyArtifacts, Dates
+using VaxData, PrecompileTools, LazyArtifacts, Dates, DelimitedFiles
 
 export readc3d, writec3d, numpointframes, numanalogframes, writetrc
 

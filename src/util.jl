@@ -1,5 +1,3 @@
-using DelimitedFiles
-
 const eye3 = [true false false;
               false true false;
               false false true]
