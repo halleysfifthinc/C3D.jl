@@ -214,12 +214,12 @@ function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
     pointer = pos + np + abs(nl) + 2
     @debug "wrong pointer in $name" position(io) pointer maxlog=(position(io) != pointer)
 
-    if data isa AbstractArray
-        if all(<(2), size(data)) && !isempty(data)
+    if nd > 0
+        if elsize == -1 # T === String
+            payload = StringParameter(data)
+        elseif isone(prod(dims))
             # In the event of an 'array' parameter with only one element
             payload = ScalarParameter(data[1])
-        elseif eltype(data) === String
-            payload = StringParameter(data)
         else
             payload = ArrayParameter(elsize, nd, dims, data)
         end

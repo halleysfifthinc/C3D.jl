@@ -59,7 +59,7 @@ function typedindex(g::Group, ::Type{Vector{T}}, k) where T
 end
 
 function typedindex(g::Group, ::Type{T}, k) where T
-    r::T = g[k]
+    r::T = only(g[k])
     return r
 end
 

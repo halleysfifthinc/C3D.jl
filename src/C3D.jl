@@ -51,6 +51,10 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
     end
 
     if !iszero(numpts)
+        invalidpoints = Vector{Bool}(undef, size(point, 1))
+        calculatedpoints = Vector{Bool}(undef, size(point, 1))
+        goodpoints = Vector{Bool}(undef, size(point, 1))
+
         for (idx, ptname) in enumerate(groups[:POINT][Vector{String}, :LABELS][1:numpts])
             if strip_prefixes
                 m = match(rgx, ptname)
@@ -62,9 +66,9 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
             fpoint[ptname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
             fresiduals[ptname] = residuals[:,idx]
             cameras[ptname] = ((convert.(Int32, @view(residuals[:,idx])) .>> 8) .& 0xff) .% UInt8
-            invalidpoints = findall(x -> convert(Int32, x) % Int16 < 0, fresiduals[ptname])
-            calculatedpoints = findall(iszero, fresiduals[ptname])
-            goodpoints = setdiff(allpoints, invalidpoints ∪ calculatedpoints)
+            invalidpoints .= convert.(Int32, fresiduals[ptname]) .% Int16 .< 0
+            calculatedpoints .= iszero.(fresiduals[ptname])
+            goodpoints .= .~(invalidpoints .| calculatedpoints)
             fresiduals[ptname][goodpoints] = calcresiduals(fresiduals[ptname][goodpoints], abs(groups[:POINT][Float32, :SCALE]))
 
             if missingpoints
