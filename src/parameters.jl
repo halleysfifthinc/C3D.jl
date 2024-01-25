@@ -197,7 +197,6 @@ function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
 
     nd = read(io, UInt8)
     if nd > 0
-        # dims = (read!(io, Array{UInt8}(undef, nd))...)
         dims = NTuple{convert(Int, nd),Int}(read!(io, Array{UInt8}(undef, nd)))
         data = _readarrayparameter(io, END(T), dims)
     else
@@ -215,8 +214,12 @@ function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
     @debug "wrong pointer in $name" position(io) pointer maxlog=(position(io) != pointer)
 
     if nd > 0
-        if elsize == -1 # T === String
-            payload = StringParameter(data)
+        if elsize == -1
+            if nd ≤ 2 # Vector{String}
+                payload = StringParameter(data)
+            else
+                payload = ArrayParameter(elsize, nd, size(data), data)
+            end
         elseif isone(prod(dims))
             # In the event of an 'array' parameter with only one element
             payload = ScalarParameter(data[1])
@@ -244,11 +247,21 @@ function _readarrayparameter(io::IO, ::Type{END}, dims) where {END<:AbstractEndi
     return read!(io, a, END)
 end
 
+function rstrip_cntrl_space(s)
+    l = findlast(>(UInt8(' ')), s)
+    return @view s[begin:something(l, end)]
+end
+
 function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Array{String}
-    tdata = convert.(Char, read!(io, Array{UInt8}(undef, dims)))
+    tdata = Array{UInt8}(undef, dims)
+    read!(io, tdata)
+
     if length(dims) > 1
-        data = [ rstrip(x -> iscntrl(x) || isspace(x),
-                        String(@view(tdata[((i - 1) * dims[1] + 1):(i * dims[1])]))) for i in 1:(*)(dims[2:end]...)]
+        _, rdims... = dims
+        data = Array{String}(undef, rdims)
+        for ijk in CartesianIndices(data)
+            data[ijk] = String(copy(rstrip_cntrl_space(@view tdata[:, ijk])))
+        end
     else
         data = [ rstrip(String(tdata)) ]
     end
