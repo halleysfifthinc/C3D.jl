@@ -254,7 +254,7 @@ function _readparams(fn::String, io::IO)
                     # Last readgroup failed, possibly due to a bad pointer. Reset to the ending
                     # location of the last successfully read parameter and try again. Count the failure.
                     reset(io)
-                    @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,backtrace())
+                    @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,catch_backtrace())
                     fail += 1
                 finally
                     unmark(io) # Unmark the file regardless
@@ -269,7 +269,7 @@ function _readparams(fn::String, io::IO)
                     fail = 0
                 catch e
                     reset(io)
-                    @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,backtrace())
+                    @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,catch_backtrace())
                     fail += 1
                 finally
                     unmark(io)
