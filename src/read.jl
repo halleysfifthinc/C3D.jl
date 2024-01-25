@@ -3,8 +3,8 @@ function calcresiduals(x::AbstractVector, scale)
 end
 
 function readdata(
-    io::IOStream, h::Header{END}, groups::Dict{Symbol,Group}
-    ) where {END<:AbstractEndian}
+    io::IOStream, h::Header{END}, groups::Dict{Symbol,Group}, ::Type{F}
+    ) where {END<:AbstractEndian, F}
     if iszero(groups[:POINT][Int, :DATA_START]-1)
         if !iszero(h.datastart-1)
             seek(io, (h.datastart-1)*512)
@@ -14,8 +14,6 @@ function readdata(
     else
         seek(io, (groups[:POINT][Int, :DATA_START]-1)*512)
     end
-
-    format = groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(END)
 
     numframes::Int = numpointframes(groups)
     nummarkers::Int = groups[:POINT][Int, :USED]
@@ -27,7 +25,7 @@ function readdata(
         aspf = h.aspf
     end
 
-    est_data_size = numframes*sizeof(format)*(nummarkers*4 + numchannels*aspf)
+    est_data_size = numframes*sizeof(F)*(nummarkers*4 + numchannels*aspf)
     _iosize = stat(fd(io)).size
     rem_file_size = _iosize - position(io)
     if est_data_size > rem_file_size
@@ -64,7 +62,7 @@ function readdata(
         pointidxs = filter(x -> x % 4 != 0, 1:nb)
         residxs = filter(x -> x % 4 == 0, 1:nb)
 
-        pointtmp = Vector{format}(undef, nb)
+        pointtmp = Vector{F}(undef, nb)
         pointview = view(pointtmp, pointidxs)
         resview = view(pointtmp, residxs)
     else
@@ -77,7 +75,7 @@ function readdata(
         # Analog Samples Per Frame => ASPF
         analog = zeros(Float32, numchannels, aspf*numframes)
 
-        analogtmp = Matrix{format}(undef, (numchannels,aspf))
+        analogtmp = Matrix{F}(undef, (numchannels,aspf))
     else
         analog = Array{Float32,2}(undef, 0,0)
     end
@@ -106,7 +104,7 @@ function readdata(
         end
     end
 
-    if hasmarkers && format == Int16
+    if hasmarkers && F == Int16
         # Multiply or divide by [:point][:scale]
         POINT_SCALE = groups[:POINT][Float32, :SCALE]
         point .*= abs(POINT_SCALE)
@@ -157,7 +155,9 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
         close(io)
         return C3DFile(fn, header, groups, point, residual, cameras, analog)
     else
-        (point, residual, analog) = readdata(io, header, groups)
+        format = groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(END)
+
+        (point, residual, analog) = readdata(io, header, groups, format)
         close(io)
     end
 
