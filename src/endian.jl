@@ -27,10 +27,6 @@ function Base.read(io::IO, ::Type{LittleEndian{VaxFloatF}})
     return convert(Float32, ltoh(read(io, VaxFloatF)))
 end
 
-function Base.read(io::IO, ::Type{BigEndian{VaxFloatF}})
-    return convert(Float32, ntoh(read(io, VaxFloatF)))
-end
-
 function Base.read!(io::IO, a::AbstractArray{T}, ::Type{<:LittleEndian{U}}) where {T,U}
     read!(io, a)
     a .= ltoh.(a)
@@ -49,12 +45,6 @@ function Base.read!(io::IO, a::AbstractArray{Float32}, ::Type{LittleEndian{VaxFl
     return a
 end
 
-function Base.read!(io::IO, a::AbstractArray{Float32}, ::Type{BigEndian{VaxFloatF}})
-    _a = read!(io, similar(a, VaxFloatF))
-    a .= convert.(Float32, ntoh.(_a))
-    return a
-end
-
 function Base.write(io::IO, x::LittleEndian{T}) where {T}
     return write(io, htol.(x.val))
 end
@@ -65,9 +55,5 @@ end
 
 function Base.write(io::IO, x::LittleEndian{VaxFloatF})
     return write(io, htol.(x.val).x)
-end
-
-function Base.write(io::IO, x::BigEndian{VaxFloatF})
-    return write(io, hton.(x.val).x)
 end
 
