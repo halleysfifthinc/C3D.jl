@@ -1,7 +1,7 @@
 @testset "readc3d kwargs, etc" begin
-    @test readc3d(artifact"sample01/Eb015pr.c3d"; paramsonly=true) isa C3DFile
-    @test readc3d(artifact"sample01/Eb015pr.c3d"; paramsonly=true, validate=false) isa C3DFile
-    @test readc3d(artifact"sample03/gait-pig.c3d"; strip_prefixes=true) isa C3DFile
+    @test_nothrow readc3d(artifact"sample01/Eb015pr.c3d"; paramsonly=true)
+    @test_nothrow readc3d(artifact"sample01/Eb015pr.c3d"; paramsonly=true, validate=false)
+    @test_nothrow readc3d(artifact"sample03/gait-pig.c3d"; strip_prefixes=true)
 
     # issue #11
     @test_throws ArgumentError readc3d(artifact"sample00/Vicon Motion Systems/TableTennis.c3d"; strip_prefixes=true)

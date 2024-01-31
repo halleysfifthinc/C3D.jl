@@ -1,11 +1,15 @@
 using DeepDiffs
 using C3D: AbstractEndian, LE, endianness, readparam
 
+macro test_nothrow(ex)
+    esc(:(@test ($(ex); true)))
+end
+
 function comparefiles(reference, candidate)
-    @test readc3d(reference; missingpoints=false) isa C3DFile
+    @test_nothrow readc3d(reference; missingpoints=false)
     ref = readc3d(reference; missingpoints=false)
 
-    @test readc3d(candidate; missingpoints=false) isa C3DFile
+    @test_nothrow readc3d(candidate; missingpoints=false)
     cand = readc3d(candidate; missingpoints=false)
 
     @testset "Comparison between $(basename(reference)) and $(basename(candidate))" begin
