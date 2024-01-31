@@ -185,6 +185,10 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
     end
 
     if ANALOG_USED != 0 # There are analog channels
+        if !(:RATE in analogkeys)
+            groups[:ANALOG].params[:RATE] = Parameter("RATE", "Analog sampling rate",
+                groups[:POINT][Float32, :RATE] * header.aspf; gid=groups[:ANALOG].gid)
+        end
 
         @label analogkeychanged
         # If there are analog channels, the required set of parameters is ranalog
