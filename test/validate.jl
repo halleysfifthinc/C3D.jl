@@ -11,6 +11,8 @@
     header, groups = f.header, f.groups
 
     @test_nothrow readc3d(artifact"sample28/dynamic.C3D")
+    @test_nothrow readc3d(artifact"sample28/standing.C3D")
+    @test_nothrow readc3d(artifact"sample28/type1.C3D")
     # @testset "Custom errors" begin
     #     @test_nowarn MissingGroupsError(:hello)
     #     @test_nowarn MissingGroupsError((:hello,:world))
