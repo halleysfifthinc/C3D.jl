@@ -69,7 +69,7 @@ SUITE["read"]["mips-real"]["sample02"]["params"] =
 SUITE["read"]["mips-int"]["sample02"]["params"] =
     @benchmarkable readc3d(fn; paramsonly=true) seconds=10 setup=(fn=artifact"sample02/sgi_int.c3d")
 
-SUITE["read"]["big"]["sample14/FP1.C3D"]["params"] =
+SUITE["read"]["big"]["sample15/FP1.C3D"]["params"] =
     @benchmarkable readc3d(fn; paramsonly=true) seconds=10 setup=(fn=artifact"sample15/FP1.C3D")
 SUITE["read"]["big"]["sample17/128analogchannels.c3d"]["params"] =
     @benchmarkable readc3d(fn; paramsonly=true) seconds=10 setup=(fn=artifact"sample17/128analogchannels.c3d")
