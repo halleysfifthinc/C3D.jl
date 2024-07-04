@@ -26,7 +26,7 @@ function readdata(
     end
 
     est_data_size = numframes*sizeof(F)*(nummarkers*4 + numchannels*aspf)
-    _iosize = stat(fd(io)).size
+    _iosize = stat(RawFD(fd(io))).size
     rem_file_size = _iosize - position(io)
     if est_data_size > rem_file_size
         @debug "Estimated DATA size: $(Base.format_bytes(est_data_size)); \
