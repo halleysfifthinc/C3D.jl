@@ -247,9 +247,17 @@ function _readarrayparameter(io::IO, ::Type{END}, dims) where {END<:AbstractEndi
     return read!(io, a, END)
 end
 
-function rstrip_cntrl_space(s)
-    l = findlast(>(UInt8(' ')), s)
-    return @view s[begin:something(l, end)]
+# Taken from Base.iscntrl and Base.isspace, but for bytes instead of chars
+_iscntrl(c::Union{Int8,UInt8}) = c <= 0x1f || 0x7f <= c <= 0x9f
+_isspace(c::Union{Int8,UInt8}) = c == 0x20 || 0x09 <= c <= 0x0d || c == 0x85 || 0xa0 <= c
+
+function rstrip_cntrl_null_space(s)
+    l = findlast(c -> !_iscntrl(c) && !_isspace(c), s)
+    if isnothing(l)
+        return @view s[end:end-1]
+    else
+        return @view s[begin:l]
+    end
 end
 
 function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Array{String}
@@ -260,7 +268,7 @@ function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Ar
         _, rdims... = dims
         data = Array{String}(undef, rdims)
         for ijk in CartesianIndices(data)
-            data[ijk] = String(copy(rstrip_cntrl_space(@view tdata[:, ijk])))
+            data[ijk] = String(copy(rstrip_cntrl_null_space(@view tdata[:, ijk])))
         end
     else
         data = [ rstrip(String(tdata)) ]
