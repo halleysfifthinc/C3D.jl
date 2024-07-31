@@ -4,7 +4,7 @@
     @test_nothrow readc3d(artifact"sample03/gait-pig.c3d"; strip_prefixes=true)
 
     # issue #11
-    @test_throws ArgumentError readc3d(artifact"sample00/Vicon Motion Systems/TableTennis.c3d"; strip_prefixes=true)
+    @test_throws C3D.DuplicateMarkerError readc3d(artifact"sample00/Vicon Motion Systems/TableTennis.c3d"; strip_prefixes=true)
 
     # C3D length
     @test numpointframes(readc3d(artifact"sample36/18124framesi.c3d")) == 18124

@@ -26,6 +26,23 @@ include("validate.jl")
 include("write.jl")
 include("util.jl")
 
+function _naturalsortby(x)
+    m = match(r"(\d+)$", string(x))
+    if isnothing(m)
+        return typemin(Int)
+    else
+        return Base.parse(Int, m[1])
+    end
+end
+
+struct DuplicateMarkerError
+    msg::String
+end
+
+function Base.showerror(io::IO, err::DuplicateMarkerError)
+    println(io, "DuplicateMarkerError: ", err.msg)
+end
+
 function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
                  point::AbstractArray, residuals::AbstractArray, analog::AbstractArray;
                  missingpoints::Bool=true, strip_prefixes::Bool=false)
@@ -38,30 +55,66 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
     allpoints = 1:l
     numpts = groups[:POINT][Int, :USED]
 
+    ptlabel_keys = collect(filter(keys(groups[:POINT])) do k
+        contains(string(k), r"^LABELS\d*")
+    end)
+    sort!(ptlabel_keys; by=_naturalsortby)
+    pt_labels = Iterators.flatten(
+        groups[:POINT][Vector{String}, label] for label in ptlabel_keys
+        )
+
     if strip_prefixes
         if haskey(groups, :SUBJECTS) && groups[:SUBJECTS][Int, :USES_PREFIXES] == 1
-            rgx = Regex("("*join(groups[:SUBJECTS][Vector{String}, :LABEL_PREFIXES], '|')*
-                        ")(?<label>\\w*)")
+            rgx = Regex(
+                "("*
+                    join(groups[:SUBJECTS][Vector{String}, :LABEL_PREFIXES], '|')*
+                ")(?<label>\\w*)")
         else
             rgx = r":(?<label>\w*)"
         end
-        allunique(map(x -> something(something(match(rgx, x), (;label=nothing))[:label], x),
-            groups[:POINT][Vector{String}, :LABELS][1:numpts])) ||
-            throw(ArgumentError("marker names would not be unique after removing subject prefixes"))
     end
 
+    nolabel_count = 1
     if !iszero(numpts)
         invalidpoints = Vector{Bool}(undef, size(point, 1))
         calculatedpoints = Vector{Bool}(undef, size(point, 1))
         goodpoints = Vector{Bool}(undef, size(point, 1))
 
-        for (idx, ptname) in enumerate(groups[:POINT][Vector{String}, :LABELS][1:numpts])
+        for (idx, ptname) in enumerate(pt_labels)
+            idx > numpts && break # can't slice Iterators.flatten
+            og_ptname = ptname
+            stripped_ptname = ""
             if strip_prefixes
                 m = match(rgx, ptname)
                 if !isnothing(m) && !isnothing(m[:label])
                     ptname = m[:label]
+                    stripped_ptname = ptname
                 end
             end
+            if isempty(ptname)
+                ptname = "M"*string(nolabel_count, pad=3)
+                nolabel_count += 1
+            end
+
+            # don't dedup stripped names; we don't assume uniqueness of suffixes (aka marker
+            # names) because there can be multiple subjects using the same marker set
+            if isempty(stripped_ptname) && ptname ∈ keys(fpoint)
+                # append "_$(duplicate count)" while making sure not to duplicate an
+                # existing marker name (unlikely)
+                cnt = 2
+                while ptname*"_$cnt" ∈ keys(fpoint); cnt+=1 end
+                ptname *= "_$cnt"
+                dedupped_ptname = ptname
+                @warn "Duplicate marker label detected (\"$(og_ptname)\"). Duplicate renamed to \"$dedupped_ptname\"."
+            end
+            ptname ∉ keys(fpoint) || throw(DuplicateMarkerError(
+                "Markers labels must be unique but found duplicate marker label \"$ptname\""*
+                if !isempty(stripped_ptname)
+                    " (originally \"$(og_ptname)\" before stripping subject prefixes)"
+                else
+                    "" # shouldn't be reachable?
+                end
+                ))
 
             fpoint[ptname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
             fresiduals[ptname] = residuals[:,idx]
@@ -79,8 +132,34 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
         end
     end
 
-    if !iszero(groups[:ANALOG][Int, :USED])
-        for (idx, name) in enumerate(groups[:ANALOG][Vector{String}, :LABELS][1:groups[:ANALOG][Int, :USED]])
+    anlabel_keys = collect(filter(keys(groups[:ANALOG])) do k
+        contains(string(k), r"^LABELS\d*")
+    end)
+    sort!(anlabel_keys; by=_naturalsortby)
+    an_labels = Iterators.flatten(
+        groups[:ANALOG][Vector{String}, label] for label in anlabel_keys
+        )
+    numanalogs = groups[:ANALOG][Int, :USED]
+
+    nolabel_count = 1
+    if !iszero(numanalogs)
+        for (idx, name) in enumerate(an_labels)
+            idx > numanalogs && break # can't slice Iterators.flatten
+            og_name = name
+            if isempty(name)
+                name = "A"*string(nolabel_count, pad=3)
+                nolabel_count += 1
+            end
+            if name ∈ keys(fanalog)
+                # append "_$(duplicate count)" while making sure not to duplicate an
+                # existing marker name (unlikely)
+                cnt = 2
+                while name*"_$cnt" ∈ keys(fanalog); cnt+=1 end
+                name *= "_$cnt"
+                dedupped_name = name
+                @warn "Duplicate analog signal label detected (\"$(og_name)\"). Duplicate renamed to \"$dedupped_name\"."
+            end
+
             fanalog[name] = analog[:, idx]
         end
     end
