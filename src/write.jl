@@ -103,15 +103,19 @@ function writec3d(io, f::C3DFile{END}) where END
     nb += write(io, header)
     f.groups[:POINT].params[:DATA_START].payload.data = header.datastart
 
-    nb += sum(x -> write(io, x), Iterators.repeated(0x00, max((f.header.paramptr - 1)*512 - position(io), 0)); init=0)
+    nb += sum(x -> write(io, x),
+        Iterators.repeated(0x00, max((f.header.paramptr - 1)*512 - position(io), 0));
+        init=0)
 
     for g in groups(f)
         gid = g.gid
         if iszero(gid)
             gids = collect(Iterators.filter(!iszero, (g.gid for g in groups(f))))
-            _gids = filter(x -> !iszero(x) && !(copysign(x, -1) in gids), unique(p.gid for p in values(g.params)))
+            _gids = filter(x -> !iszero(x) && !(copysign(x, -1) in gids),
+                unique(p.gid for p in values(g.params)))
             if isempty(_gids)
-                gid = first(Iterators.filter(x -> !(x in gids), Iterators.countfrom(-1, -1)))
+                gid = first(Iterators.filter(x -> !(x in gids),
+                    Iterators.countfrom(-1, -1)))
             else
                 gid = copysign(first(_gids), -1)
             end
@@ -124,8 +128,12 @@ function writec3d(io, f::C3DFile{END}) where END
     end
 
     # Parameter section header
-    nb += write(io, 0x5001) # by convention, not required by spec, but some software is strict
-    nb += write(io, Int8(header.datastart - 2)) # Size of parameter section in 512-byte blocks
+    # 0x5001 by convention, not required by spec, but some software is strict
+    nb += write(io, 0x5001)
+
+    # Size of parameter section in 512-byte blocks
+    nb += write(io, Int8(header.datastart - 2))
+
     if END <: BigEndian
         nb += write(io, 0x56)
     elseif eltype(END) <: VaxFloatF # END <: LittleEndian
@@ -139,12 +147,16 @@ function writec3d(io, f::C3DFile{END}) where END
     nb += write(io, parameters(f)[end], END; last=true)
 
     # @show position(io) (header.datastart - 1)*512
-    nb += sum(x -> write(io, x), Iterators.repeated(0x00, max((header.datastart - 1)*512 - position(io), 0)); init=0)
+    nb += sum(x -> write(io, x),
+        Iterators.repeated(0x00, max((header.datastart - 1)*512 - position(io), 0));
+        init=0)
 
     nb += writedata(io, f)
 
     # @show position(io) nb*512
-    nb += sum(x -> write(io, x), Iterators.repeated(0x00, min(round(Int, nb/512, RoundUp)*512 - position(io), 512)); init=0)
+    nb += sum(x -> write(io, x),
+        Iterators.repeated(0x00, min(round(Int, nb/512, RoundUp)*512 - position(io), 512));
+        init=0)
 
     return nb
 end
