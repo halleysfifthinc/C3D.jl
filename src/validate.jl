@@ -136,47 +136,6 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
             # ie There is only one used marker (or the others are unlabeled)
             groups[:POINT].params[:LABELS] = Parameter{StringParameter}(groups[:POINT].params[:LABELS])
         end
-
-        POINT_LABELS = groups[:POINT][Vector{String}, :LABELS]
-        # Valid labels are required for each marker by the C3DFile constructor
-        if any(isempty, POINT_LABELS) ||
-           length(POINT_LABELS) < POINT_USED # Some markers don't have labels
-            i = 2
-            while length(POINT_LABELS) < POINT_USED
-                # Check for the existence of a runoff labels group
-                if haskey(groups[:POINT], Symbol("LABEL",i))
-                    append!(POINT_LABELS, groups[:POINT][Vector{String}, Symbol("LABEL",i)])
-                    i += 1
-                else
-                    push!(POINT_LABELS, "")
-                end
-            end
-
-            idx = findall(isempty, POINT_LABELS)
-            labels = [ "M"*string(i, pad=3) for i in 1:length(idx) ]
-            POINT_LABELS[idx] .= labels
-        end
-
-        if !allunique(POINT_LABELS)
-            dups = String[]
-            for i in 1:POINT_USED
-                if !in(POINT_LABELS[i], dups)
-                    push!(dups, POINT_LABELS[i])
-                else
-                    m = match(r"_(?<num>\d+)$", POINT_LABELS[i])
-
-                    if m === nothing
-                        POINT_LABELS[i] *= "_2"
-                        push!(dups, POINT_LABELS[i])
-                    else
-                        newlabel = POINT_LABELS[i][1:(m.offset - 1)] *
-                            string('_',tryparse(Int,m[:num])+1)
-                        POINT_LABELS[i] = newlabel
-                        push!(dups, POINT_LABELS[i])
-                    end
-                end
-            end
-        end
     end # End validate :POINT
 
     # Further validate the :ANALOG group
@@ -227,45 +186,6 @@ function validatec3d(header::Header, groups::Dict{Symbol,Group})
         if l < ANALOG_USED
             append!(groups[:ANALOG][Vector{Int16}, :OFFSET],
                     fill(one(Float32), ANALOG_USED - l))
-        end
-
-        ANALOG_LABELS = groups[:ANALOG][Vector{String}, :LABELS]
-        if any(isempty, ANALOG_LABELS) ||
-           length(ANALOG_LABELS) < ANALOG_USED # Some markers don't have labels
-            i = 2
-            while length(ANALOG_LABELS) < ANALOG_USED
-                if haskey(groups[:ANALOG], Symbol("LABEL",i)) # Check for the existence of a runoff labels group
-                    append!(ANALOG_LABELS, groups[:ANALOG][Vector{String}, Symbol("LABEL",i)])
-                    i += 1
-                else
-                    push!(ANALOG_LABELS, "")
-                end
-            end
-
-            idx = findall(isempty, ANALOG_LABELS)
-            labels = [ "A"*string(i, pad=3) for i in 1:length(idx) ]
-            ANALOG_LABELS[idx] .= labels
-        end
-
-        if !allunique(ANALOG_LABELS)
-            dups = String[]
-            for i in 1:ANALOG_USED
-                if !in(ANALOG_LABELS[i], dups)
-                    push!(dups, ANALOG_LABELS[i])
-                else
-                    m = match(r"_(?<num>\d+)$", ANALOG_LABELS[i])
-
-                    if m === nothing
-                        ANALOG_LABELS[i] *= "_2"
-                        push!(dups, ANALOG_LABELS[i])
-                    else
-                        newlabel = ANALOG_LABELS[i][1:(m.offset - 1)] *
-                            string('_', tryparse(Int, m[:num]) + 1)
-                        ANALOG_LABELS[i] = newlabel
-                        push!(dups, ANALOG_LABELS[i])
-                    end
-                end
-            end
         end
     end # End if analog channels exist
 
