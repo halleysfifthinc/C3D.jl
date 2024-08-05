@@ -42,16 +42,17 @@ using TOML: parsefile
 
 include("testutils.jl")
 
-include("identical.jl")
-include("publicinterface.jl")
-include("validate.jl")
-include("bigdata.jl")
-include("singledata.jl")
-include("invalid.jl")
-include("blanklabels.jl")
-include("badformats.jl")
-include("inference.jl")
-include("utils.jl")
+@testset verbose=true "C3D" begin
+    include("identical.jl")
+    include("publicinterface.jl")
+    include("validate.jl")
+    include("bigdata.jl")
+    include("singledata.jl")
+    include("invalid.jl")
+    include("blanklabels.jl")
+    include("badformats.jl")
+    include("inference.jl")
+    include("utils.jl")
 
-include("write.jl")
-
+    include("write.jl")
+end
