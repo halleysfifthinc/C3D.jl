@@ -19,6 +19,16 @@
                  "TESTCPI.c3d",
                  "TESTDPI.c3d" ]
 
+    @testset "sample0[128] files internal consistency" begin
+        @testset "$file" for file in vcat(
+            joinpath.(Ref(artifact"sample01"), sample01),
+            joinpath.(Ref(artifact"sample02"), sample02),
+            joinpath.(Ref(artifact"sample08"), sample08))
+
+            @test_internalconsistency readc3d(file)
+        end
+    end
+
     @testset "sample01 files" begin
         comparefiles.(Ref(joinpath(artifact"sample01", sample01[1])), joinpath.(Ref(artifact"sample01"), sample01[2:end]))
     end
