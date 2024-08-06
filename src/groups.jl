@@ -7,35 +7,35 @@ mutable struct Group{END<:AbstractEndian}
     const name::Symbol
     const np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     const _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    const params::Dict{Symbol,Parameter}
+    const params::LittleDict{Symbol,Parameter}
 end
 
 function Group(
     pos::Int, gid::Int8, locked::Bool, _name::Vector{UInt8}, name::Symbol, np::Int16,
-    _desc::Vector{UInt8}, params::Dict{Symbol,Parameter}
+    _desc::Vector{UInt8}, params::LittleDict{Symbol,Parameter}
 )
     return Group{LE{Float32}}(pos, gid, locked, _name, name, np, _desc, params)
 end
 
 function Group{END}(
-    pos, gid, locked, name, np, desc, params=Dict{Symbol,Parameter}()
+    pos, gid, locked, name, np, desc, params=LittleDict{Symbol,Parameter}()
 ) where {END<:AbstractEndian}
     return Group{END}(pos, convert(Int8, gid), locked, Vector{UInt8}(name), Symbol(name),
         convert(Int16, np), Vector{UInt8}(desc), params)
 end
 
-function Group(pos, gid, locked, name, np, desc, params=Dict{Symbol,Parameter}())
+function Group(pos, gid, locked, name, np, desc, params=LittleDict{Symbol,Parameter}())
     return Group{LE{Float32}}(pos, convert(Int8, gid), locked, Vector{UInt8}(name),
         Symbol(name), convert(Int16, np), Vector{UInt8}(desc), params)
 end
 
 function Group{END}(
-    name::String, desc::String, params=Dict{Symbol,Parameter}(); gid=0, locked=signbit(gid)
+    name::String, desc::String, params=LittleDict{Symbol,Parameter}(); gid=0, locked=signbit(gid)
 ) where {END<:AbstractEndian}
     return Group{END}(0, gid, locked, name, 0, desc, params)
 end
 
-function Group(name::String, desc::String, params=Dict{Symbol,Parameter}(); gid=0, locked=signbit(gid))
+function Group(name::String, desc::String, params=LittleDict{Symbol,Parameter}(); gid=0, locked=signbit(gid))
     return Group{LE{Float32}}(0, gid, locked, name, 0, desc, params)
 end
 
@@ -117,7 +117,7 @@ function Base.read(io::IO, ::Type{Group{END}}) where {END<:AbstractEndian}
 
     pointer = pos + np + abs(nl) + 2
     @debug "wrong pointer in $name" position(io), pointer maxlog=(position(io) != pointer)
-    return Group{END}(pos, gid, locked, _name, name, np, desc, Dict{Symbol,Parameter}())
+    return Group{END}(pos, gid, locked, _name, name, np, desc, LittleDict{Symbol,Parameter}())
 end
 
 function Base.write(io::IO, g::Group{END}; last::Bool=false) where {END}

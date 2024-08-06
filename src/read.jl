@@ -3,7 +3,7 @@ function calcresiduals(x::AbstractVector, scale)
 end
 
 function readdata(
-    io::IOStream, h::Header{END}, groups::Dict{Symbol,Group}, ::Type{F}
+    io::IOStream, h::Header{END}, groups::LittleDict{Symbol,Group}, ::Type{F}
     ) where {END<:AbstractEndian, F}
     if iszero(groups[:POINT][Int, :DATA_START]-1)
         if !iszero(h.datastart-1)
@@ -148,10 +148,10 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
     end
 
     if paramsonly
-        point = Dict{String,Matrix{Union{Missing, Float32}}}()
-        residual = Dict{String,Vector{Union{Missing, Float32}}}()
-        cameras = Dict{String,Vector{UInt8}}()
-        analog = Dict{String,Vector{Float32}}()
+        point = OrderedDict{String,Matrix{Union{Missing, Float32}}}()
+        residual = OrderedDict{String,Vector{Union{Missing, Float32}}}()
+        cameras = OrderedDict{String,Vector{UInt8}}()
+        analog = OrderedDict{String,Vector{Float32}}()
         close(io)
         return C3DFile(fn, header, groups, point, residual, cameras, analog)
     else
@@ -205,7 +205,7 @@ function _readparams(fn::String, io::IO)
     header = read(io, Header{END})
     reset(io)
 
-    groups = Dict{Symbol,Group}()
+    groups = LittleDict{Symbol,Group}()
     if !iszero(paramblocks)
         gs = Array{Group,1}()
         ps = Array{Parameter,1}()
@@ -283,8 +283,8 @@ function _readparams(fn::String, io::IO)
             end
         end
 
-        groups = Dict{Symbol,Group}()
-        gids = Dict{Int8,Symbol}()
+        groups = LittleDict{Symbol,Group}()
+        gids = LittleDict{Int8,Symbol}()
 
         for group in gs
             groups[group.name] = group

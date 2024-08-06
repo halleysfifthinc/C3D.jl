@@ -271,7 +271,7 @@ function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Ar
             data[ijk] = String(copy(rstrip_cntrl_null_space(@view tdata[:, ijk])))
         end
     else
-        data = [ rstrip(String(tdata)) ]
+        data = [ rstrip(x -> iscntrl(x) || isspace(x), transcode(String, tdata)) ]
     end
     return data
 end
