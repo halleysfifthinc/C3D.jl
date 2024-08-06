@@ -4,7 +4,7 @@ mutable struct Group{END<:AbstractEndian}
     gid::Int8 # Group ID
     const locked::Bool
     const _name::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    const name::Symbol
+    name::Symbol
     const np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     const _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
     const params::LittleDict{Symbol,Parameter}
@@ -37,6 +37,10 @@ end
 
 function Group(name::String, desc::String, params=LittleDict{Symbol,Parameter}(); gid=0, locked=signbit(gid))
     return Group{LE{Float32}}(0, gid, locked, name, 0, desc, params)
+end
+
+function Base.:(==)(g1::Group, g2::Group)
+    return g1.gid === g2.gid && g1.name === g2.name && g1.params == g2.params
 end
 
 function Base.getindex(g::Group, k::Symbol)

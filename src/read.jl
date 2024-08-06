@@ -136,12 +136,21 @@ Read the C3D file at `fn`.
 - `paramsonly::Bool = false`: Only reads the header and parameters
 - `validateparams::Bool = true`: Validates parameters against C3D requirements
 - `missingpoints::Bool = true`: Sets invalid points to `missing`
+- `handle_duplicate_parameters::Symbol = :keeplast`: How to handle multiple parameters in a
+  group with the same name. Options are:
+  - `:drop`: The first parameter with the duplicated name is used and the rest are dropped.
+  - `:keeplast`: The last parameter with the duplicated name is kept.
+  - `:append_position`: All duplicate parameters are kept and their position in the C3D file
+    is appended to their name.
+
 """
 function readc3d(fn::AbstractString; paramsonly=false, validate=true,
-                 missingpoints=true, strip_prefixes=false)
+    handle_duplicate_parameters=:keeplast, missingpoints=true, strip_prefixes=false)
+
+    handle_duplicate_parameters ∈ (:drop, :keeplast, :append_position)
     io = open(fn, "r")
 
-    groups, header, END = _readparams(fn, io)
+    groups, header, END = _readparams(io, handle_duplicate_parameters)
 
     if validate
         validatec3d(header, groups)
@@ -167,11 +176,24 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
     return res
 end
 
-function _readparams(fn::String, io::IO)
+function split_filter!(f, a)
+    true_is = findall(f, a)
+    trues = a[true_is]
+
+    falses = deleteat!(a, true_is)
+
+    return trues, falses
+end
+
+function isduplicate(x, a; by=identity)
+    return count(==(by(x)), a) > 1
+end
+
+function _readparams(io::IO, handle_duplicate_parameters::Symbol)
     params_ptr = read(io, UInt8)
 
     if read(io, UInt8) != 0x50
-        error("File ", fn, " is not a valid C3D file")
+        throw(error("File ", stat(fd(io)).desc, " is not a valid C3D file"))
     end
 
     # Jump to parameters block
@@ -205,7 +227,6 @@ function _readparams(fn::String, io::IO)
     header = read(io, Header{END})
     reset(io)
 
-    groups = LittleDict{Symbol,Group}()
     if !iszero(paramblocks)
         gs = Array{Group,1}()
         ps = Array{Parameter,1}()
@@ -283,26 +304,93 @@ function _readparams(fn::String, io::IO)
             end
         end
 
-        groups = LittleDict{Symbol,Group}()
-        gids = LittleDict{Int8,Symbol}()
+        group_names = getproperty.(gs, :name)
+        if !allunique(group_names)
+            if !allunique(abs.(getproperty.(gs, :gid)))
+                for group in gs
+                    if isduplicate(group, gs; by=(x->x.name))
+                        @warn "Multiple groups with the same name \"$(group.name)\" and
+                            group ID `$(abs(group.gid))`. The second duplicate group will be
+                            deleted to keep group names unique (no parameters will be
+                            lost)."
 
-        for group in gs
-            groups[group.name] = group
-            gids[abs(group.gid)] = group.name
-        end
+                        i = findlast(g -> g.name == group, gs)
+                        @assert !isnothing(i)
+                        @assert group !== gs[i]
+                        # i.e. gs[i] is *after* group and therefore deleting will only
+                        # affect future iterations (by not running on the already-handled
+                        # duplicate)
 
-        for param in ps
-            if haskey(gids, param.gid)
-                groups[gids[param.gid]].params[param.name] = param
-            else
-                groupsym = Symbol("GID_$(param.gid)_MISSING")
-                if !haskey(groups, groupsym)
-                    groupname = string(groupsym)
-                    groups[groupsym] = Group{END}(groupname, "Group was not defined in header"; gid=param.gid)
+                        deleteat!(gs, i)
+                    end
                 end
-                groups[groupsym].params[param.name] = param
+            else
+                for group in gs
+                    if isduplicate(group, gs; by=(x->x.name))
+                        @warn "Multiple groups with the same name \"$(group.name)\". The
+                            group ID will be appended to the duplicate group names to keep
+                            group names unique."
+                        group.name = Symbol(group.name, "_", group.gid)
+                    end
+                end
             end
         end
+        groups = LittleDict{Symbol,Group}(group_names, gs)
+        # gids = LittleDict{Int8,Symbol}(getproperty.(gs, :gid), getproperty.(gs, :name))
+
+        for group in values(groups)
+            group_params, ps = split_filter!(p -> p.gid === abs(group.gid), ps)
+            unique!(group_params) # remove literal duplicate
+
+            # check for params with duplicate names
+            param_names = getproperty.(group_params, :name)
+            if !allunique(param_names)
+                if handle_duplicate_parameters === :drop
+                    unique!(p -> p.name, group_params)
+                elseif handle_duplicate_parameters === :keeplast
+                    uniq_names = unique(param_names)
+                    for name in uniq_names
+                        dups = findall(p -> p.name == name, group_params)[1:end-1]
+                        deleteat!(group_params, dups)
+                    end
+                elseif handle_duplicate_parameters === :append_position
+                    uniq_names = unique(param_names)
+                    for name in uniq_names
+                        dups = findall(p -> p.name == name, group_params)
+                        for dup in dups
+                            group_params[dup].name =
+                                Symbol(group_params[dup].name, "_", group_params[dup].pos)
+                        end
+                    end
+                end
+            end
+            param_names = getproperty.(group_params, :name)
+            sizehint!(group.params, length(group_params))
+            OrderedCollections.add_new!.(Ref(group.params), param_names, group_params)
+        end
+
+        while !isempty(ps)
+            gid = ps[1].gid
+            group_params, ps = split_filter!(p -> p.gid === gid, ps)
+            groupsym = Symbol("GID_$(gid)_MISSING")
+
+            param_names = getproperty.(group_params, :name)
+            @assert allunique(param_names)
+
+            if !haskey(groups, groupsym)
+                groupname = string(groupsym)
+                group = Group{END}(groupname, "Group was not defined in header",
+                    LittleDict(param_names, group_params); gid=gid)
+                groups[groupsym] = group
+            else
+                group = groups[groupsym]
+
+                sizehint!(group.params, length(group_params))
+                OrderedCollections.add_new!.(Ref(group.params), param_names, group_params)
+            end
+        end
+    else
+        groups = LittleDict{Symbol,Group}()
     end
 
     return (groups, header, END)

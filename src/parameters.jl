@@ -14,7 +14,7 @@ mutable struct Parameter{P<:AbstractParameter}
     gid::Int8 # Group ID
     const locked::Bool # Locked if nl < 0
     const _name::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    const name::Symbol
+    name::Symbol
     const np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     const _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
     const payload::P
@@ -80,6 +80,18 @@ end
 function Base.unsigned(p::ScalarParameter{T}) where T
     uT = unsigned(T)
     return ScalarParameter{uT}(unsigned(p.data))
+end
+
+function Base.:(==)(p1::Parameter, p2::Parameter)
+    return p1.gid === p2.gid && p1.name === p2.name && typeof(p1.payload) === typeof(p2.payload) &&
+        p1.payload.data == p2.payload.data
+end
+
+function Base.hash(p::Parameter, h::UInt)
+    h = hash(p.gid, h)
+    h = hash(hash(p.name), h)
+    h = hash(p.payload.data, h)
+    return h
 end
 
 function Base.show(io::IO, p::Parameter{P}) where P
