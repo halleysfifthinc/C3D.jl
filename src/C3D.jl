@@ -42,8 +42,6 @@ function C3DFile(name::String, header::Header, groups::LittleDict{Symbol,Group},
     cameras = OrderedDict{String,Vector{UInt8}}()
     fanalog = OrderedDict{String,Vector{Float32}}()
 
-    l = size(point, 1)
-    allpoints = 1:l
     numpts = groups[:POINT][Int, :USED]
 
     ptlabel_keys = get_multipled_parameter_names(groups, :POINT, :LABELS)
@@ -64,6 +62,10 @@ function C3DFile(name::String, header::Header, groups::LittleDict{Symbol,Group},
 
     nolabel_count = 1
     if !iszero(numpts)
+        sizehint!(fpoint, numpts)
+        sizehint!(fresiduals, numpts)
+        sizehint!(cameras, numpts)
+
         invalidpoints = Vector{Bool}(undef, size(point, 1))
         calculatedpoints = Vector{Bool}(undef, size(point, 1))
         goodpoints = Vector{Bool}(undef, size(point, 1))
@@ -127,10 +129,12 @@ function C3DFile(name::String, header::Header, groups::LittleDict{Symbol,Group},
     an_labels = Iterators.flatten(
         groups[:ANALOG][Vector{String}, label] for label in anlabel_keys
         )
+
     numanalogs = groups[:ANALOG][Int, :USED]
 
     nolabel_count = 1
     if !iszero(numanalogs)
+        sizehint!(fanalog, numanalogs)
         for (idx, name) in enumerate(an_labels)
             idx > numanalogs && break # can't slice Iterators.flatten
             og_name = name
