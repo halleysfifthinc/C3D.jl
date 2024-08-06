@@ -1,14 +1,14 @@
 @testset "Validation" begin
     let
-        io = IOBuffer(zeros(UInt8, 10))
         path, _io = mktemp()
+        write(_io, zeros(UInt8, 10))
+        seekstart(_io)
+        @test_throws r"not a valid C3D file" C3D._readparams(_io, :drop)
         close(_io)
-        @test_throws r"not a valid C3D file" C3D._readparams(path, io)
     end
 
     using C3D: validatec3d, MissingParametersError, MissingGroupsError
     f = readc3d(artifact"sample01/Eb015pr.c3d")
-    header, groups = f.header, f.groups
 
     @test_nothrow readc3d(artifact"sample28/dynamic.C3D")
     @test_nothrow readc3d(artifact"sample28/standing.C3D")
