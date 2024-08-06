@@ -1,6 +1,6 @@
 module C3D
 
-using VaxData, PrecompileTools, LazyArtifacts, Dates, DelimitedFiles
+using VaxData, OrderedCollections, PrecompileTools, LazyArtifacts, Dates, DelimitedFiles
 
 export readc3d, writec3d, numpointframes, numanalogframes, writetrc
 
@@ -14,11 +14,11 @@ include("header.jl")
 struct C3DFile{END<:AbstractEndian}
     name::String
     header::Header{END}
-    groups::Dict{Symbol, Group}
-    point::Dict{String, Array{Union{Missing, Float32},2}}
-    residual::Dict{String, Array{Union{Missing, Float32},1}}
-    cameras::Dict{String, Vector{UInt8}}
-    analog::Dict{String, Array{Float32,1}}
+    groups::LittleDict{Symbol, Group}
+    point::OrderedDict{String, Array{Union{Missing, Float32},2}}
+    residual::OrderedDict{String, Array{Union{Missing, Float32},1}}
+    cameras::OrderedDict{String, Vector{UInt8}}
+    analog::OrderedDict{String, Array{Float32,1}}
 end
 
 include("read.jl")
@@ -34,13 +34,13 @@ function Base.showerror(io::IO, err::DuplicateMarkerError)
     println(io, "DuplicateMarkerError: ", err.msg)
 end
 
-function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
+function C3DFile(name::String, header::Header, groups::LittleDict{Symbol,Group},
                  point::AbstractArray, residuals::AbstractArray, analog::AbstractArray;
                  missingpoints::Bool=true, strip_prefixes::Bool=false)
-    fpoint = Dict{String,Matrix{Union{Missing, Float32}}}()
-    fresiduals = Dict{String,Vector{Union{Missing, Float32}}}()
-    cameras = Dict{String,Vector{UInt8}}()
-    fanalog = Dict{String,Vector{Float32}}()
+    fpoint = OrderedDict{String,Matrix{Union{Missing, Float32}}}()
+    fresiduals = OrderedDict{String,Vector{Union{Missing, Float32}}}()
+    cameras = OrderedDict{String,Vector{UInt8}}()
+    fanalog = OrderedDict{String,Vector{Float32}}()
 
     l = size(point, 1)
     allpoints = 1:l
@@ -159,7 +159,7 @@ C3DFile(fn::AbstractString) = readc3d(string(fn))
 
 numpointframes(f::C3DFile) = numpointframes(f.groups)
 
-function numpointframes(groups::Dict{Symbol,Group})::Int
+function numpointframes(groups::LittleDict{Symbol,Group})::Int
     numframes::Int = groups[:POINT][Int, :FRAMES]
     if haskey(groups[:POINT], :LONG_FRAMES)
         if typeof(groups[:POINT][:LONG_FRAMES]) <: Vector{Int16}
