@@ -26,15 +26,6 @@ include("validate.jl")
 include("write.jl")
 include("util.jl")
 
-function _naturalsortby(x)
-    m = match(r"(\d+)$", string(x))
-    if isnothing(m)
-        return typemin(Int)
-    else
-        return Base.parse(Int, m[1])
-    end
-end
-
 struct DuplicateMarkerError
     msg::String
 end
@@ -55,10 +46,7 @@ function C3DFile(name::String, header::Header, groups::Dict{Symbol,Group},
     allpoints = 1:l
     numpts = groups[:POINT][Int, :USED]
 
-    ptlabel_keys = collect(filter(keys(groups[:POINT])) do k
-        contains(string(k), r"^LABELS\d*")
-    end)
-    sort!(ptlabel_keys; by=_naturalsortby)
+    ptlabel_keys = get_multipled_parameter_names(groups, :POINT, :LABELS)
     pt_labels = Iterators.flatten(
         groups[:POINT][Vector{String}, label] for label in ptlabel_keys
         )

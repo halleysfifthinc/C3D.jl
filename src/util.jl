@@ -1,3 +1,20 @@
+function _naturalsortby(x)
+    m = match(r"(\d+)$", string(x))
+    if isnothing(m)
+        return typemin(Int)
+    else
+        return Base.parse(Int, m[1])
+    end
+end
+
+function get_multipled_parameter_names(groups, group, param)
+    params = collect(filter(keys(groups[Symbol(group)])) do k
+        contains(string(k), Regex("^$(param)\\d*"))
+        end)
+    sort!(params; by=_naturalsortby)
+    return params
+end
+
 const eye3 = [true false false;
               false true false;
               false false true]
