@@ -76,11 +76,22 @@ Base.haskey(g::Group, key) = haskey(g.params, key)
 
 # TODO: Add get! method?
 function Base.get(g::Group, key, default)
-    _key = key isa Tuple ? last(key) : key
+    return haskey(g, key) ? g[key] : default
+end
+function Base.get(g::Group, key::Tuple{Type,Symbol}, default::T) where T
+    _key = last(key)
     return haskey(g, _key) ? g[key...] : default
 end
 
-Base.show(io::IO, g::Group) = show(io, keys(g.params))
+
+function Base.show(io::IO, g::Group)
+    print(io, "Group(:$(g.name)) ")
+    if isempty(keys(g.params))
+        print(io, "[]")
+    else
+        print(io, keys(g.params))
+    end
+end
 
 function Base.show(io::IO, ::MIME"text/plain", g::Group)
     print(io, "Group(:$(g.name))")
