@@ -2,9 +2,8 @@
     let
         path, _io = mktemp()
         write(_io, zeros(UInt8, 10))
-        seekstart(_io)
-        @test_throws r"not a valid C3D file" C3D._readparams(_io, :drop)
         close(_io)
+        @test_throws r"not a valid C3D file" readc3d(path)
     end
 
     using C3D: validatec3d, MissingParametersError, MissingGroupsError

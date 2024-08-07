@@ -45,7 +45,7 @@ const pointsigncheck = ((:POINT, :USED),
 # const analogsigncheck = (:ANALOG, :USED)
 # const fpsigncheck = (:FORCE_PLATFORM, :ZERO)
 
-function validatec3d(header::Header, groups::LittleDict{Symbol,Group})
+function validatec3d(header, groups)
     # The following if-else ensures the minimum set of information needed to succesfully
     # read a C3DFile
 

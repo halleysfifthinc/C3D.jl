@@ -13,9 +13,9 @@ mutable struct Parameter{P<:AbstractParameter}
     const pos::Int
     gid::Int8 # Group ID
     const locked::Bool # Locked if nl < 0
+    const np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     const _name::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
     name::Symbol
-    const np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     const _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
     const payload::P
 end
@@ -45,31 +45,31 @@ mutable struct ScalarParameter{T} <: AbstractParameter{T,0}
     data::T
 end
 
-function Parameter(pos, gid, lock, name, np, desc, payload)
-    return Parameter(pos, convert(Int8, gid), lock, Vector{UInt8}(name), Symbol(name),
-        convert(Int16, np), Vector{UInt8}(desc), payload)
+function Parameter(pos, gid, lock, np, name, desc, payload)
+    return Parameter(pos, convert(Int8, gid), lock, convert(Int16, np),
+        Vector{UInt8}(name), Symbol(name), Vector{UInt8}(desc), payload)
 end
 
 function Parameter(name, desc, payload::P; gid=0, locked=signbit(gid)) where {P<:Union{Vector{String},String}}
-    return Parameter(0, gid, locked, name, 0, desc, StringParameter(payload))
+    return Parameter(0, gid, locked, 0, name, desc, StringParameter(payload))
 end
 
 function Parameter(name, desc, payload::AbstractArray{T,N}; gid=0, locked=signbit(gid)) where {T<:Union{Int8,Int16,Float32},N}
-    return Parameter(0, gid, locked, name, 0, desc,
+    return Parameter(0, gid, locked, 0, name, desc,
         ArrayParameter{T,N}(sizeof(T), ndims(payload), size(payload), payload))
 end
 
 function Parameter(name, desc, payload::T; gid=0, locked=signbit(gid)) where {T}
-    return Parameter(0, gid, locked, name, 0, desc, ScalarParameter{T}(payload))
+    return Parameter(0, gid, locked, 0, name, desc, ScalarParameter{T}(payload))
 end
 
 function Parameter{StringParameter}(p::Parameter{ScalarParameter{String}})
-    return Parameter{StringParameter}(p.pos, p.gid, p.locked, p._name, p.name,
-        p.np, p._desc, StringParameter(p.payload.data))
+    return Parameter{StringParameter}(p.pos, p.gid, p.locked, p.np, p._name, p.name,
+        p._desc, StringParameter(p.payload.data))
 end
 
 function Base.unsigned(p::Parameter{<:AbstractParameter{T}}) where {T <: Number}
-    return Parameter(p.pos, p.gid, p.locked, p._name, p.name, p.np, p._desc, unsigned(p.payload))
+    return Parameter(p.pos, p.gid, p.locked, p.np, p._name, p.name, p._desc, unsigned(p.payload))
 end
 
 function Base.unsigned(p::ArrayParameter{T,N}) where {T,N}
@@ -93,6 +93,19 @@ function Base.hash(p::Parameter, h::UInt)
     h = hash(p.payload.data, h)
     return h
 end
+
+gid(p::Parameter) = abs(p.gid)
+_position(p::Parameter{ArrayParameter{T,N}}) where {T,N} = getfield(p, :pos)
+_position(p::Parameter{StringParameter}) = getfield(p, :pos)
+_position(p::Parameter{ScalarParameter{T}}) where T = getfield(p, :pos)
+
+payload(p::Parameter{ArrayParameter{T,N}}) where {T,N} = getfield(p, :payload)
+payload(p::Parameter{StringParameter}) = getfield(p, :payload)
+payload(p::Parameter{ScalarParameter{T}}) where T = getfield(p, :payload)
+
+data(p::Parameter{ArrayParameter{T,N}}) where {T,N} = getfield(payload(p), :data)
+data(p::Parameter{StringParameter}) = getfield(payload(p), :data)
+data(p::Parameter{ScalarParameter{T}}) where T = getfield(payload(p), :data)
 
 function Base.show(io::IO, p::Parameter{P}) where P
     print(io, ":$(p.name)")
@@ -242,7 +255,7 @@ function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
         payload = ScalarParameter(data)
     end
 
-    return Parameter(pos, gid, locked, _name, name, np, desc, payload)
+    return Parameter(pos, gid, locked, np, _name, name, desc, payload)
 end
 
 function _readscalarparameter(io::IO, ::Type{END}) where {END<:AbstractEndian}
@@ -280,10 +293,10 @@ function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Ar
         _, rdims... = dims
         data = Array{String}(undef, rdims)
         for ijk in CartesianIndices(data)
-            data[ijk] = String(copy(rstrip_cntrl_null_space(@view tdata[:, ijk])))
+            data[ijk] = transcode(String, rstrip_cntrl_null_space(@view tdata[:, ijk]))
         end
     else
-        data = [ rstrip(x -> iscntrl(x) || isspace(x), transcode(String, tdata)) ]
+        data = [ transcode(String, rstrip_cntrl_null_space(tdata)) ]
     end
     return data
 end
