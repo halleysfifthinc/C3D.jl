@@ -14,7 +14,7 @@ include("header.jl")
 struct C3DFile{END<:AbstractEndian}
     name::String
     header::Header{END}
-    groups::LittleDict{Symbol, Group}
+    groups::LittleDict{Symbol, Group{END}, Vector{Symbol}, Vector{Group{END}}}
     point::OrderedDict{String, Array{Union{Missing, Float32},2}}
     residual::OrderedDict{String, Array{Union{Missing, Float32},1}}
     cameras::OrderedDict{String, Vector{UInt8}}
@@ -34,9 +34,9 @@ function Base.showerror(io::IO, err::DuplicateMarkerError)
     println(io, "DuplicateMarkerError: ", err.msg)
 end
 
-function C3DFile(name::String, header::Header, groups::LittleDict{Symbol,Group},
+function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Group{END}, Vector{Symbol}, Vector{Group{END}}},
                  point::AbstractArray, residuals::AbstractArray, analog::AbstractArray;
-                 missingpoints::Bool=true, strip_prefixes::Bool=false)
+                 missingpoints::Bool=true, strip_prefixes::Bool=false) where {END}
     fpoint = OrderedDict{String,Matrix{Union{Missing, Float32}}}()
     fresiduals = OrderedDict{String,Vector{Union{Missing, Float32}}}()
     cameras = OrderedDict{String,Vector{UInt8}}()
@@ -112,12 +112,21 @@ function C3DFile(name::String, header::Header, groups::LittleDict{Symbol,Group},
             invalidpoints .= convert.(Int32, fresiduals[ptname]) .% Int16 .< 0
             calculatedpoints .= iszero.(fresiduals[ptname])
             goodpoints .= .~(invalidpoints .| calculatedpoints)
-            fresiduals[ptname][goodpoints] = calcresiduals(fresiduals[ptname][goodpoints], abs(groups[:POINT][Float32, :SCALE]))
+            calcresiduals!(fresiduals[ptname], goodpoints, abs(groups[:POINT][Float32, :SCALE]))
 
             if missingpoints
-                fpoint[ptname][invalidpoints, :] .= missing
-                fresiduals[ptname][invalidpoints] .= missing
-                fresiduals[ptname][calculatedpoints] .= 0.0f0
+                for i in eachindex(fresiduals[ptname])
+                    if invalidpoints[i]
+                        fpoint[ptname][i, :] .= missing
+                        fresiduals[ptname][i] = missing
+                    end
+                end
+
+                for i in eachindex(fresiduals[ptname])
+                    if calculatedpoints[i]
+                        fresiduals[ptname][i] = 0.0f0
+                    end
+                end
             end
         end
     end
@@ -163,7 +172,7 @@ C3DFile(fn::AbstractString) = readc3d(string(fn))
 
 numpointframes(f::C3DFile) = numpointframes(f.groups)
 
-function numpointframes(groups::LittleDict{Symbol,Group})::Int
+function numpointframes(groups::LittleDict{Symbol,Group{E}})::Int where E <: AbstractEndian
     numframes::Int = groups[:POINT][Int, :FRAMES]
     if haskey(groups[:POINT], :LONG_FRAMES)
         if typeof(groups[:POINT][:LONG_FRAMES]) <: Vector{Int16}

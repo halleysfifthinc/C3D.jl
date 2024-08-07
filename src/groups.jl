@@ -3,48 +3,51 @@ mutable struct Group{END<:AbstractEndian}
     const pos::Int
     gid::Int8 # Group ID
     const locked::Bool
+    const np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     const _name::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
     name::Symbol
-    const np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
     const _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    const params::LittleDict{Symbol,Parameter}
+    const params::LittleDict{Symbol,Parameter,Vector{Symbol},Vector{Parameter}}
 end
 
 function Group(
-    pos::Int, gid::Int8, locked::Bool, _name::Vector{UInt8}, name::Symbol, np::Int16,
-    _desc::Vector{UInt8}, params::LittleDict{Symbol,Parameter}
+    pos::Int, gid::Int8, locked::Bool, np::Int16, _name::Vector{UInt8}, name::Symbol,
+    _desc::Vector{UInt8}, params::LittleDict{Symbol,Parameter,Vector{Symbol},Vector{Parameter}}
 )
-    return Group{LE{Float32}}(pos, gid, locked, _name, name, np, _desc, params)
+    return Group{LE{Float32}}(pos, gid, locked, np, _name, name, _desc, params)
 end
 
 function Group{END}(
-    pos, gid, locked, name, np, desc, params=LittleDict{Symbol,Parameter}()
+    pos, gid, locked, np, name, desc, params=LittleDict{Symbol,Parameter,Vector{Symbol},Vector{Parameter}}()
 ) where {END<:AbstractEndian}
-    return Group{END}(pos, convert(Int8, gid), locked, Vector{UInt8}(name), Symbol(name),
-        convert(Int16, np), Vector{UInt8}(desc), params)
+    return Group{END}(pos, convert(Int8, gid), locked, convert(Int16, np),
+        Vector{UInt8}(name), Symbol(name), Vector{UInt8}(desc), params)
 end
 
-function Group(pos, gid, locked, name, np, desc, params=LittleDict{Symbol,Parameter}())
-    return Group{LE{Float32}}(pos, convert(Int8, gid), locked, Vector{UInt8}(name),
-        Symbol(name), convert(Int16, np), Vector{UInt8}(desc), params)
+function Group(pos, gid, locked, np, name, desc, params=LittleDict{Symbol,Parameter,Vector{Symbol},Vector{Parameter}}())
+    return Group{LE{Float32}}(pos, convert(Int8, gid), locked, convert(Int16, np),
+        Vector{UInt8}(name), Symbol(name), Vector{UInt8}(desc), params)
 end
 
 function Group{END}(
-    name::String, desc::String, params=LittleDict{Symbol,Parameter}(); gid=0, locked=signbit(gid)
+    name::String, desc::String, params=LittleDict{Symbol,Parameter,Vector{Symbol},Vector{Parameter}}(); gid=0, locked=signbit(gid)
 ) where {END<:AbstractEndian}
-    return Group{END}(0, gid, locked, name, 0, desc, params)
+    return Group{END}(0, gid, locked, 0, name, desc, params)
 end
 
-function Group(name::String, desc::String, params=LittleDict{Symbol,Parameter}(); gid=0, locked=signbit(gid))
-    return Group{LE{Float32}}(0, gid, locked, name, 0, desc, params)
+function Group(name::String, desc::String, params=LittleDict{Symbol,Parameter,Vector{Symbol},Vector{Parameter}}(); gid=0, locked=signbit(gid))
+    return Group{LE{Float32}}(0, gid, locked, 0, name, desc, params)
 end
 
 function Base.:(==)(g1::Group, g2::Group)
     return g1.gid === g2.gid && g1.name === g2.name && g1.params == g2.params
 end
 
+gid(g::Group{E}) where E = abs(g.gid)
+_position(g::Group{E}) where E = g.pos
+
 function Base.getindex(g::Group, k::Symbol)
-    return getindex(g.params, k).payload.data
+    return data(getindex(g.params, k))
 end
 
 function Base.getindex(g::Group, ::Type{T}, k::Symbol) where T
@@ -121,7 +124,7 @@ function Base.read(io::IO, ::Type{Group{END}}) where {END<:AbstractEndian}
 
     pointer = pos + np + abs(nl) + 2
     @debug "wrong pointer in $name" position(io), pointer maxlog=(position(io) != pointer)
-    return Group{END}(pos, gid, locked, _name, name, np, desc, LittleDict{Symbol,Parameter}())
+    return Group{END}(pos, gid, locked, np, _name, name, desc, LittleDict{Symbol,Parameter,Vector{Symbol},Vector{Parameter}}())
 end
 
 function Base.write(io::IO, g::Group{END}; last::Bool=false) where {END}

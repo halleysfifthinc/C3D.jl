@@ -8,9 +8,10 @@ function _naturalsortby(x)
 end
 
 function get_multipled_parameter_names(groups, group, param)
-    params = collect(filter(keys(groups[Symbol(group)])) do k
-        contains(string(k), Regex("^$(param)\\d*"))
-        end)
+    rgx = Regex("^$(param)\\d*")
+    params = filter(collect(keys(groups[Symbol(group)]))) do k
+        contains(string(k), rgx)
+    end
     sort!(params; by=_naturalsortby)
     return params
 end
