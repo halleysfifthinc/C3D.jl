@@ -95,6 +95,10 @@ function Base.hash(p::Parameter, h::UInt)
 end
 
 gid(p::Parameter) = abs(p.gid)
+name(p::Parameter{ArrayParameter{T,N}}) where {T,N} = getfield(p, :name)
+name(p::Parameter{StringParameter}) = getfield(p, :name)
+name(p::Parameter{ScalarParameter{T}}) where T = getfield(p, :name)
+
 _position(p::Parameter{ArrayParameter{T,N}}) where {T,N} = getfield(p, :pos)
 _position(p::Parameter{StringParameter}) = getfield(p, :pos)
 _position(p::Parameter{ScalarParameter{T}}) where T = getfield(p, :pos)
@@ -157,7 +161,7 @@ function Base.show(io::IO, ::MIME"text/plain", p::Parameter{P}) where P
     print(io, "\n  ", p.payload.data)
 end
 
-function _elsize(::Parameter{P}) where P <: Union{StringParameter,ScalarParameter{String}}
+function _elsize(::Parameter{P}) where P <: Union{StringParameter,ScalarParameter{String},ArrayParameter{String}}
     return -1
 end
 
@@ -191,7 +195,7 @@ function _size(p::Parameter{ArrayParameter{T,N}}) where {T,N}
     return size(p.payload.data)
 end
 
-function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
+function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     pos = position(io)
     nl = read(io, Int8)
     @assert nl != 0
@@ -200,10 +204,10 @@ function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
     @assert gid != 0
     _name = read(io, abs(nl))
     @assert any(!iscntrl∘Char, _name)
-    name = Symbol(replace(strip(transcode(String, copy(_name))), r"[^a-zA-Z0-9_]" => '_'))
+    name = Symbol(replace(strip(transcode(String, view(_name, :))), r"[^a-zA-Z0-9_]" => '_'))
 
-    @debug "Parameter $name at $pos has unofficially supported characters.
-        Unexpected results may occur" maxlog=occursin(r"[^a-zA-Z0-9_ ]", transcode(String, copy(_name)))
+    # @debug "Parameter $name at $pos has unofficially supported characters.
+        # Unexpected results may occur" maxlog=occursin(r"[^a-zA-Z0-9_ ]", transcode(String, copy(_name)))
 
     np = read(io, END(Int16))
 
@@ -221,22 +225,23 @@ function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
     end
 
     nd = read(io, UInt8)
+    local data::AbstractArray
     if nd > 0
-        dims = NTuple{convert(Int, nd),Int}(read!(io, Array{UInt8}(undef, nd)))
+        dims = (Int.(read!(io, Array{UInt8}(undef, nd)))...,)
         data = _readarrayparameter(io, END(T), dims)
     else
         data = _readscalarparameter(io, END(T))
     end
 
-    dl = read(io, UInt8)
+    dl = read(io, UInt8)::UInt8
     desc = read(io, dl)
 
     if any(iscntrl∘Char, desc)
-        desc = ""
+        desc = UInt8[]
     end
 
     pointer = pos + np + abs(nl) + 2
-    @debug "wrong pointer in $name" position(io) pointer maxlog=(position(io) != pointer)
+    # @debug "wrong pointer in $name" position(io) pointer maxlog=(position(io) != pointer)
 
     if nd > 0
         if elsize == -1
@@ -247,28 +252,28 @@ function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
             end
         elseif isone(prod(dims))
             # In the event of an 'array' parameter with only one element
-            payload = ScalarParameter(data[1])
+            payload = ScalarParameter(only(data))
         else
             payload = ArrayParameter(elsize, nd, dims, data)
         end
     else
-        payload = ScalarParameter(data)
+        payload = ScalarParameter(only(data))
     end
 
     return Parameter(pos, gid, locked, np, _name, name, desc, payload)
 end
 
-function _readscalarparameter(io::IO, ::Type{END}) where {END<:AbstractEndian}
-    return read(io, END)
+function _readscalarparameter(io::IO, END::Type{<:AbstractEndian{T}}) where {T}
+    return [read(io, END)]
 end
 
 function _readscalarparameter(io::IO, ::Type{<:AbstractEndian{String}})::String
-    return rstrip(x -> iscntrl(x) || isspace(x), transcode(String, read(io, UInt8)))
+    return [rstrip(x -> iscntrl(x) || isspace(x), transcode(String, read(io, UInt8)))]
 end
 
-function _readarrayparameter(io::IO, ::Type{END}, dims) where {END<:AbstractEndian}
-    T = eltype(END) <: VaxFloat ? Float32 : eltype(END)
-    a = Array{T}(undef, dims)
+function _readarrayparameter(io::IO, END::Type{<:AbstractEndian{T}}, dims) where {T}
+    U = eltype(END) <: VaxFloat ? Float32 : eltype(END)
+    a = Array{U}(undef, dims)
     return read!(io, a, END)
 end
 
@@ -286,14 +291,18 @@ function rstrip_cntrl_null_space(s)
 end
 
 function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Array{String}
-    tdata = Array{UInt8}(undef, dims)
-    read!(io, tdata)
+    # tdata::AbstractArray{UInt8} = Array{UInt8}(undef, dims)
+    # read!(io, tdata)
+    _tdata = Vector{UInt8}(undef, prod(dims))
+    read!(io, _tdata)
+    tdata = reshape(_tdata, dims)
 
+    local data::AbstractArray{String}
     if length(dims) > 1
         _, rdims... = dims
-        data = Array{String}(undef, rdims)
-        for ijk in CartesianIndices(data)
-            data[ijk] = transcode(String, rstrip_cntrl_null_space(@view tdata[:, ijk]))
+        data = Array{String}(undef, rdims)::Array{String}
+        for ijk::CartesianIndex in CartesianIndices(data)
+            data[ijk] = transcode(String, rstrip_cntrl_null_space(@view tdata[:, ijk]))::String
         end
     else
         data = [ transcode(String, rstrip_cntrl_null_space(tdata)) ]
