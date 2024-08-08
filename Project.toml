@@ -7,6 +7,7 @@ version = "0.8.0-DEV"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 LazyArtifacts = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 VaxData = "a6f58a78-e649-57e2-81bc-1d865c7b74f7"
 

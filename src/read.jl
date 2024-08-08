@@ -2,8 +2,18 @@ function calcresiduals(x::AbstractVector, scale)
     return (convert.(Int16, x) .% UInt8) .* abs(scale)
 end
 
+function calcresiduals!(x::AbstractVector{T}, indices::Vector{I}, scale) where {T,I}
+    @inbounds for i in eachindex(x)
+        if indices[i]
+            x[i] = (convert(Int16, x[i]) % UInt8) * abs(scale)
+        end
+    end
+
+    return nothing
+end
+
 function readdata(
-    io::IOStream, h::Header{END}, groups::Dict{Symbol,Group}, ::Type{F}
+    io::IO, h::Header{END}, groups::LittleDict{Symbol,Group{END},Vector{Symbol},Vector{Group{END}}}, ::Type{F}
     ) where {END<:AbstractEndian, F}
     if iszero(groups[:POINT][Int, :DATA_START]-1)
         if !iszero(h.datastart-1)
@@ -18,9 +28,10 @@ function readdata(
     numframes::Int = numpointframes(groups)
     nummarkers::Int = groups[:POINT][Int, :USED]
     numchannels::Int = groups[:ANALOG][Int, :USED]
-    pointrate = get(groups[:POINT], (Float32, :RATE), h.pointrate)
-    if isinteger(get(groups[:ANALOG], (Float32, :RATE), pointrate)/pointrate)
-        aspf::Int = convert(Int, get(groups[:ANALOG], (Float32, :RATE), pointrate)/pointrate)
+    pointrate = get(groups[:POINT], (Float32, :RATE), h.pointrate::Float32)::Float32
+    analograte = get(groups[:ANALOG], (Float32, :RATE), pointrate)::Float32
+    if isinteger(analograte/pointrate)::Bool
+        aspf::Int = convert(Int, analograte/pointrate)
     else
         aspf = h.aspf
     end
@@ -136,42 +147,27 @@ Read the C3D file at `fn`.
 - `paramsonly::Bool = false`: Only reads the header and parameters
 - `validateparams::Bool = true`: Validates parameters against C3D requirements
 - `missingpoints::Bool = true`: Sets invalid points to `missing`
+- `handle_duplicate_parameters::Symbol = :keeplast`: How to handle multiple parameters in a
+  group with the same name. Options are:
+  - `:drop`: The first parameter with the duplicated name is used and the rest are dropped.
+  - `:keeplast`: The last parameter with the duplicated name is kept.
+  - `:append_position`: All duplicate parameters are kept and their position in the C3D file
+    is appended to their name.
+
 """
 function readc3d(fn::AbstractString; paramsonly=false, validate=true,
-                 missingpoints=true, strip_prefixes=false)
+    handle_duplicate_parameters=:keeplast, missingpoints=true, strip_prefixes=false)
+
+    handle_duplicate_parameters ∈ (:drop, :keeplast, :append_count) || throw(ArgumentError(
+        "Invalid `handle_duplicate_parameters`. Got :$handle_duplicate_parameters. Check \
+the docstring for valid options."))
+
     io = open(fn, "r")
 
-    groups, header, END = _readparams(fn, io)
-
-    if validate
-        validatec3d(header, groups)
-    end
-
-    if paramsonly
-        point = Dict{String,Matrix{Union{Missing, Float32}}}()
-        residual = Dict{String,Vector{Union{Missing, Float32}}}()
-        cameras = Dict{String,Vector{UInt8}}()
-        analog = Dict{String,Vector{Float32}}()
-        close(io)
-        return C3DFile(fn, header, groups, point, residual, cameras, analog)
-    else
-        format = groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(END)
-
-        (point, residual, analog) = readdata(io, header, groups, format)
-        close(io)
-    end
-
-    res = C3DFile(fn, header, groups, point, residual, analog;
-                  missingpoints, strip_prefixes)
-
-    return res
-end
-
-function _readparams(fn::String, io::IO)
     params_ptr = read(io, UInt8)
 
     if read(io, UInt8) != 0x50
-        error("File ", fn, " is not a valid C3D file")
+        throw(error("File ", stat(fd(io)).desc, " is not a valid C3D file"))
     end
 
     # Jump to parameters block
@@ -201,14 +197,61 @@ function _readparams(fn::String, io::IO)
         error("Malformed processor type. Expected 0x54, 0x55, or 0x56. Found ", proctype)
     end
 
+    groups, header = _readparams(io, paramblocks, END, handle_duplicate_parameters)
+
+    if validate
+        validatec3d(header, groups)
+    end
+
+    if paramsonly
+        point = OrderedDict{String,Matrix{Union{Missing, Float32}}}()
+        residual = OrderedDict{String,Vector{Union{Missing, Float32}}}()
+        cameras = OrderedDict{String,Vector{UInt8}}()
+        analog = OrderedDict{String,Vector{Float32}}()
+        close(io)
+        return C3DFile(fn, header, groups, point, residual, cameras, analog)
+    else
+        format = groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(END)::Type
+
+        (point, residual, analog) = readdata(io, header, groups, format)
+        close(io)
+    end
+
+    res = C3DFile(fn, header, groups, point, residual, analog;
+                  missingpoints, strip_prefixes)
+
+    return res
+end
+
+"requires a::Vector{Parameter} sorted by gid; returns views"
+function split_filter!(f, a)
+    if isempty(a)
+        return similar(a, ntuple(_-> 0, ndims(a))), @view a[end+1:end]
+    end
+
+    true_is = searchsorted(a, first(a); by=f)
+    trues = a[true_is]
+    if isempty(true_is)
+        @views falses = a[begin:end]
+    else
+        @views falses = a[last(true_is)+1:end]
+    end
+
+    return trues, falses
+end
+
+function isduplicate(x, a; by=identity)
+    return count(==(by(x))∘by, a) > 1
+end
+
+function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_parameters::Symbol) where {END}
     mark(io)
     header = read(io, Header{END})
     reset(io)
 
-    groups = Dict{Symbol,Group}()
     if !iszero(paramblocks)
-        gs = Array{Group,1}()
-        ps = Array{Parameter,1}()
+        gs = Vector{Group{END}}()
+        ps = Vector{Parameter}()
         moreparams = true
         fail = 0
         np = 0
@@ -263,9 +306,10 @@ function _readparams(fn::String, io::IO)
                 # Reset to the beginning of the parameter
                 skip(io, -2)
                 try
-                    push!(ps, readparam(io, END))
-                    np = ps[end].pos + ps[end].np + length(ps[end]._name) + 2
-                    moreparams = ps[end].np != 0 ? true : false
+                    lastps = readparam(io, END)
+                    push!(ps, lastps)
+                    moreparams = lastps.np != 0 ? true : false
+                    np = _position(lastps) + Int(lastps.np) + length(lastps._name) + 2
                     fail = 0
                 catch e
                     reset(io)
@@ -283,26 +327,134 @@ function _readparams(fn::String, io::IO)
             end
         end
 
-        groups = Dict{Symbol,Group}()
-        gids = Dict{Int8,Symbol}()
+        group_names = map(g -> g.name, gs)
+        dup_group_names = findduplicates(group_names)
+        if !isempty(dup_group_names)
+            # @debug "duplicate group names detected"
+            if !allunique(gid.(gs)) # Duplicate names with the same GID
+                for group in gs
+                    group.name ∈ dup_group_names || continue
 
-        for group in gs
-            groups[group.name] = group
-            gids[abs(group.gid)] = group.name
-        end
+                    @warn "Multiple groups with the same name \"$(group.name)\" and \
+group ID `$(gid(group))`. The second duplicate group will be deleted to keep group names
+unique (no parameters will be lost)." _id=stat(fd(io)).desc maxlog=1
 
-        for param in ps
-            if haskey(gids, param.gid)
-                groups[gids[param.gid]].params[param.name] = param
-            else
-                groupsym = Symbol("GID_$(param.gid)_MISSING")
-                if !haskey(groups, groupsym)
-                    groupname = string(groupsym)
-                    groups[groupsym] = Group{END}(groupname, "Group was not defined in header"; gid=param.gid)
+                    # could be more than 1 duplicate
+                    is = findall(==(group.name)∘(g->g.name), gs)
+                    @assert !isempty(is)
+                    @assert group === gs[first(is)]
+
+                    # i.e. we're deleting *after* `group` and therefore deleting will
+                    # only affect future iterations (by not running on the
+                    # already-handled duplicate)
+
+                    deleteat!(gs, is)
                 end
-                groups[groupsym].params[param.name] = param
+            else # Duplicate names with different GIDs
+                for group in gs
+                    group.name ∈ dup_group_names || continue
+
+                    # @debug group isduplicate(group, gs; by=(g->g.name))
+                    @warn "Multiple groups with the same name \"$(group.name)\". The \
+group ID will be appended to the duplicate group names to keep group names unique." _id=stat(fd(io)).desc maxlog=1
+                    dups = findall(==(group.name)∘(g->g.name), gs)
+                    for i in dups
+                        gs[i].name = Symbol(gs[i].name, "_", gid(gs[i]))
+                    end
+                end
             end
         end
+
+        group_names = map(g -> g.name, gs)
+        groups = LittleDict{Symbol,Group{END},Vector{Symbol},Vector{Group{END}}}(group_names, gs)
+        sort!(ps; by=gid)
+        psv = @view ps[begin:end]
+
+        for group in sort(gs; by=gid)
+            group_params, psv = split_filter!(gid, psv)
+            if isempty(group_params)
+               @debug "group $(group.name) is empty" group_params, psv
+               break
+            end
+            unique!(identity, group_params; seen=Set{Parameter}()) # remove literal duplicates
+
+            # check for params with duplicate names
+            param_names = map(name, group_params)
+            dup_names = findduplicates(param_names)
+            if !isempty(dup_names)
+                # @debug "duplicate parameters detected in" group
+                if handle_duplicate_parameters === :drop
+                    # @debug "dropping duplicates"
+                    unique!(name, group_params)
+                elseif handle_duplicate_parameters === :keeplast
+                    # @debug "keeping last duplicate" issorted(_position.(group_params))
+                    dups = similar(BitVector, axes(group_params, 1))
+                    dups .= false
+                    _dups = similar(dups)
+                    for _name in dup_names
+                        for i in eachindex(_dups)
+                            _dups[i] = name(group_params[i]) === name
+                        end
+                        # if count(_dups) > 1
+                        #     @debug "found `duplicates` and keeping `last(duplicates)`" group_params[_dups], group_params[findlast(_dups)]
+                        # end
+                        count(_dups) > 1 || continue
+                        i = findlast(_dups)
+                        _dups[i] = false
+                        dups .|= _dups
+                    end
+                    deleteat!(group_params, dups)
+                elseif handle_duplicate_parameters === :append_count
+                    # @debug "appending duplicate count to duplicate names; $(length(dup_names)) parameters with duplicated names"
+                    dups = similar(BitVector, axes(group_params, 1))
+                    dups .= false
+                    _dups = similar(dups)
+                    for _name in dup_names
+                        for i in eachindex(_dups)
+                            _dups[i] = name(group_params[i]) === name
+                        end
+                        count(_dups) > 1 || continue
+                        # @debug "$(count(_dups)) duplicate parameters with name $(_name)"
+                        dups .|= _dups
+                    end
+                    cnts = Dict{Symbol,Int}(zip(dup_names, zeros(Int, axes(dup_names,1))))
+                    for i in eachindex(dups)
+                        dups[i] || continue
+                        param = group_params[i]
+                        cnt = cnts[param.name] += 1
+                        # @debug "$(param.name) => $(Symbol(param.name, "_", cnt))"
+                        param.name = Symbol(param.name, "_", cnt)
+                    end
+                end
+                param_names = map(name, group_params)
+            end
+
+            sizehint!(group.params, length(group_params))
+            OrderedCollections.add_new!.(Ref(group.params), param_names, group_params)
+        end
+
+        while !isempty(psv)
+            _gid = gid(psv[1])
+            group_params, psv = split_filter!(p -> gid(p) === _gid, psv)
+            groupsym = Symbol("GID_$(_gid)_MISSING")
+
+            param_names = map(g -> g.name, group_params)
+            @assert allunique(param_names)::Bool
+
+            if !haskey(groups, groupsym)
+                groupname = string(groupsym)
+                group = Group{END}(groupname, "Group was not defined in header",
+                    LittleDict(param_names, group_params); gid=_gid)
+                groups[groupsym] = group
+            else
+                group = groups[groupsym]
+
+                sizehint!(group.params, length(group_params))
+                OrderedCollections.add_new!.(Ref(group.params), param_names, group_params)
+            end
+        end
+    else
+        groups = LittleDict{Symbol,Group{END}}(Symbol[], Group{END}[])
     end
 
     return (groups, header, END)

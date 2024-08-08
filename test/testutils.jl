@@ -5,6 +5,15 @@ macro test_nothrow(ex)
     esc(:(@test ($(ex); true)))
 end
 
+macro test_internalconsistency(f)
+    esc(quote
+        @test length(($f).point) == ($f).groups[:POINT][Int, :USED]
+        @test length(($f).residual) == ($f).groups[:POINT][Int, :USED]
+        @test length(($f).cameras) == ($f).groups[:POINT][Int, :USED]
+        @test length(($f).analog) == ($f).groups[:ANALOG][Int, :USED]
+    end)
+end
+
 function comparefiles(reference, candidate)
     @test_nothrow readc3d(reference; missingpoints=false)
     ref = readc3d(reference; missingpoints=false)

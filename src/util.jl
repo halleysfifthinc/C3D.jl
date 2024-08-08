@@ -1,3 +1,39 @@
+function _naturalsortby(x)
+    m = match(r"(\d+)$", string(x))
+    if isnothing(m)
+        return typemin(Int)
+    else
+        return Base.parse(Int, m[1])
+    end
+end
+
+function get_multipled_parameter_names(groups, group, param)
+    rgx = Regex("^$(param)\\d*")
+    params = filter(collect(keys(groups[Symbol(group)]))) do k
+        contains(string(k), rgx)
+    end
+    sort!(params; by=_naturalsortby)
+    return params
+end
+
+"loosely based on countmap (addcounts_dict!) from StatsBase"
+function findduplicates(itr)
+    dups = Dict{eltype(itr), Int}()
+    for k in itr
+        index, sh = Base.ht_keyindex2_shorthash!(dups, k)
+        if index > 0
+            dups.age += 1
+            @inbounds dups.keys[index] = k
+            @inbounds dups.vals[index] += 1
+        else
+            @inbounds Base._setindex!(dups, 1, k, -index, sh)
+        end
+    end
+
+    filter!(((k,v),) -> v > 1, dups)
+    return collect(keys(dups))
+end
+
 const eye3 = [true false false;
               false true false;
               false false true]

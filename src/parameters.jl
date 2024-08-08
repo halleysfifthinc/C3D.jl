@@ -13,9 +13,9 @@ mutable struct Parameter{P<:AbstractParameter}
     const pos::Int
     gid::Int8 # Group ID
     const locked::Bool # Locked if nl < 0
-    const _name::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
-    const name::Symbol
     const np::Int16 # Pointer in bytes to the start of next group/parameter (officially supposed to be signed)
+    const _name::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
+    name::Symbol
     const _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
     const payload::P
 end
@@ -45,31 +45,31 @@ mutable struct ScalarParameter{T} <: AbstractParameter{T,0}
     data::T
 end
 
-function Parameter(pos, gid, lock, name, np, desc, payload)
-    return Parameter(pos, convert(Int8, gid), lock, Vector{UInt8}(name), Symbol(name),
-        convert(Int16, np), Vector{UInt8}(desc), payload)
+function Parameter(pos, gid, lock, np, name, desc, payload)
+    return Parameter(pos, convert(Int8, gid), lock, convert(Int16, np),
+        Vector{UInt8}(name), Symbol(name), Vector{UInt8}(desc), payload)
 end
 
 function Parameter(name, desc, payload::P; gid=0, locked=signbit(gid)) where {P<:Union{Vector{String},String}}
-    return Parameter(0, gid, locked, name, 0, desc, StringParameter(payload))
+    return Parameter(0, gid, locked, 0, name, desc, StringParameter(payload))
 end
 
 function Parameter(name, desc, payload::AbstractArray{T,N}; gid=0, locked=signbit(gid)) where {T<:Union{Int8,Int16,Float32},N}
-    return Parameter(0, gid, locked, name, 0, desc,
+    return Parameter(0, gid, locked, 0, name, desc,
         ArrayParameter{T,N}(sizeof(T), ndims(payload), size(payload), payload))
 end
 
 function Parameter(name, desc, payload::T; gid=0, locked=signbit(gid)) where {T}
-    return Parameter(0, gid, locked, name, 0, desc, ScalarParameter{T}(payload))
+    return Parameter(0, gid, locked, 0, name, desc, ScalarParameter{T}(payload))
 end
 
 function Parameter{StringParameter}(p::Parameter{ScalarParameter{String}})
-    return Parameter{StringParameter}(p.pos, p.gid, p.locked, p._name, p.name,
-        p.np, p._desc, StringParameter(p.payload.data))
+    return Parameter{StringParameter}(p.pos, p.gid, p.locked, p.np, p._name, p.name,
+        p._desc, StringParameter(p.payload.data))
 end
 
 function Base.unsigned(p::Parameter{<:AbstractParameter{T}}) where {T <: Number}
-    return Parameter(p.pos, p.gid, p.locked, p._name, p.name, p.np, p._desc, unsigned(p.payload))
+    return Parameter(p.pos, p.gid, p.locked, p.np, p._name, p.name, p._desc, unsigned(p.payload))
 end
 
 function Base.unsigned(p::ArrayParameter{T,N}) where {T,N}
@@ -81,6 +81,35 @@ function Base.unsigned(p::ScalarParameter{T}) where T
     uT = unsigned(T)
     return ScalarParameter{uT}(unsigned(p.data))
 end
+
+function Base.:(==)(p1::Parameter, p2::Parameter)
+    return p1.gid === p2.gid && p1.name === p2.name && typeof(p1.payload) === typeof(p2.payload) &&
+        p1.payload.data == p2.payload.data
+end
+
+function Base.hash(p::Parameter, h::UInt)
+    h = hash(p.gid, h)
+    h = hash(hash(p.name), h)
+    h = hash(p.payload.data, h)
+    return h
+end
+
+gid(p::Parameter) = abs(p.gid)
+name(p::Parameter{ArrayParameter{T,N}}) where {T,N} = getfield(p, :name)
+name(p::Parameter{StringParameter}) = getfield(p, :name)
+name(p::Parameter{ScalarParameter{T}}) where T = getfield(p, :name)
+
+_position(p::Parameter{ArrayParameter{T,N}}) where {T,N} = getfield(p, :pos)
+_position(p::Parameter{StringParameter}) = getfield(p, :pos)
+_position(p::Parameter{ScalarParameter{T}}) where T = getfield(p, :pos)
+
+payload(p::Parameter{ArrayParameter{T,N}}) where {T,N} = getfield(p, :payload)
+payload(p::Parameter{StringParameter}) = getfield(p, :payload)
+payload(p::Parameter{ScalarParameter{T}}) where T = getfield(p, :payload)
+
+data(p::Parameter{ArrayParameter{T,N}}) where {T,N} = getfield(payload(p), :data)
+data(p::Parameter{StringParameter}) = getfield(payload(p), :data)
+data(p::Parameter{ScalarParameter{T}}) where T = getfield(payload(p), :data)
 
 function Base.show(io::IO, p::Parameter{P}) where P
     print(io, ":$(p.name)")
@@ -132,7 +161,7 @@ function Base.show(io::IO, ::MIME"text/plain", p::Parameter{P}) where P
     print(io, "\n  ", p.payload.data)
 end
 
-function _elsize(::Parameter{P}) where P <: Union{StringParameter,ScalarParameter{String}}
+function _elsize(::Parameter{P}) where P <: Union{StringParameter,ScalarParameter{String},ArrayParameter{String}}
     return -1
 end
 
@@ -166,7 +195,7 @@ function _size(p::Parameter{ArrayParameter{T,N}}) where {T,N}
     return size(p.payload.data)
 end
 
-function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
+function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     pos = position(io)
     nl = read(io, Int8)
     @assert nl != 0
@@ -175,10 +204,10 @@ function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
     @assert gid != 0
     _name = read(io, abs(nl))
     @assert any(!iscntrl∘Char, _name)
-    name = Symbol(replace(strip(transcode(String, copy(_name))), r"[^a-zA-Z0-9_]" => '_'))
+    name = Symbol(replace(strip(transcode(String, view(_name, :))), r"[^a-zA-Z0-9_]" => '_'))
 
-    @debug "Parameter $name at $pos has unofficially supported characters.
-        Unexpected results may occur" maxlog=occursin(r"[^a-zA-Z0-9_ ]", transcode(String, copy(_name)))
+    # @debug "Parameter $name at $pos has unofficially supported characters.
+        # Unexpected results may occur" maxlog=occursin(r"[^a-zA-Z0-9_ ]", transcode(String, copy(_name)))
 
     np = read(io, END(Int16))
 
@@ -196,22 +225,23 @@ function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
     end
 
     nd = read(io, UInt8)
+    local data::AbstractArray
     if nd > 0
-        dims = NTuple{convert(Int, nd),Int}(read!(io, Array{UInt8}(undef, nd)))
+        dims = (Int.(read!(io, Array{UInt8}(undef, nd)))...,)
         data = _readarrayparameter(io, END(T), dims)
     else
         data = _readscalarparameter(io, END(T))
     end
 
-    dl = read(io, UInt8)
+    dl = read(io, UInt8)::UInt8
     desc = read(io, dl)
 
     if any(iscntrl∘Char, desc)
-        desc = ""
+        desc = UInt8[]
     end
 
     pointer = pos + np + abs(nl) + 2
-    @debug "wrong pointer in $name" position(io) pointer maxlog=(position(io) != pointer)
+    # @debug "wrong pointer in $name" position(io) pointer maxlog=(position(io) != pointer)
 
     if nd > 0
         if elsize == -1
@@ -222,48 +252,60 @@ function readparam(io::IOStream, ::Type{END}) where {END<:AbstractEndian}
             end
         elseif isone(prod(dims))
             # In the event of an 'array' parameter with only one element
-            payload = ScalarParameter(data[1])
+            payload = ScalarParameter(only(data))
         else
             payload = ArrayParameter(elsize, nd, dims, data)
         end
     else
-        payload = ScalarParameter(data)
+        payload = ScalarParameter(only(data))
     end
 
-    return Parameter(pos, gid, locked, _name, name, np, desc, payload)
+    return Parameter(pos, gid, locked, np, _name, name, desc, payload)
 end
 
-function _readscalarparameter(io::IO, ::Type{END}) where {END<:AbstractEndian}
-    return read(io, END)
+function _readscalarparameter(io::IO, END::Type{<:AbstractEndian{T}}) where {T}
+    return [read(io, END)]
 end
 
 function _readscalarparameter(io::IO, ::Type{<:AbstractEndian{String}})::String
-    return rstrip(x -> iscntrl(x) || isspace(x), transcode(String, read(io, UInt8)))
+    return [rstrip(x -> iscntrl(x) || isspace(x), transcode(String, read(io, UInt8)))]
 end
 
-function _readarrayparameter(io::IO, ::Type{END}, dims) where {END<:AbstractEndian}
-    T = eltype(END) <: VaxFloat ? Float32 : eltype(END)
-    a = Array{T}(undef, dims)
+function _readarrayparameter(io::IO, END::Type{<:AbstractEndian{T}}, dims) where {T}
+    U = eltype(END) <: VaxFloat ? Float32 : eltype(END)
+    a = Array{U}(undef, dims)
     return read!(io, a, END)
 end
 
-function rstrip_cntrl_space(s)
-    l = findlast(>(UInt8(' ')), s)
-    return @view s[begin:something(l, end)]
+# Taken from Base.iscntrl and Base.isspace, but for bytes instead of chars
+_iscntrl(c::Union{Int8,UInt8}) = c <= 0x1f || 0x7f <= c <= 0x9f
+_isspace(c::Union{Int8,UInt8}) = c == 0x20 || 0x09 <= c <= 0x0d || c == 0x85 || 0xa0 <= c
+
+function rstrip_cntrl_null_space(s)
+    l = findlast(c -> !_iscntrl(c) && !_isspace(c), s)
+    if isnothing(l)
+        return @view s[end:end-1]
+    else
+        return @view s[begin:l]
+    end
 end
 
 function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Array{String}
-    tdata = Array{UInt8}(undef, dims)
-    read!(io, tdata)
+    # tdata::AbstractArray{UInt8} = Array{UInt8}(undef, dims)
+    # read!(io, tdata)
+    _tdata = Vector{UInt8}(undef, prod(dims))
+    read!(io, _tdata)
+    tdata = reshape(_tdata, dims)
 
+    local data::AbstractArray{String}
     if length(dims) > 1
         _, rdims... = dims
-        data = Array{String}(undef, rdims)
-        for ijk in CartesianIndices(data)
-            data[ijk] = String(copy(rstrip_cntrl_space(@view tdata[:, ijk])))
+        data = Array{String}(undef, rdims)::Array{String}
+        for ijk::CartesianIndex in CartesianIndices(data)
+            data[ijk] = transcode(String, rstrip_cntrl_null_space(@view tdata[:, ijk]))::String
         end
     else
-        data = [ rstrip(String(tdata)) ]
+        data = [ transcode(String, rstrip_cntrl_null_space(tdata)) ]
     end
     return data
 end
