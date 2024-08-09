@@ -38,9 +38,7 @@ function writedata(io::IO, f::C3DFile{END}) where {END<:AbstractEndian}
     numchannels::Int = f.groups[:ANALOG][Int, :USED]
     aspf = h.aspf
 
-    analogdata = reduce(hcat, (f.analog[channel]
-        for channel in
-            f.groups[:ANALOG][Vector{String}, :LABELS][1:f.groups[:ANALOG][Int, :USED]]))
+    analogdata = reduce(hcat, (f.analog[channel] for channel in keys(f.analog) ))
     if numchannels == 1
         ANALOG_OFFSET = f.groups[:ANALOG][Float32, :OFFSET]
         SCALE = f.groups[:ANALOG][Float32, :GEN_SCALE] * f.groups[:ANALOG][Float32, :SCALE]
@@ -55,12 +53,10 @@ function writedata(io::IO, f::C3DFile{END}) where {END<:AbstractEndian}
     analog = permutedims(reshape(permutedims(analogdata), numchannels*aspf, :))
     if T <: Int16
         pointdata = reduce(hcat, ([roundapprox.(T, f.point[marker]./POINT_SCALE) makeresiduals(f, marker)]
-            for marker in
-                f.groups[:POINT][Vector{String}, :LABELS][1:f.groups[:POINT][Int, :USED]]))
+            for marker in keys(f.point) ))
     else
         pointdata = reduce(hcat, ([f.point[marker] makeresiduals(f, marker)]
-            for marker in
-                f.groups[:POINT][Vector{String}, :LABELS][1:f.groups[:POINT][Int, :USED]]))
+            for marker in keys(f.point) ))
     end
     missings = findall(ismissing, pointdata)
     if !isempty(missings)
