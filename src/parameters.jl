@@ -300,6 +300,8 @@ function _readarrayparameter(io::IO, END::Type{<:AbstractEndian{T}}, dims) where
 end
 
 # Taken from Base.iscntrl and Base.isspace, but for bytes instead of chars
+_iscntrl(c::Char) = iscntrl(c)
+_isspace(c::Char) = isspace(c)
 _iscntrl(c::Union{Int8,UInt8}) = c <= 0x1f || 0x7f <= c <= 0x9f
 _isspace(c::Union{Int8,UInt8}) = c == 0x20 || 0x09 <= c <= 0x0d || c == 0x85 || 0xa0 <= c
 
@@ -324,10 +326,12 @@ function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Ar
         _, rdims... = dims
         data = Array{String}(undef, rdims)::Array{String}
         for ijk::CartesianIndex in CartesianIndices(data)
-            data[ijk] = transcode(String, rstrip_cntrl_null_space(@view tdata[:, ijk]))::String
+            data[ijk] = string(rstrip(x -> iscntrl(x) || isspace(x),
+                transcode(String, transcode(UInt16, @view tdata[:, ijk]))))::String
+            # @debug "" @view(tdata[:, ijk]), data[ijk]
         end
     else
-        data = [ transcode(String, rstrip_cntrl_null_space(tdata)) ]
+        data = [ rstrip(x -> iscntrl(x) || isspace(x), transcode(String, transcode(UInt16, _tdata))) ]
     end
     return data
 end
@@ -360,7 +364,7 @@ function Base.write(
     if elt <: Char
         if ndims > 1
             for s in p.payload.data
-                _nb = write(io, s)
+                _nb = write(io, UInt8.(transcode(UInt16, s)))
                 _nb += write(io, collect(Iterators.repeated(0x00, Int(dims[1]) - _nb )))
                 nb += _nb
             end
@@ -369,10 +373,10 @@ function Base.write(
                 if isempty(p.payload.data)
                     nb += sum(x -> write(io, 0x00), Iterators.repeated(0x00, prod(dims)); init=0)
                 else
-                    nb += write(io, only(p.payload.data))
+                    nb += write(io, UInt8.(transcode(UInt16, only(p.payload.data))))
                 end
             else
-                nb += write(io, p.payload.data)
+                nb += write(io, UInt8.(transcode(UInt16, p.payload.data)))
             end
         end
     else
@@ -381,7 +385,7 @@ function Base.write(
 
     nb += write(io, UInt8(length(p._desc)))
     if !isempty(p._desc)
-        nb += write(io, p._desc)
+        nb += write(io, UInt8.(transcode(UInt16, p._desc)))
     end
 
     return nb
