@@ -30,10 +30,9 @@ const rgroups = (:POINT, :ANALOG)
 
 const descriptives = (:LABELS, :DESCRIPTIONS, :UNITS)
 
-const rpoint = (:USED, :DATA_START, :FRAMES)
-const ratescale = (:SCALE, :RATE)
+const rpoint = (:USED, :DATA_START, :FRAMES, :SCALE)
 
-const ranalog = (:USED, :GEN_SCALE, :OFFSET) ∪ ratescale
+const ranalog = (:USED, :GEN_SCALE, :OFFSET, :SCALE, :RATE)
 const bitsformat = (:BITS, :FORMAT)
 
 const rforceplatf = (:TYPE, :ZERO, :CORNERS, :ORIGIN, :CHANNEL, :CAL_MATRIX)
@@ -76,6 +75,11 @@ function validatec3d(header, groups)
             groups[:POINT].params[:DATA_START] = Parameter("DATA_START", "", UInt16(header.datastart);
                 gid=groups[:POINT].gid)
         end
+
+        if !(:SCALE in pointkeys)
+            groups[:POINT].params[:SCALE] = Parameter("SCALE", "", Float32(header.scale);
+                gid=groups[:POINT].gid)
+        end
     end
 
     # Fix the sign for any point parameters that are likely to need it
@@ -85,31 +89,16 @@ function validatec3d(header, groups)
         end
     end
 
-    # Validate the :ANALOG group
-    analogkeys = keys(groups[:ANALOG].params)
-    if !haskey(groups[:ANALOG], :USED)
-        groups[:ANALOG].params[:USED] = Parameter("USED", "",
-            iszero(header.ampf) ? UInt16(0) : UInt16(header.ampf÷header.aspf); gid=groups[:ANALOG].gid)
-    end
-
     if iszero(groups[:POINT][:DATA_START])
         groups[:POINT].params[:DATA_START].payload.data = header.datastart
     end
 
     POINT_USED = groups[:POINT][Int, :USED]
-    ANALOG_USED = groups[:ANALOG][Int, :USED]
     if POINT_USED != 0 # There are markers
         # If there are markers, the additional set of required parameters is ratescale
-        if !(ratescale ⊆ pointkeys)
-            if !(:RATE ∈ pointkeys)
-                groups[:POINT].params[:RATE] = Parameter("RATE", "Video sampling rate",
-                    Float32(header.pointrate); gid=groups[:POINT].gid)
-            end
-
-            if !(:SCALE in  pointkeys)
-                groups[:POINT].params[:SCALE] = Parameter("SCALE", "",Float32(header.scale);
-                    gid=groups[:POINT].gid)
-            end
+        if !(:RATE ∈ pointkeys)
+            groups[:POINT].params[:RATE] = Parameter("RATE", "Video sampling rate",
+                Float32(header.pointrate); gid=groups[:POINT].gid)
         end
 
         if !(descriptives ⊆ pointkeys) # Check that the descriptive parameters exist
@@ -131,7 +120,15 @@ function validatec3d(header, groups)
         end
     end # End validate :POINT
 
-    # Further validate the :ANALOG group
+    # Validate the :ANALOG group
+    analogkeys = keys(groups[:ANALOG].params)
+    if !haskey(groups[:ANALOG], :USED)
+        @debug "ANALOG:USED was missing; setting as $(iszero(header.ampf) ? 0 : header.ampf÷header.aspf)"
+        groups[:ANALOG].params[:USED] = Parameter("USED", "", iszero(header.ampf) ?
+            UInt16(0) : UInt16(header.ampf÷header.aspf); gid=groups[:ANALOG].gid)
+    end
+
+    ANALOG_USED = groups[:ANALOG][Int, :USED]
     if signbit(ANALOG_USED)
         groups[:ANALOG].params[:USED] = unsigned(groups[:ANALOG].params[:USED])
     end
