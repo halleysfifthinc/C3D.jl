@@ -59,7 +59,7 @@ function Parameter(name, desc, payload::AbstractArray{T,N}; gid=0, locked=signbi
         ArrayParameter{T,N}(sizeof(T), ndims(payload), size(payload), payload))
 end
 
-function Parameter(name, desc, payload::T; gid=0, locked=signbit(gid)) where {T}
+function Parameter(name, desc, payload::T; gid=0, locked=signbit(gid)) where {T <: Union{UInt8,UInt16,Float32}}
     return Parameter(0, gid, locked, 0, name, desc, ScalarParameter{T}(payload))
 end
 
