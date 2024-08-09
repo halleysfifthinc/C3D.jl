@@ -56,31 +56,24 @@ function validatec3d(header, groups)
         groups[:ANALOG] = Group("ANALOG", "")
     end
 
-    if !(rgroups ⊆ keys(groups))
-        if !haskey(groups, :ANALOG)
-            groups[:ANALOG] = Group("ANALOG", "Analog data parameters")
-            groups[:ANALOG].params[:USED] = Parameter("USED", "Number of analog channels used", zero(Int16); gid=groups[:ANALOG].gid)
-        else
-            d = setdiff(rgroups, keys(groups))
-            throw(MissingGroupsError(d))
-        end
-    end
-
     # Validate the :POINT group
     pointkeys = keys(groups[:POINT].params)
     if !(rpoint ⊆ pointkeys)
         if !(:USED in pointkeys)
-            groups[:POINT].params[:USED] = Parameter("USED", "", header.npoints;
+            @debug "POINT:USED was missing; setting as $(header.npoints) from header"
+            groups[:POINT].params[:USED] = Parameter("USED", "", UInt16(header.npoints);
                 gid=groups[:POINT].gid)
         end
 
         if !(:FRAMES in pointkeys)
-            groups[:POINT].params[:FRAMES] = Parameter("FRAMES", "", header.lframe - header.fframe + 1;
+            @debug "POINT:FRAMES was missing; setting as $(header.lframe - header.fframe + 1) from header"
+            groups[:POINT].params[:FRAMES] = Parameter("FRAMES", "", UInt16(header.lframe - header.fframe + 1);
                 gid=groups[:POINT].gid)
         end
 
         if !(:DATA_START in pointkeys)
-            groups[:POINT].params[:DATA_START] = Parameter("DATA_START", "", header.datastart;
+            @debug "POINT:DATA_START was missing; setting as $(header.datastart) from header"
+            groups[:POINT].params[:DATA_START] = Parameter("DATA_START", "", UInt16(header.datastart);
                 gid=groups[:POINT].gid)
         end
     end
@@ -96,7 +89,7 @@ function validatec3d(header, groups)
     analogkeys = keys(groups[:ANALOG].params)
     if !haskey(groups[:ANALOG], :USED)
         groups[:ANALOG].params[:USED] = Parameter("USED", "",
-            iszero(header.ampf) ? 0 : header.ampf÷header.aspf; gid=groups[:ANALOG].gid)
+            iszero(header.ampf) ? UInt16(0) : UInt16(header.ampf÷header.aspf); gid=groups[:ANALOG].gid)
     end
 
     if iszero(groups[:POINT][:DATA_START])
@@ -110,11 +103,11 @@ function validatec3d(header, groups)
         if !(ratescale ⊆ pointkeys)
             if !(:RATE ∈ pointkeys)
                 groups[:POINT].params[:RATE] = Parameter("RATE", "Video sampling rate",
-                    header.pointrate; gid=groups[:POINT].gid)
+                    Float32(header.pointrate); gid=groups[:POINT].gid)
             end
 
             if !(:SCALE in  pointkeys)
-                groups[:POINT].params[:SCALE] = Parameter("SCALE", "", header.scale;
+                groups[:POINT].params[:SCALE] = Parameter("SCALE", "",Float32(header.scale);
                     gid=groups[:POINT].gid)
             end
         end
@@ -146,7 +139,7 @@ function validatec3d(header, groups)
     if ANALOG_USED != 0 # There are analog channels
         if !(:RATE in analogkeys)
             groups[:ANALOG].params[:RATE] = Parameter("RATE", "Analog sampling rate",
-                groups[:POINT][Float32, :RATE] * header.aspf; gid=groups[:ANALOG].gid)
+                Float32(groups[:POINT][Float32, :RATE] * header.aspf); gid=groups[:ANALOG].gid)
         end
 
         @label analogkeychanged
