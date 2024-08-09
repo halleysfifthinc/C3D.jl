@@ -211,8 +211,8 @@ end
 
 endianness(f::C3DFile{END}) where END = END
 
-groups(f::C3DFile) = collect(values(f.groups))
-parameters(f::C3DFile) = collect(Iterators.flatten((values(group) for group in groups(f))))
+groups(f::C3DFile) = values(f.groups)
+parameters(f::C3DFile) = Iterators.flatten((values(group) for group in groups(f)))
 
 function Header{END}(f::C3DFile{OEND}) where {END<:AbstractEndian,OEND<:AbstractEndian}
     h = f.header
