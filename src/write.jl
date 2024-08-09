@@ -83,7 +83,7 @@ function writec3d(filename::String, f::C3DFile)
     end
 end
 
-function writec3d(io, f::C3DFile{END}) where END
+function add_edited!(f::C3DFile{END}) where END
     get!(f.groups, :MANUFACTURER, Group{END}("MANUFACTURER", "Manufacturer information"))
     p = get!(f.groups[:MANUFACTURER].params, :EDITED, Parameter("EDITED", "C3D file edit record", ""))
     if p isa Parameter{ScalarParameter{String}}
@@ -97,6 +97,12 @@ function writec3d(io, f::C3DFile{END}) where END
         push!(p.payload.data, edited_desc())
     end
     f.groups[:MANUFACTURER].params[:EDITED] = p
+
+    return nothing
+end
+
+function writec3d(io, f::C3DFile{END}) where END
+    add_edited!(f)
 
     nb = 0
     header = Header(f)
