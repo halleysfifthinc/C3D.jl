@@ -183,8 +183,22 @@ function _ndims(p::Parameter{ArrayParameter{T,N}}) where {T,N}
     return ndims(p.payload.data)
 end
 
+function _ndims(p::Parameter{ArrayParameter{String,N}}) where {N}
+    if iszero(prod(size(p.payload.data)))
+        return ndims(p.payload.data)
+    else
+        return ndims(p.payload.data)+1
+    end
+end
+
 function _size(p::Parameter{StringParameter})
-    return length(p.payload.data) > 1 ? (maximum(length, p.payload.data), length(p.payload.data)) : (isempty(p.payload.data) ? 0 : length(only(p.payload.data)),)
+    if length(p.payload.data) > 1
+        return maximum(length, p.payload.data), length(p.payload.data)
+    elseif isempty(p.payload.data)
+        return 0
+    else
+        return (length(only(p.payload.data)),)
+    end
 end
 
 function _size(p::Parameter{ScalarParameter{T}}) where T
@@ -193,6 +207,14 @@ end
 
 function _size(p::Parameter{ArrayParameter{T,N}}) where {T,N}
     return size(p.payload.data)
+end
+
+function _size(p::Parameter{ArrayParameter{String,N}}) where {N}
+    if iszero(prod(size(p.payload.data)))
+        return size(p.payload.data)
+    else
+        return (maximum(length, p.payload.data; init=0), size(p.payload.data)...)
+    end
 end
 
 function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
@@ -328,7 +350,7 @@ function Base.write(
     nb += write(io, elsize |> Int8)
     nb += write(io, ndims |> Int8)
     if ndims > 0
-        nb += sum(write.(io, Int8.(dims)))
+        nb += sum(write.(io, UInt8.(dims)))
     end
 
     elt = elsize == -1 ? Char :
