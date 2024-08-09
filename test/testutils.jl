@@ -15,6 +15,19 @@ macro test_internalconsistency(f)
     end)
 end
 
+function readdir_recursive(dir; join=false)
+    outfiles = String[]
+    for (root, dirs, files) in walkdir(dir)
+        if join
+            append!(outfiles, joinpath.(root, files))
+        else
+            append!(outfiles, files)
+        end
+    end
+
+    return outfiles
+end
+
 function comparefiles(reference, candidate)
     @test_nothrow readc3d(reference; missingpoints=false)
     ref = readc3d(reference; missingpoints=false)
