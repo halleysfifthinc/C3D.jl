@@ -140,7 +140,7 @@ function Base.show(io::IO, ::MIME"text/plain", p::Parameter{P}) where P
     print(io, "Parameter(:$(p.name)")
     if !isempty(p._desc)
         print(io, ", ")
-        printstyled(io, "\"", transcode(String, copy(p._desc)), "\""; color=:light_black)
+        printstyled(io, "\"", transcode(String, transcode(UInt16, copy(p._desc))), "\""; color=:light_black)
     end
     print(io, ")")
     elsize = _elsize(p)
@@ -256,11 +256,7 @@ function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     end
 
     dl = read(io, UInt8)::UInt8
-    desc = read(io, dl)
-
-    if any(iscntrl∘Char, desc)
-        desc = UInt8[]
-    end
+    desc = copy(rstrip_cntrl_null_space(read(io, dl)))
 
     pointer = pos + np + abs(nl) + 2
     # @debug "wrong pointer in $name" position(io) pointer maxlog=(position(io) != pointer)
