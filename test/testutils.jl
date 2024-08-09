@@ -79,26 +79,30 @@ struct ParameterComparison
     function ParameterComparison(ref::Vector{UInt8}, comp::Vector{UInt8}, type, ::Type{END}=LE{Float32}) where {END<:AbstractEndian}
         type ∈ (:group, :parameter) || throw(ArgumentError("Invalid `type`; got $(type) but only `:group` or `:parameter` are valid."))
         _ref, _comp = [], []
-        push!(_ref, Int(ref[1] % Int8))
+        refnl = Int(ref[1] % Int8)
+        push!(_ref, refnl)
+        refnl = abs(refnl)
         push!(_ref, ParameterField(Int(ref[2]), "GID"))
-        append!(_ref, convert(Vector{Char}, ref[3:(2+abs(_ref[1]))]))
-        push!(_ref, ParameterField(reinterpret(UInt16, ref[3+abs(_ref[1]):4+abs(_ref[1])])[1], "NP"))
+        append!(_ref, convert(Vector{Char}, ref[3:(2+refnl)]))
+        push!(_ref, ParameterField(reinterpret(UInt16, ref[3+refnl:4+refnl])[1], "NP"))
 
-        push!(_comp, Int(comp[1] % Int8))
+        compnl = Int(comp[1] % Int8)
+        push!(_comp, compnl)
+        compnl = abs(compnl)
         push!(_comp, ParameterField(Int(comp[2]), "GID"))
-        append!(_comp, convert(Vector{Char}, comp[3:(2+abs(_comp[1]))]))
-        push!(_comp, ParameterField(reinterpret(UInt16, comp[3+abs(_comp[1]):4+abs(_comp[1])])[1], "NP"))
+        append!(_comp, convert(Vector{Char}, comp[3:(2+compnl)]))
+        push!(_comp, ParameterField(reinterpret(UInt16, comp[3+compnl:4+compnl])[1], "NP"))
 
         if type == :group
-            push!(_ref, Int(ref[5+abs(_ref[1])]))
-            append!(_ref, convert(Vector{Char}, ref[6+abs(_ref[1]):end]))
+            push!(_ref, Int(ref[5+refnl]))
+            append!(_ref, convert(Vector{Char}, ref[6+refnl:end]))
 
-            push!(_comp, Int(comp[5+abs(_comp[1])]))
-            append!(_comp, convert(Vector{Char}, comp[6+abs(_comp[1]):end]))
+            push!(_comp, Int(comp[5+compnl]))
+            append!(_comp, convert(Vector{Char}, comp[6+compnl:end]))
         else
-            elsize = ref[5+abs(_ref[1])] % Int8 % Int
-            ndims = Int(ref[6+abs(_ref[1])])
-            dims = (Int8.(ref[7+abs(_ref[1]):6+abs(_ref[1])+ndims])...,)
+            elsize = ref[5+refnl] % Int8 % Int
+            ndims = Int(ref[6+refnl])
+            dims = (Int.(ref[7+refnl:6+refnl+ndims])...,)
             if elsize == -1
                 v = Array{UInt8,ndims}(undef, dims)
             elseif elsize == 1
@@ -117,26 +121,26 @@ struct ParameterComparison
 
             t = prod(dims)*abs(elsize)
             # @show elsize ndims dims t
-            # @show 7+ndims+abs(_ref[1]):8+ndims+abs(_ref[1])+t sizeof(v) length(ref)
+            # @show 7+ndims+refnl:8+ndims+refnl+t sizeof(v) length(ref)
             # @show elsize, ndims, dims, t
-            # @show 7+ndims+abs(_ref[1]):6+ndims+abs(_ref[1])+t length(ref)
+            # @show 7+ndims+refnl:6+ndims+refnl+t length(ref)
             # # @show ref
-            # @show String(copy(ref[7+ndims+abs(_ref[1]):6+ndims+abs(_ref[1])+t]))
-            read!(IOBuffer(ref[7+ndims+abs(_ref[1]):6+ndims+abs(_ref[1])+t]), v, END(eltype(v)))
+            # @show String(copy(ref[7+ndims+refnl:6+ndims+refnl+t]))
+            read!(IOBuffer(ref[7+ndims+refnl:6+ndims+refnl+t]), v, END(eltype(v)))
             if elsize == -1
                 append!(_ref, convert(Array{Char}, v))
             else
                 append!(_ref, v)
             end
-            push!(_ref, ParameterField(Int(ref[7+ndims+abs(_ref[1])+t]), "desc. len")) # description length
+            push!(_ref, ParameterField(Int(ref[7+ndims+refnl+t]), "desc. len")) # description length
             # @show _ref[end]
-            append!(_ref, convert(Vector{Char}, ref[8+ndims+abs(_ref[1])+t:7+ndims+abs(_ref[1])+t+_ref[end].val]))
+            append!(_ref, convert(Vector{Char}, ref[8+ndims+refnl+t:7+ndims+refnl+t+_ref[end].val]))
 
 
-            # @show 5+abs(_comp[1])
-            elsize = comp[5+abs(_comp[1])] % Int8 % Int
-            ndims = Int(comp[6+abs(_comp[1])])
-            dims = (comp[7+abs(_comp[1]):6+abs(_comp[1])+ndims] .% Int8...,)
+            # @show 5+compnl
+            elsize = comp[5+compnl] % Int8 % Int
+            ndims = Int(comp[6+compnl])
+            dims = (comp[7+compnl:6+compnl+ndims] .% Int...,)
             if elsize == -1
                 v = Array{UInt8,ndims}(undef, dims)
             elseif elsize == 1
@@ -155,17 +159,17 @@ struct ParameterComparison
 
             t = prod(dims)*abs(elsize)
             # @show elsize, ndims, dims, t
-            # @show 7+ndims+abs(_comp[1]):6+ndims+abs(_comp[1])+t length(comp)
-            # @show String(copy(comp[7+ndims+abs(_comp[1]):6+ndims+abs(_comp[1])+t]))
-            read!(IOBuffer(comp[7+ndims+abs(_comp[1]):6+ndims+abs(_comp[1])+t]), v, END(eltype(v)))
+            # @show 7+ndims+compnl:6+ndims+compnl+t length(comp)
+            # @show String(copy(comp[7+ndims+compnl:6+ndims+compnl+t]))
+            read!(IOBuffer(comp[7+ndims+compnl:6+ndims+compnl+t]), v, END(eltype(v)))
             if elsize == -1
                 append!(_comp, convert(Array{Char}, v))
             else
                 append!(_comp, v)
             end
-            push!(_comp, ParameterField(Int(comp[7+ndims+abs(_comp[1])+t]), "desc. len")) # description length
+            push!(_comp, ParameterField(Int(comp[7+ndims+compnl+t]), "desc. len")) # description length
             # @show _comp[end]
-            append!(_comp, convert(Vector{Char}, comp[8+ndims+abs(_comp[1])+t:7+ndims+abs(_comp[1])+t+_comp[end].val]))
+            append!(_comp, convert(Vector{Char}, comp[8+ndims+compnl+t:7+ndims+compnl+t+_comp[end].val]))
         end
 
         return new(_ref, _comp, type)
