@@ -1,5 +1,6 @@
-using DeepDiffs
+using DeepDiffs, Test
 using C3D: AbstractEndian, LE, endianness, readparam
+using C3D: rstrip_cntrl_null_space as _rstrip
 
 macro test_nothrow(ex)
     esc(:(@test ($(ex); true)))
@@ -176,30 +177,93 @@ struct ParameterComparison
     end
 end
 
+function drop_trivial(dims)
+    if length(dims) > 1
+        dropped..., trivial = dims
+    else
+        dropped = dims
+        trivial = ()
+    end
+
+    if !isempty(trivial) && isone(trivial)
+        return drop_trivial(dropped)
+    else
+        return dims
+    end
+end
+
 function Base.:(==)(pc::ParameterComparison)
     pc.ref == pc.comp && return true
 
-    reftype = pc.ref[pc.ref[1] + 4]
-    comptype = pc.comp[pc.comp[1] + 4]
+    matches = true
 
-    refdims = pc.ref[pc.ref[1] + 6]
-    compdims = pc.comp[pc.comp[1] + 6]
+    refnl = abs(pc.ref[1])
+    compnl = abs(pc.comp[1])
+    matches &= pc.ref[3:refnl] == pc.comp[3:compnl]
+    matches || return false
 
-    if reftype == comptype == ParameterField(-1, "Char")
-        if compdims[1] ≤ refdims[1]
-            rd2 = checkindex(Bool, axes(refdims)[1], 2) ? refdims[2] : 1
-            cd2 = checkindex(Bool, axes(compdims)[1], 2) ? compdims[2] : 1
-            if rd2 == cd2
-                if mapreduce(|, 1:rd2) do i
-                        nl = pc.ref[1]
-                        rg = 7+nl+i*refdims[1]-(refdims[1]-compdims[1]):6+nl+i*refdims[1]
-                        all(isspace∘Char, pc.ref[rg])
+    reftype = pc.ref[refnl + 4]
+    comptype = pc.comp[compnl + 4]
+    matches &= reftype == comptype
+    matches || return false
+
+    refndims = pc.ref[refnl + 5]
+    compndims = pc.comp[compnl + 5]
+
+    refdims = pc.ref[refnl + 6]
+    compdims = pc.comp[compnl + 6]
+
+    # mismatched dims if the array is ultimately empty aren't significant
+    prod(compdims) == prod(refdims) == 0 && return true
+
+    if compndims.val ≤ refndims.val
+        simple_refdims = drop_trivial(refdims)
+        simple_compdims = drop_trivial(compdims)
+
+        if reftype == comptype == ParameterField(-1, "Char")
+            if length(simple_compdims) ≤ length(simple_refdims)
+                @assert checkindex(Bool, axes(pc.ref,1), (refnl+7):(refnl+7+prod(simple_refdims)))
+                @assert checkindex(Bool, axes(pc.comp,1), (compnl+7):(compnl+7+prod(simple_compdims)))
+
+                refrg = (refnl+7):(refnl+6+prod(simple_refdims))
+                comprg = (compnl+7):(compnl+6+prod(simple_compdims))
+
+                if length(simple_compdims) == 1
+                    @views matches &= _rstrip(pc.ref[refrg]) == _rstrip(pc.comp[comprg])
+                    matches || return false
+                else
+                    refdata = reshape(@view(pc.ref[refrg]), simple_refdims)
+                    compdata = reshape(@view(pc.comp[comprg]), simple_compdims)
+                    @debug "" refdata compdata _module=C3D
+
+                    matches &= simple_compdims[2:end] == simple_refdims[2:end]
+                    matches || return false
+
+                for (refijk, compijk) in zip(CartesianIndices(axes(refdata)[2:end]), CartesianIndices(axes(compdata)[2:end]))
+                @debug "" String(Vector{UInt8}(_rstrip(refdata[:, refijk]))) String(Vector{UInt8}(_rstrip(compdata[:, compijk]))) _module=C3D
+                        matches &= _rstrip(refdata[:, refijk]) == _rstrip(compdata[:, compijk])
                     end
-                    return true
                 end
+            else
+                return false
             end
+
+            # if rd2 == cd2
+            #     if mapreduce(|, 1:rd2) do i
+            #             nl = pc.ref[1]
+            #             rg = 7+nl+i*refdims[1]-(refdims[1]-compdims[1]):6+nl+i*refdims[1]
+            #             all(isspace∘Char, pc.ref[rg])
+            #         end
+            #         return true
+            #     end
+            # end
         end
+    elseif compndims != refndims
+        return false
+    else # compndims == refndims
     end
+
+    matches && return true
 
     return pc
 end
