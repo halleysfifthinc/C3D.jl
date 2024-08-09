@@ -35,7 +35,7 @@ end
     @testset "artifact\"$art\"" for art in artifacts
         allfiles = filter(contains(r".c3d$"i), readdir_recursive(@artifact_str(art); join=true))
     @testset "File \"$(replace(fn, @artifact_str(art)*'/' => ""))\"" for fn in allfiles
-        f = readc3d(fn)
+        f = readc3d(fn; paramsonly=true)
         gs = keys(f.groups)
 
         for g in gs
@@ -52,7 +52,7 @@ end
     @testset "artifact\"$art\"" for art in artifacts
         allfiles = filter(contains(r".c3d$"i), readdir_recursive(@artifact_str(art); join=true))
     @testset "File \"$(replace(fn, @artifact_str(art)*'/' => ""))\"" for fn in allfiles
-        f = readc3d(fn)
+        f = readc3d(fn; paramsonly=true)
         fio = open(fn)
         gs = keys(f.groups)
         ps = [ (g,p) for g in gs for p in keys(f.groups[g].params) ]
