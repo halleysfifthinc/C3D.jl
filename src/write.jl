@@ -105,27 +105,40 @@ function writec3d(io, f::C3DFile{END}) where END
     nb += write(io, header)
     f.groups[:POINT].params[:DATA_START].payload.data = header.datastart
 
+    # pad with zeros until `paramptr`
     nb += sum(x -> write(io, x),
-        Iterators.repeated(0x00, max((f.header.paramptr - 1)*512 - position(io), 0));
-        init=0)
+        Iterators.repeated(0x00, max((f.header.paramptr-1)*512 - position(io), 0)); init=0)
 
+    # we may add groups and/or parameters during read validation; default gids for new
+    # groups or parameters is zero
     for g in groups(f)
-        gid = g.gid
-        if iszero(gid)
-            gids = collect(Iterators.filter(!iszero, (g.gid for g in groups(f))))
+        g_gid = gid(g)
+        if iszero(g_gid) # group we added during read validation
+            # gids = collect(Iterators.filter(!iszero, (g.gid for g in groups(f))))
+            # existing gids
+            gids = filter(!iszero, gid.(groups(f)))
+
+            # gids of group's parameters (to see if we can use an existing parameter's gid)
+            # ignore default (zero) gids
             _gids = filter(x -> !iszero(x) && !(copysign(x, -1) in gids),
-                unique(p.gid for p in values(g.params)))
-            if isempty(_gids)
-                gid = first(Iterators.filter(x -> !(x in gids),
-                    Iterators.countfrom(-1, -1)))
+                unique(gid.(values(g))))
+
+            @debug "Extant gids=$gids, parameter gids=$_gids"
+            if isempty(_gids) # no viable gids from parameters
+                # set gid to be first available gid (counting down from -1)
+                g_gid = first(Iterators.filter(∉(gids)∘abs, Iterators.countfrom(-1, -1)))
             else
-                gid = copysign(first(_gids), -1)
+                # use first viable gid from parameters
+                g_gid = copysign(first(_gids), -1)
             end
-            g.gid = gid
+
+            @debug "Setting group $g gid to $g_gid"
+            g.gid = g_gid
         end
 
-        foreach(values(g.params)) do p
-            p.gid = abs(gid)
+        # update parameter gids to match group gid `g_gid`
+        foreach(values(g)) do p
+            p.gid = abs(g_gid)
         end
     end
 
@@ -144,18 +157,22 @@ function writec3d(io, f::C3DFile{END}) where END
         nb += write(io, 0x54)
     end
 
-    nb += sum(g -> write(io, g), sort(groups(f); by=(g->abs(g.gid))))
-    nb += sum(p -> write(io, p, END), parameters(f)[1:end-1])
-    nb += write(io, parameters(f)[end], END; last=true)
+    # nb += sum(g -> write(io, g), sort(groups(f); by=(g->abs(g.gid))))
+    nb += sum(g -> write(io, g), groups(f))
+    params = collect(parameters(f))
+    nb += sum(p -> write(io, p, END), params[1:end-1])
+    # Properly, the `pointer` in the last parameter should be zero to signify the end of the
+    # parameter section
+    nb += write(io, last(params), END; last=true)
 
-    # @show position(io) (header.datastart - 1)*512
+    # pad with zeros until the beginning of the data section
+    # @debug "padding from  $(position(io)) to $(max((header.datastart - 1)*512 - position(io), 0))"
     nb += sum(x -> write(io, x),
-        Iterators.repeated(0x00, max((header.datastart - 1)*512 - position(io), 0));
-        init=0)
+        Iterators.repeated(0x00, max((header.datastart - 1)*512 - position(io), 0)); init=0)
 
     nb += writedata(io, f)
 
-    # @show position(io) nb*512
+    # @debug "padding from  $(position(io)) to end of next block (512 bytes) multiple ($(min(round(Int, nb/512, RoundUp)*512 - position(io), 512)))"
     nb += sum(x -> write(io, x),
         Iterators.repeated(0x00, min(round(Int, nb/512, RoundUp)*512 - position(io), 512));
         init=0)
