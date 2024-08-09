@@ -380,7 +380,11 @@ function Base.write(
             end
         end
     else
-        nb += sum(write.(io, END(elt).(p.payload.data)))
+        if elt <: Integer
+            nb += sum(write.(io, END(elt).(p.payload.data .% elt)))
+        else
+            nb += sum(write.(io, END(elt).(p.payload.data)))
+        end
     end
 
     nb += write(io, UInt8(length(p._desc)))
