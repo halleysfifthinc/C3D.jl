@@ -291,32 +291,39 @@ function Base.show(io::IO, pc::ParameterComparison)
 end
 
 function compare_parameters(f, group)
-    _io = open(f.name)
-    seek(_io, f.groups[group].pos)
-    read(_io, typeof(f.groups[group]))
-    _end = position(_io)
-    seek(_io, f.groups[group].pos)
-    ioA = IOBuffer(read(_io, _end - f.groups[group].pos))
-    close(_io)
     ioB = IOBuffer()
     write(ioB, f.groups[group])
+    if !iszero(f.groups[group].pos)
+        _io = open(f.name)
+        seek(_io, f.groups[group].pos)
+        read(_io, typeof(f.groups[group]))
+        _end = position(_io)
+        seek(_io, f.groups[group].pos)
+        ioA = IOBuffer(read(_io, _end - f.groups[group].pos))
+        close(_io)
+    else # Group didn't exist in file
+        ioA = copy(ioB)
+    end
 
     return ParameterComparison(take!(ioA), take!(ioB), :group)
 end
 
 function compare_parameters(f, group, parameter)
-    _io = open(f.name)
-    seek(_io, f.groups[group].params[parameter].pos)
-    readparam(_io, endianness(f))
-    _end = position(_io)
-    seek(_io, f.groups[group].params[parameter].pos)
-    ioA = IOBuffer(read(_io, _end - f.groups[group].params[parameter].pos))
-    close(_io)
     ioB = IOBuffer()
     write(ioB, f.groups[group].params[parameter], endianness(f))
 
-    A = take!(ioA)
-    B = take!(ioB)
-    return ParameterComparison(A, B, :parameter)
+    if !iszero(f.groups[group].params[parameter].pos)
+        _io = open(f.name)
+        seek(_io, f.groups[group].params[parameter].pos)
+        readparam(_io, endianness(f))
+        _end = position(_io)
+        seek(_io, f.groups[group].params[parameter].pos)
+        ioA = IOBuffer(read(_io, _end - f.groups[group].params[parameter].pos))
+        close(_io)
+    else # Parameter didn't exist in file
+        ioA = copy(ioB)
+    end
+
+    return ParameterComparison(take!(ioA), take!(ioB), :parameter)
 end
 
