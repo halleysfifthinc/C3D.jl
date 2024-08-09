@@ -294,11 +294,15 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
                     moreparams = gs[end].np != 0 ? true : false # break if the pointer is 0 (ie the parameters are finished)
                     fail = 0 # reset fail counter following a successful read
                 catch e
-                    # Last readgroup failed, possibly due to a bad pointer. Reset to the ending
-                    # location of the last successfully read parameter and try again. Count the failure.
-                    reset(io)
-                    @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,catch_backtrace())
-                    fail += 1
+                    if e isa AssertionError
+                        # Last readgroup failed, possibly due to a bad pointer. Reset to the ending
+                        # location of the last successfully read parameter and try again. Count the failure.
+                        reset(io)
+                        @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,catch_backtrace())
+                        fail += 1
+                    else
+                        rethrow(e)
+                    end
                 finally
                     unmark(io) # Unmark the file regardless
                 end
@@ -312,9 +316,13 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
                     np = _position(lastps) + Int(lastps.np) + length(lastps._name) + 2
                     fail = 0
                 catch e
-                    reset(io)
-                    @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,catch_backtrace())
-                    fail += 1
+                    if e isa AssertionError || e isa ParameterTypeError
+                        reset(io)
+                        @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,catch_backtrace())
+                        fail += 1
+                    else
+                        rethrow(e)
+                    end
                 finally
                     unmark(io)
                 end
