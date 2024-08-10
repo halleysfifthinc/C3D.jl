@@ -74,13 +74,31 @@ end
     end
     end
 
-    @testset "Whole file: artifact\"$art\"" for art in ["sample01"]#, "sample02", "sample08"]
-        @testset failfast=true "File \"$(replace(fn, @artifact_str(art)*'/' => ""))\"" for fn in filter(contains(r".c3d$"i), readdir_recursive(@artifact_str(art); join=true))
-            p, io = mktemp()
-            writec3d(io, readc3d(fn))
-            flush(io)
-            close(io)
-            comparefiles(fn, p)
+    @testset "Data:" begin
+    @testset "artifact\"$art\"" for art in artifacts
+        allfiles = filter(contains(r".c3d$"i), readdir_recursive(@artifact_str(art); join=true))
+    @testset "File \"$(replace(fn, @artifact_str(art)*'/' => ""))\"" for fn in allfiles
+        # these 2 artifact"sample30" files have incorrectly formated residuals that we don't
+        # intend to replicate/match
+        fn == artifact"sample30/admarche2.c3d" && continue
+        fn == artifact"sample30/marche281.c3d" && continue
+
+        ref, comp = comparedata(fn)
+        refdata, (refpoint, refresidual, refanalog) = ref
+        compdata, (comppoint, compresidual, companalog) = comp
+
+        passpoint = @test refpoint == comppoint
+        passresidual = @test refresidual == compresidual
+        passanalog = @test refanalog == companalog
+        fails = any(p -> p isa Test.Fail, (passpoint, passresidual, passanalog))
+
+        nb = length(compdata)
+        if checkindex(Bool, eachindex(refdata), nb)
+            @test @view(refdata[begin:nb]) == compdata broken=fails
+        elseif checkindex(Bool, eachindex(compdata), length(refdata))
+            @test refdata == @view(compdata[begin:length(refdata)]) broken=fails
         end
+    end
+    end
     end
 end

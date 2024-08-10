@@ -28,6 +28,27 @@ function readdir_recursive(dir; join=false)
     return outfiles
 end
 
+function comparedata(fn)
+    f = readc3d(fn)
+    datastart = (f.header.datastart - 1)*512
+    fio = open(fn)
+    seek(fio, datastart)
+    refdata = read(fio)
+    seek(fio, datastart)
+
+    format = f.groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(endianness(f))::Type
+    ref = C3D.readdata(fio, f.header, f.groups, format)
+
+    compio = IOBuffer()
+    nb = C3D.writedata(compio, f)
+    compdata = take!(copy(compio))
+
+    seekstart(compio)
+    comp = C3D.readdata(compio, C3D.Header(f), f.groups, format)
+
+    return (refdata, ref), (compdata, comp)
+end
+
 function comparefiles(reference, candidate)
     @test_nothrow readc3d(reference; missingpoints=false)
     ref = readc3d(reference; missingpoints=false)
