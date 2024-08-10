@@ -95,7 +95,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
                 while ptname*"_$cnt" ∈ keys(fpoint); cnt+=1 end
                 ptname *= "_$cnt"
                 dedupped_ptname = ptname
-                @warn "Duplicate marker label detected (\"$(og_ptname)\"). Duplicate renamed to \"$dedupped_ptname\"."
+                @warn "Duplicate marker label detected (\"$(og_ptname)\"). Duplicate renamed to \"$dedupped_ptname\"." _id=dedupped_ptname
             end
             ptname ∉ keys(fpoint) || throw(DuplicateMarkerError(
                 "Markers labels must be unique but found duplicate marker label \"$ptname\""*
@@ -158,7 +158,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
                 while name*"_$cnt" ∈ keys(fanalog); cnt+=1 end
                 name *= "_$cnt"
                 dedupped_name = name
-                @warn "Duplicate analog signal label detected (\"$(og_name)\"). Duplicate renamed to \"$dedupped_name\"."
+                @warn "Duplicate analog signal label detected (\"$(og_name)\"). Duplicate renamed to \"$dedupped_name\"." _id=dedupped_name
             end
 
             fanalog[name] = analog[:, idx]
