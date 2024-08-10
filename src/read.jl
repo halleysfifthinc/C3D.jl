@@ -15,16 +15,6 @@ end
 function readdata(
     io::IO, h::Header{END}, groups::LittleDict{Symbol,Group{END},Vector{Symbol},Vector{Group{END}}}, ::Type{F}
     ) where {END<:AbstractEndian, F}
-    if iszero(groups[:POINT][Int, :DATA_START]-1)
-        if !iszero(h.datastart-1)
-            seek(io, (h.datastart-1)*512)
-        else
-            throw(ArgumentError("DATA_START missing/incorrect; cannot read file"))
-        end
-    else
-        seek(io, (groups[:POINT][Int, :DATA_START]-1)*512)
-    end
-
     numframes::Int = numpointframes(groups)
     nummarkers::Int = groups[:POINT][Int, :USED]
     numchannels::Int = groups[:ANALOG][Int, :USED]
@@ -37,7 +27,11 @@ function readdata(
     end
 
     est_data_size = numframes*sizeof(F)*(nummarkers*4 + numchannels*aspf)
-    _iosize = stat(io).size
+    if io isa IOBuffer
+        _iosize = io.size
+    else
+        _iosize = stat(io).size
+    end
     rem_file_size = _iosize - position(io)
     if est_data_size > rem_file_size
         @debug "Estimated DATA size: $(Base.format_bytes(est_data_size)); \
@@ -212,6 +206,16 @@ the docstring for valid options."))
         return C3DFile(fn, header, groups, point, residual, cameras, analog)
     else
         format = groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(END)::Type
+
+        if iszero(groups[:POINT][Int, :DATA_START]-1)
+            if !iszero(header.datastart-1)
+                seek(io, (header.datastart-1)*512)
+            else
+                throw(ArgumentError("DATA_START missing/incorrect; cannot read file"))
+            end
+        else
+            seek(io, (groups[:POINT][Int, :DATA_START]-1)*512)
+        end
 
         (point, residual, analog) = readdata(io, header, groups, format)
         close(io)
