@@ -345,7 +345,7 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
 
                     @warn "Multiple groups with the same name \"$(group.name)\" and \
 group ID `$(gid(group))`. The second duplicate group will be deleted to keep group names
-unique (no parameters will be lost)." _id=stat(fd(io)).desc maxlog=1
+unique (no parameters will be lost)." _id=(group.name, gid(group)) maxlog=1
 
                     # could be more than 1 duplicate
                     is = findall(==(group.name)∘(g->g.name), gs)
@@ -364,7 +364,7 @@ unique (no parameters will be lost)." _id=stat(fd(io)).desc maxlog=1
 
                     # @debug group isduplicate(group, gs; by=(g->g.name))
                     @warn "Multiple groups with the same name \"$(group.name)\". The \
-group ID will be appended to the duplicate group names to keep group names unique." _id=stat(fd(io)).desc maxlog=1
+group ID will be appended to the duplicate group names to keep group names unique." _id=group.name maxlog=1
                     dups = findall(==(group.name)∘(g->g.name), gs)
                     for i in dups
                         gs[i].name = Symbol(gs[i].name, "_", gid(gs[i]))
