@@ -157,7 +157,6 @@ function writec3d(io, f::C3DFile{END}) where END
         nb += write(io, 0x54)
     end
 
-    # nb += sum(g -> write(io, g), sort(groups(f); by=(g->abs(g.gid))))
     nb += sum(g -> write(io, g), groups(f))
     params = collect(parameters(f))
     nb += sum(p -> write(io, p, END), params[1:end-1])
@@ -165,16 +164,18 @@ function writec3d(io, f::C3DFile{END}) where END
     # parameter section
     nb += write(io, last(params), END; last=true)
 
+    datastart = header.datastart*512
     # pad with zeros until the beginning of the data section
-    # @debug "padding from  $(position(io)) to $(max((header.datastart - 1)*512 - position(io), 0))"
+    @debug "padding from  $(position(io)) to $(max(datastart - position(io), 0))"
     nb += sum(x -> write(io, x),
-        Iterators.repeated(0x00, max((header.datastart - 1)*512 - position(io), 0)); init=0)
+        Iterators.repeated(0x00, max(datastart - position(io), 0)); init=0)
 
     nb += writedata(io, f)
 
-    # @debug "padding from  $(position(io)) to end of next block (512 bytes) multiple ($(min(round(Int, nb/512, RoundUp)*512 - position(io), 512)))"
+    fileend = cld(nb, 512)*512
+    @debug "padding from  $(position(io)) to end of next block (512 bytes) multiple ($(min(fileend - position(io), 512)))"
     nb += sum(x -> write(io, x),
-        Iterators.repeated(0x00, min(round(Int, nb/512, RoundUp)*512 - position(io), 512));
+        Iterators.repeated(0x00, min(fileend - position(io), 512));
         init=0)
 
     return nb
