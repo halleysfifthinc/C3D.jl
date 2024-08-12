@@ -2,5 +2,7 @@
 Artifacts = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 DeepDiffs = "ab62b9b5-e342-54a8-a765-a90f495de1a6"
 LazyArtifacts = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+LoggingExtras = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
