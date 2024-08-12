@@ -100,16 +100,6 @@ end
 function writec3d(io, f::C3DFile{END}) where END
     add_edited!(f)
 
-    nb = 0
-    header = Header(f)
-    nb += write(io, header)
-    f.groups[:POINT].params[:DATA_START].payload.data = header.datastart
-
-    @debug "padding from  $(position(io)) to $(max((header.paramptr-1)*512 - position(io), 0)+position(io))"
-    # pad with zeros until `paramptr`
-    nb += sum(x -> write(io, x),
-        Iterators.repeated(0x00, max((header.paramptr-1)*512 - position(io), 0)); init=0)
-
     # we may add groups and/or parameters during read validation; default gids for new
     # groups or parameters is zero
     for g in groups(f)
@@ -143,6 +133,18 @@ function writec3d(io, f::C3DFile{END}) where END
         end
     end
 
+    nb = 0
+    header = Header(f)
+    nb += write(io, header)
+    f.groups[:POINT].params[:DATA_START].payload.data = header.datastart
+
+    paramptr = ((header.paramptr % Int) - 1)*512
+    @debug "padding $(max(paramptr-position(io),0)) bytes from $(string(position(io); base=16)) to parameter block at $(string(paramptr; base=16))" _id=gensym() maxlog=Int(paramptr-position(io)>0)
+    # pad with zeros until `paramptr`
+    nb += sum(x -> write(io, x),
+        Iterators.repeated(0x00, max(paramptr - position(io), 0)); init=0)
+    @assert position(io) == paramptr
+
     # Parameter section header
     # 0x5001 by convention, not required by spec, but some software is strict
     nb += write(io, 0x5001)
@@ -165,16 +167,18 @@ function writec3d(io, f::C3DFile{END}) where END
     # parameter section
     nb += write(io, last(params), END; last=true)
 
-    datastart = (header.datastart-1)*512
+    datastart = (header.datastart % Int - 1)*512
     # pad with zeros until the beginning of the data section
-    @debug "padding from  $(position(io)) to $(max(datastart - position(io), 0)+position(io))"
+    @debug "padding $(max(datastart - position(io), 0)) bytes from 0x$(string(position(io); base=16)) to datastart at 0x$(string(datastart; base=16))" _id=gensym() maxlog=Int(datastart-position(io)>0)
     nb += sum(x -> write(io, x),
         Iterators.repeated(0x00, max(datastart - position(io), 0)); init=0)
+    @assert position(io) == datastart
 
     nb += writedata(io, f)
 
     fileend = cld(nb, 512)*512
-    @debug "padding from  $(position(io)) to end of next block (512 bytes) multiple ($(min(fileend - position(io), 512)))"
+    padend = 512 - rem(nb, 512)
+    @debug "padding $padend bytes from 0x$(string(position(io); base=16)) to end of next 512-byte block" _id=gensym() maxlog=Int(padend>0)
     nb += sum(x -> write(io, x),
         Iterators.repeated(0x00, min(fileend - position(io), 512));
         init=0)

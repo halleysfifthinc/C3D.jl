@@ -225,7 +225,7 @@ function Header{END}(f::C3DFile{OEND}) where {END<:AbstractEndian,OEND<:Abstract
     end
     ampf::UInt16 = aspf*f.groups[:ANALOG][Int, :USED]
 
-    datastart::UInt8 = 2+cld(sum(writesize, Iterators.flatten((groups(f), parameters(f)))), 512)
+    datastart::UInt8 = 2+cld(sum(writesize, Iterators.flatten((groups(f), parameters(f))))+4, 512)
 
     return Header{END}(paramptr, datafmt, npoints, ampf, h.fframe, h.lframe, h.maxinterp,
         h.scale, datastart, aspf, pointrate, h.res1, h.labeltype, h.numevents, h.res2,
