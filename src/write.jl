@@ -76,14 +76,30 @@ function assemble_analogdata(h::Header{END}, f::C3DFile{END}) where {END<:Abstra
             ANALOG_SCALE = f.groups[:ANALOG][Float32, :GEN_SCALE] *
                 f.groups[:ANALOG][Float32, :SCALE]
         elseif numchannels > 1
-            ANALOG_OFFSET = convert(Vector{Float32}, f.groups[:ANALOG][Vector{Int}, :OFFSET][1:numchannels])'
+            off_labels = get_multipled_parameter_names(f.groups, :ANALOG, :OFFSET)
+            if length(off_labels) > 1
+                ANALOG_OFFSET = convert(Vector{Float32}, reduce(vcat,
+                    f.groups[:ANALOG][Vector{Int}, offset]
+                    for offset in off_labels))[1:numchannels]'
+            else
+                ANALOG_OFFSET = convert(Vector{Float32},
+                    f.groups[:ANALOG][Vector{Int}, :OFFSET][1:numchannels])'
+            end
 
             # addition of positive zero changes sign (to positive), negative zero addition
             # leaves sign as-is
             ANALOG_OFFSET[iszero.(ANALOG_OFFSET)] .= -0.0f0
 
-            ANALOG_SCALE = (f.groups[:ANALOG][Vector{Float32}, :SCALE][1:numchannels] .*
-                f.groups[:ANALOG][Float32, :GEN_SCALE])'
+
+            scale_labels = get_multipled_parameter_names(f.groups, :ANALOG, :SCALE)
+            if length(scale_labels) > 1
+                ANALOG_SCALE = convert(Vector{Float32}, reduce(vcat,
+                    f.groups[:ANALOG][Vector{Int}, scale]
+                    for scale in scale_labels))[1:numchannels]'
+            else
+                ANALOG_SCALE = f.groups[:ANALOG][Vector{Float32}, :SCALE][1:numchannels]'
+            end
+            ANALOG_SCALE .*= f.groups[:ANALOG][Float32, :GEN_SCALE]
 
             # Dividing by zero causes NaNs; dividing by 1 does nothing
             ANALOG_SCALE[iszero.(ANALOG_SCALE)] .= 1.0f0
