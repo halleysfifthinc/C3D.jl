@@ -124,7 +124,7 @@ function Base.show(io::IO, p::Parameter{P}) where P
         if _ndims(p) > 1
             printstyled(io, "@ $(_size(p)[2:end]) "; bold=true, color=:light_black)
         end
-    elseif _ndims(p) > 1
+    elseif prod(_size(p)) > 1
         printstyled(io, "@ $(_size(p)) "; bold=true, color=:light_black)
     end
 
@@ -132,7 +132,7 @@ function Base.show(io::IO, p::Parameter{P}) where P
     if elt <: String && _ndims(p) == 1
         print(io, repr(p.payload.data))
     else
-        print(io, p.payload.data)
+        print(IOContext(io, :compact=>true), p.payload.data)
     end
 end
 
