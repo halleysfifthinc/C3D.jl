@@ -108,9 +108,9 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
 
             fpoint[ptname] = point[:,((idx-1)*3+1):((idx-1)*3+3)]
             fresiduals[ptname] = residuals[:,idx]
-            cameras[ptname] = ((convert.(Int32, @view(residuals[:,idx])) .>> 8) .& 0xff) .% UInt8
-            invalidpoints .= convert.(Int32, fresiduals[ptname]) .% Int16 .< 0
-            calculatedpoints .= iszero.(fresiduals[ptname])
+            cameras[ptname] = ((@view(residuals[:,idx]) .>> 8) .% UInt8) .& 0x7f
+            invalidpoints .= ((@view(residuals[:,idx]) .% UInt16) .& 0x8000) .!== 0x0000
+            calculatedpoints .= iszero.(@view(residuals[:,idx]) .& 0xff)
             goodpoints .= .~(invalidpoints .| calculatedpoints)
             calcresiduals!(fresiduals[ptname], goodpoints, abs(groups[:POINT][Float32, :SCALE]))
 
