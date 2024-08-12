@@ -14,15 +14,18 @@ function makeresiduals(f::C3DFile{END}, m::String) where {END}
     T = scale > 0 ? Int16 : eltype(END)
     scale = abs(scale)
 
-    r = similar(f.cameras[m], T)
+    camera = f.cameras[m]
+    residual = f.residual[m]
+    nonmiss_residual = unsafe_nonmissing(f.residual[m])
+    r = similar(camera, T)
     for i in eachindex(r)
-        if ismissing(f.residual[m][i])
-            r[i] = convert(T, Int16(-1))
-        elseif iszero(f.residual[m][i])
-            r[i] = zero(T)
+        if ismissing(residual[i])
+            r[i] = convert(T, nonmiss_residual[i])
+        elseif iszero(residual[i])
+            r[i] = convert(T, (camera[i] % Int16) << 8)
         else
-            rvalue = (roundapprox(Int16, f.residual[m][i]/scale)) |
-                            ((f.cameras[m][i] % UInt16) << 8)
+            rvalue = (roundapprox(UInt8, residual[i]/scale)) |
+                            ((camera[i] % Int16) << 8)
             r[i] = convert(T, rvalue)
         end
     end
@@ -57,15 +60,15 @@ function writedata(io::IO, f::C3DFile{END}) where {END<:AbstractEndian}
     end
     analog = permutedims(reshape(permutedims(analogdata), numchannels*aspf, :))
     if T <: Int16
-        pointdata = reduce(hcat, ([roundapprox.(T, f.point[marker]./POINT_SCALE) makeresiduals(f, marker)]
-            for marker in keys(f.point) ))
+        pointdata = reduce(hcat, (
+            [roundapprox.(T, unsafe_nonmissing(f.point[marker])./POINT_SCALE) makeresiduals(f, marker)]
+                for marker in keys(f.point) );
+            init=similar(valtype(f.point), (numpointframes(f),0,)))
     else
-        pointdata = reduce(hcat, ([f.point[marker] makeresiduals(f, marker)]
-            for marker in keys(f.point) ))
-    end
-    missings = findall(ismissing, pointdata)
-    if !isempty(missings)
-        pointdata[missings] .= zero(Float32)
+        pointdata = reduce(hcat, (
+            [ unsafe_nonmissing(f.point[marker]) makeresiduals(f, marker) ]
+                for marker in keys(f.point) );
+            init=similar(valtype(f.point), (numpointframes(f),0,)))
     end
 
     data = permutedims([pointdata analog])
