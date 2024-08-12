@@ -1,5 +1,5 @@
 using DeepDiffs, Test
-using C3D: AbstractEndian, LE, endianness, readparam
+using C3D: AbstractEndian, LE, endianness, readparam, data, unsafe_nonmissing
 using C3D: rstrip_cntrl_null_space as _rstrip
 
 macro test_nothrow(ex)
@@ -28,6 +28,19 @@ function readdir_recursive(dir; join=false)
     return outfiles
 end
 
+function compareheader(fn)
+    ref = open(fn) do io
+        read(io, 512)
+    end;
+    f = readc3d(fn; paramsonly=true)
+
+    io = IOBuffer()
+    write(io, f.header);
+    comp = take!(io);
+
+    return ref, comp
+end
+
 function comparedata(fn)
     f = readc3d(fn)
     datastart = (f.header.datastart - 1)*512
@@ -49,57 +62,64 @@ function comparedata(fn)
     return (refdata, ref), (compdata, comp)
 end
 
-function comparefiles(reference, candidate)
+function comparefiles(reference, candidate;
+    ignore_parameters=Symbol[], ignore_points=Symbol[], ignore_residuals=Symbol[], ignore_cameras=Symbol[],
+    ignore_analogs=Symbol[])
+
     @test_nothrow readc3d(reference; missingpoints=false)
     ref = readc3d(reference; missingpoints=false)
 
     @test_nothrow readc3d(candidate; missingpoints=false)
     cand = readc3d(candidate; missingpoints=false)
 
-    @testset "Comparison between $(basename(reference)) and $(basename(candidate))" begin
-        @testset "Parameters equivalency between files" begin
-            @testset "Compare groups with C3DFile(\"…/$(basename(reference))\")" begin
-                @test keys(ref.groups) ⊆ keys(cand.groups)
-                for grp in keys(ref.groups)
-                    @testset "Compare the :$(ref.groups[grp].name) parameters with C3DFile(\"…/$(basename(reference))\")" begin
-                        @test keys(ref.groups[grp].params) ⊆ keys(cand.groups[grp].params)
-                        for param in keys(ref.groups[grp].params)
-                            if eltype(ref.groups[grp].params[param].payload.data) <: Number
-                                if grp == :POINT && param == :SCALE
-                                    @test abs.(ref.groups[grp].params[param].payload.data) ≈ abs.(cand.groups[grp].params[param].payload.data)
-                                elseif grp == :POINT && param == :DATA_START
-                                    if any(basename(candidate) .== ("TESTBPI.c3d", "TESTCPI.c3d", "TESTDPI.c3d"))
-                                        @test cand.groups[grp].params[param].payload.data == 20
-                                    else
-                                        continue
-                                    end
-                                else
-                                    @test ref.groups[grp].params[param].payload.data ≈ cand.groups[grp].params[param].payload.data
-                                end
-                            else
-                                @test ref.groups[grp].params[param].payload.data == cand.groups[grp].params[param].payload.data
-                            end
+    @testset "Parameter equivalency" begin
+        @test keys(ref.groups) ⊆ keys(cand.groups)
+        @testset "Group: $grp" for grp in keys(ref.groups)
+            @test keys(ref.groups[grp].params) ⊆ keys(cand.groups[grp].params)
+            @testset "Parameter: :$param" for param in keys(ref.groups[grp].params)
+                (grp, param) ∈ ignore_parameters && continue
+
+                if eltype(data(ref.groups[grp].params[param])) <: Number
+                    if grp == :POINT && param == :SCALE
+                        @test abs.(data(ref.groups[grp].params[param])) ≈ abs.(data(cand.groups[grp].params[param]))
+                    elseif grp == :POINT && param == :DATA_START
+                        if any(basename(candidate) .== ("TESTBPI.c3d", "TESTCPI.c3d", "TESTDPI.c3d"))
+                            @test data(cand.groups[grp].params[param]) == 20
+                        else
+                            continue
                         end
+                    else
+                        @test data(ref.groups[grp].params[param]) ≈ data(cand.groups[grp].params[param])
                     end
+                elseif eltype(data(ref.groups[grp].params[param]))  <: String && isempty(data(ref.groups[grp].params[param]))
+                    @test all(isempty, data(cand.groups[grp].params[param]))
+                else
+                    @test data(ref.groups[grp].params[param]) == data(cand.groups[grp].params[param])
+                end
+            end
+        end
+    end
+    @testset "Data equivalency" begin
+        @testset "Point data" begin
+            ≈(x, y; atol=0, nans=false) = mapreduce((a, b) -> isapprox(a, b; atol=atol, nans=nans), &, unsafe_nonmissing(x), unsafe_nonmissing(y))
+            @testset "$sig" for sig in keys(ref.point)
+                @test haskey(cand.point,sig) broken=(sig ∈ ignore_points)
+                if haskey(cand.point, sig)
+                    # The actual `eps`/tolerance for Integer files will be the POINT:SCALE
+                    _atol = cand.groups[:POINT][Float32, :SCALE] > 0 ?
+                        prevfloat(cand.groups[:POINT][Float32, :SCALE]) : 0
+                    @test ref.point[sig] ≈ cand.point[sig] atol=_atol nans=true broken=(sig ∈ ignore_points)
+                    @test ref.residual[sig] ≈ cand.residual[sig] nans=true  broken=(sig ∈ ignore_residuals)
+                    @test ref.cameras[sig] == cand.cameras[sig] broken=(sig ∈ ignore_cameras)
                 end
             end
         end
 
-        @testset "Data equivalency between file types" begin
-            @testset "Ensure data equivalency between C3DFile(\"…/$(basename(candidate))\") and C3DFile(\"…/$(basename(reference))\")" begin
-                for sig in keys(ref.point)
-                    @testset "$sig" begin
-                        @test haskey(cand.point,sig)
-                        @test all(isapprox.(ref.point[sig], cand.point[sig]; atol=0.3)) skip=(!haskey(cand.point, sig))
-                        @test ref.residual[sig] ≈ cand.residual[sig] skip=(!haskey(cand.point, sig))
-                        @test mapreduce((x,y) -> isapprox(x, y, atol=1), |, ref.cameras[sig], cand.cameras[sig]) skip=(!haskey(cand.point, sig))
-                    end
-                end
-                for sig in keys(ref.analog)
-                    @testset "$sig" begin
-                        @test haskey(cand.analog,sig)
-                        @test all(isapprox.(ref.analog[sig], cand.analog[sig]; atol=0.3)) skip=(!haskey(cand.analog, sig))
-                    end
+        @testset "Analog data" begin
+            @testset "$sig" for sig in keys(ref.analog)
+                @test haskey(cand.analog,sig)
+                if haskey(cand.analog,sig)
+                    @test ref.analog[sig] ≈ cand.analog[sig] atol=0.3 broken=(sig ∈ ignore_analogs)
                 end
             end
         end

@@ -1,18 +1,5 @@
 using C3D: _elsize, _ndims, _size, writesize
 
-function compare_header_write(fn)
-    ref = open(fn) do io
-        read(io, 512)
-    end;
-    f = readc3d(fn; paramsonly=true)
-
-    io = IOBuffer()
-    write(io, f.header);
-    comp = take!(io);
-
-    return ref, comp
-end
-
 @testset "Writing" begin
     artifacts = keys(parsefile(find_artifacts_toml(@__FILE__)))
     # Test that headers can read/write round-trip identically
@@ -24,7 +11,7 @@ end
         art == "sample13" && basename(fn) in ("Dance.c3d", "golfswing.c3d") &&
             continue
 
-        ref, comp = compare_header_write(fn)
+        ref, comp = compareheader(fn)
         @test ref == comp
     end
     end

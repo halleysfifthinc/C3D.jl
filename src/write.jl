@@ -30,6 +30,11 @@ function makeresiduals(f::C3DFile{END}, m::String) where {END}
     return r
 end
 
+function unsafe_nonmissing(x)
+    real_eltype = nonmissingtype(eltype(x))
+    return unsafe_wrap(Array{real_eltype,ndims(x)}, Ptr{real_eltype}(pointer(x)), size(x))
+end
+
 function writedata(io::IO, f::C3DFile{END}) where {END<:AbstractEndian}
     h = Header(f)
     POINT_SCALE = f.groups[:POINT][Float32, :SCALE]
