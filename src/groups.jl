@@ -8,6 +8,13 @@ mutable struct Group{END<:AbstractEndian}
     name::Symbol
     const _desc::Vector{UInt8} # Character set should be A-Z, 0-9, and _ (lowercase is ok)
     const params::LittleDict{Symbol,Parameter,Vector{Symbol},Vector{Parameter}}
+
+    function Group{END}(
+        pos::Int, gid::Int8, locked::Bool, np::Int16, _name::Vector{UInt8}, name::Symbol,
+        _desc::Vector{UInt8},
+        params::LittleDict{Symbol,Parameter,Vector{Symbol},Vector{Parameter}}) where {END}
+        return new{END}(pos, copysign(gid, -1), locked, np, _name, name, _desc, params)
+    end
 end
 
 function Group(
@@ -141,7 +148,7 @@ end
 function Base.write(io::IO, g::Group{END}; last::Bool=false) where {END}
     nb = 0
     nb += write(io, flipsign(UInt8(length(g._name)), -1*g.locked))
-    nb += write(io, g.gid)
+    nb += write(io, copysign(g.gid, -1))
     nb += write(io, g._name)
     nb += write(io, last ? 0x0000 : END(Int16)(UInt16(length(g._desc) + 3)))
     nb += write(io, UInt8(length(g._desc)))

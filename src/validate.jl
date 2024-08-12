@@ -185,7 +185,7 @@ function validatec3d(header, groups)
         for grp in missing_groups
             if issubset(keys(groups[Symbol(grp.match)]), (:ACTUAL_START_FIELD, :ACTUAL_END_FIELD))
                 if !haskey(groups, :TRIAL)
-                    groups[:TRIAL] = Group("TRIAL", ""; gid=tryparse(Int8, grp[1]))
+                    groups[:TRIAL] = Group("TRIAL", ""; gid=-tryparse(Int8, grp[1]))
                 end
                 merge!(groups[:TRIAL].params, groups[Symbol(grp.match)].params)
                 delete!(groups, Symbol(grp.match))
