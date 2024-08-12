@@ -105,9 +105,10 @@ function writec3d(io, f::C3DFile{END}) where END
     nb += write(io, header)
     f.groups[:POINT].params[:DATA_START].payload.data = header.datastart
 
+    @debug "padding from  $(position(io)) to $(max((header.paramptr-1)*512 - position(io), 0)+position(io))"
     # pad with zeros until `paramptr`
     nb += sum(x -> write(io, x),
-        Iterators.repeated(0x00, max((f.header.paramptr-1)*512 - position(io), 0)); init=0)
+        Iterators.repeated(0x00, max((header.paramptr-1)*512 - position(io), 0)); init=0)
 
     # we may add groups and/or parameters during read validation; default gids for new
     # groups or parameters is zero
@@ -164,9 +165,9 @@ function writec3d(io, f::C3DFile{END}) where END
     # parameter section
     nb += write(io, last(params), END; last=true)
 
-    datastart = header.datastart*512
+    datastart = (header.datastart-1)*512
     # pad with zeros until the beginning of the data section
-    @debug "padding from  $(position(io)) to $(max(datastart - position(io), 0))"
+    @debug "padding from  $(position(io)) to $(max(datastart - position(io), 0)+position(io))"
     nb += sum(x -> write(io, x),
         Iterators.repeated(0x00, max(datastart - position(io), 0)); init=0)
 
