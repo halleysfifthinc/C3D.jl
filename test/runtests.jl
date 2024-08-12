@@ -1,4 +1,4 @@
-using C3D, Test, LazyArtifacts, Artifacts, TOML
+using C3D, Test, LazyArtifacts, Artifacts, TOML, Logging, LoggingExtras
 using TOML: parsefile
 
 ## List of sample data archived from the C3D.org website on Dec 12, 2022
@@ -42,17 +42,23 @@ using TOML: parsefile
 
 include("testutils.jl")
 
-@testset verbose=true "C3D" begin
-    include("identical.jl")
-    include("publicinterface.jl")
-    include("validate.jl")
-    include("bigdata.jl")
-    include("singledata.jl")
-    include("invalid.jl")
-    include("blanklabels.jl")
-    include("badformats.jl")
-    include("inference.jl")
-    include("utils.jl")
+function duplicate_warning(logargs)
+    return !contains(logargs.message, r"^Duplicate")
+end
 
-    include("write.jl")
+@testset verbose=true "C3D" begin
+    with_logger(ActiveFilteredLogger(duplicate_warning, global_logger())) do
+        include("identical.jl")
+        include("publicinterface.jl")
+        include("validate.jl")
+        include("bigdata.jl")
+        include("singledata.jl")
+        include("invalid.jl")
+        include("blanklabels.jl")
+        include("badformats.jl")
+        include("inference.jl")
+        include("utils.jl")
+
+        include("write.jl")
+    end
 end
