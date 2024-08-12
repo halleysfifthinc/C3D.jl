@@ -134,4 +134,25 @@ using C3D: _elsize, _ndims, _size, writesize
     end
     end
     end
+
+    @testset "Whole file:" begin
+    @testset "artifact\"$art\"" for art in artifacts
+        allfiles = filter(contains(r".c3d$"i), readdir_recursive(@artifact_str(art); join=true))
+    @testset "File \"$(replace(fn, @artifact_str(art)*'/' => ""))\"" for fn in allfiles
+        # these 2 artifact"sample30" files have incorrectly formated residuals that we don't
+        # intend to replicate/match (we fail to read because of the incorrect residuals)
+        fn == artifact"sample30/admarche2.c3d" && continue
+        fn == artifact"sample30/marche281.c3d" && continue
+
+        # this is an out-of-spec file where the ANALOG:RATE is not an integer multiple of the
+        # POINT:RATE. We will read this, but we will not support writing this
+        fn == artifact"sample11/evart.c3d" && continue
+
+        p, io = mktemp()
+        writec3d(io, readc3d(fn))
+        close(io)
+        comparefiles(fn, p; ignore_parameters=[(:MANUFACTURER, :EDITED)])
+    end
+    end
+    end
 end
