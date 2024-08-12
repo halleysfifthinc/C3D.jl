@@ -1,11 +1,18 @@
 function calcresiduals(x::AbstractVector, scale)
-    return (convert.(Int16, x) .% UInt8) .* abs(scale)
+    y = copy(x)
+    invalidpoints = ((convert.(Int32, y) .% Int16) .& 08000) .!== 0
+    calculatedpoints = iszero.(y .& 0xff)
+    goodpoints = .~(invalidpoints .| calculatedpoints)
+    calcresiduals!(y, goodpoints, abs(scale))
+
+    return y
 end
 
 function calcresiduals!(x::AbstractVector{T}, indices::Vector{I}, scale) where {T,I}
+    scale = abs(scale)
     @inbounds for i in eachindex(x)
         if indices[i]
-            x[i] = (convert(Int16, x[i]) % UInt8) * abs(scale)
+            x[i] = (convert(Int16, x[i]) % UInt8) * scale
         end
     end
 
@@ -39,7 +46,6 @@ function readdata(
         # Some combination of numframes, nummarkers, numchannels, aspf, or format is wrong
         # (or the end of the file has been cut off)
         # Check any duplicated info and use instead
-        #
         if nummarkers > h.npoints
             # Needed to correctly read artifact"sample27/kyowadengyo.c3d"
             nummarkers = h.npoints
@@ -61,7 +67,7 @@ function readdata(
     hasmarkers = !iszero(nummarkers)
     if hasmarkers
         point = zeros(Float32, nummarkers*3, numframes)
-        residuals = zeros(Int32, nummarkers, numframes)
+        residuals = zeros(Int16, nummarkers, numframes)
 
         nb = nummarkers*4
         pointidxs = filter(x -> x % 4 != 0, 1:nb)
@@ -72,7 +78,7 @@ function readdata(
         resview = view(pointtmp, residxs)
     else
         point = Array{Float32,2}(undef, 0,0)
-        residuals = Array{Int32,2}(undef, 0,0)
+        residuals = Array{Int16,2}(undef, 0,0)
     end
 
     haschannels = !iszero(numchannels)
@@ -90,8 +96,10 @@ function readdata(
             if _iosize - position(io) ≥ sizeof(pointtmp)
                 read!(io, pointtmp, END)
                 point[:,i] .= convert.(Float32, pointview)
-                residuals[:,i] .= convert.(Int32, resview)
+                residuals[:,i] .= convert.(Int32, resview) .% Int16
             else
+                # Make marker data for missing frames be treated as missing
+                residuals[:,i] .= -ones(Int16, nummarkers)
                 @debug "End-of-file reached before expected; frame$(length(i:numframes) > 1 ? "s" : "") $(i:numframes) \
                     are missing"
                 break
