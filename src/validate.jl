@@ -167,13 +167,13 @@ function validatec3d(header, groups)
 
         # Pad scale and offset if shorter than :USED
         l = length(groups[:ANALOG][Vector{Float32}, :SCALE])
-        if l < ANALOG_USED
+        if l < ANALOG_USED && !haskey(groups[:ANALOG], :SCALE2)
             append!(groups[:ANALOG][Vector{Float32}, :SCALE],
                     fill(one(Float32), ANALOG_USED - l))
         end
 
         l = length(groups[:ANALOG][Vector{Int16}, :OFFSET])
-        if l < ANALOG_USED
+        if l < ANALOG_USED && !haskey(groups[:ANALOG], :OFFSET2)
             append!(groups[:ANALOG][Vector{Int16}, :OFFSET],
                     fill(one(Float32), ANALOG_USED - l))
         end
