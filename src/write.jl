@@ -1,12 +1,38 @@
-# Round approximately (integer) numbers, or leave as is (to error when attempting to
-# convert)
+"round approximately (integer) numbers, or leave as is (to force an error when attempting to
+convert)"
 roundapprox(T, x::Missing; atol=0, rtol=0) = missing
 function roundapprox(T, x; atol=0, rtol::Real=atol>0 ? 0 : √eps(x))
     if ismissing(x)
         return missing
     else
-        return isapprox(x, round(T,x); atol, rtol) ? round(T,x) : convert(T, x)
+        rounded = round(T,x)
+        return isapprox(x, rounded; atol, rtol) ? rounded : convert(T, x)
     end
+end
+
+"""
+    matrixround_ifintegers(x)
+
+Return a matrix where each column has been rounded to integers if > 98% of the column are
+already integers.
+
+Analog samples are supposed to be stored as integers (regardless of storage format); but
+this is not always the case. Due to floating-point inaccuracies, the processed (to be in
+real/physical units) data may not transform exactly back to an integer. This function
+assumes that these cases are rare (<2% of samples) when analog data is (correctly) stored as
+integers, but that otherwise, the signal must be pre-scaled and therefore non-integer.
+"""
+function matrixround_ifintegers(x)
+    y = similar(x)
+    rows = size(x, 1)
+    for (i,c) in enumerate(eachcol(x))
+        if count(isinteger, c)/rows > .98 # integer analog samples stored as floats
+            @views y[:,i] = round.(c)
+        else
+            @views y[:,i] = c
+        end
+    end
+    return y
 end
 
 function makeresiduals(f::C3DFile{END}, m::String) where {END}
@@ -38,27 +64,46 @@ function unsafe_nonmissing(x)
     return unsafe_wrap(Array{real_eltype,ndims(x)}, Ptr{real_eltype}(pointer(x)), size(x))
 end
 
+function assemble_analogdata(h::Header{END}, f::C3DFile{END}) where {END<:AbstractEndian}
+    numchannels::Int = f.groups[:ANALOG][Int, :USED]
+    aspf = h.aspf
+
+    analogdata = reduce(hcat, (f.analog[channel] for channel in keys(f.analog) );
+        init=similar(Matrix{eltype(valtype(f.analog))}, (numanalogframes(f),0,)))
+    if numchannels > 0
+        if numchannels == 1
+            ANALOG_OFFSET = f.groups[:ANALOG][Float32, :OFFSET]
+            ANALOG_SCALE = f.groups[:ANALOG][Float32, :GEN_SCALE] *
+                f.groups[:ANALOG][Float32, :SCALE]
+        elseif numchannels > 1
+            ANALOG_OFFSET = convert(Vector{Float32}, f.groups[:ANALOG][Vector{Int}, :OFFSET][1:numchannels])'
+
+            # addition of positive zero changes sign (to positive), negative zero addition
+            # leaves sign as-is
+            ANALOG_OFFSET[iszero.(ANALOG_OFFSET)] .= -0.0f0
+
+            ANALOG_SCALE = (f.groups[:ANALOG][Vector{Float32}, :SCALE][1:numchannels] .*
+                f.groups[:ANALOG][Float32, :GEN_SCALE])'
+
+            # Dividing by zero causes NaNs; dividing by 1 does nothing
+            ANALOG_SCALE[iszero.(ANALOG_SCALE)] .= 1.0f0
+        end
+        analogdata .= matrixround_ifintegers(analogdata ./ ANALOG_SCALE .+ ANALOG_OFFSET)
+        analogdata = reshape(analogdata', numchannels*aspf, numpointframes(f))'
+    else
+        analogdata = reshape(analogdata, (numpointframes(f),0))
+    end
+
+    return analogdata
+end
+
 function writedata(io::IO, f::C3DFile{END}) where {END<:AbstractEndian}
     h = Header(f)
     POINT_SCALE = f.groups[:POINT][Float32, :SCALE]
     T = POINT_SCALE > 0 ? Int16 : eltype(END)
     POINT_SCALE = abs(POINT_SCALE)
-    numchannels::Int = f.groups[:ANALOG][Int, :USED]
-    aspf = h.aspf
 
-    analogdata = reduce(hcat, (f.analog[channel] for channel in keys(f.analog) ))
-    if numchannels == 1
-        ANALOG_OFFSET = f.groups[:ANALOG][Float32, :OFFSET]
-        SCALE = f.groups[:ANALOG][Float32, :GEN_SCALE] * f.groups[:ANALOG][Float32, :SCALE]
-        analogdata .= analogdata ./ SCALE .+ ANALOG_OFFSET
-    elseif numchannels > 1
-        VECANALOG_OFFSET = f.groups[:ANALOG][Vector{Int}, :OFFSET][1:numchannels]
-        VECSCALE = f.groups[:ANALOG][Float32, :GEN_SCALE] .*
-                        f.groups[:ANALOG][Vector{Float32}, :SCALE][1:numchannels]
-
-        analogdata .= (analogdata' ./ VECSCALE .+ VECANALOG_OFFSET)'
-    end
-    analog = permutedims(reshape(permutedims(analogdata), numchannels*aspf, :))
+    analogdata = assemble_analogdata(h, f)
     if T <: Int16
         pointdata = reduce(hcat, (
             [roundapprox.(T, unsafe_nonmissing(f.point[marker])./POINT_SCALE) makeresiduals(f, marker)]
@@ -71,8 +116,12 @@ function writedata(io::IO, f::C3DFile{END}) where {END<:AbstractEndian}
             init=similar(valtype(f.point), (numpointframes(f),0,)))
     end
 
-    data = permutedims([pointdata analog])
-    data = END(Matrix{eltype(T)})(Matrix{eltype(T)}(data))
+    data = permutedims([pointdata analogdata])
+    if T <: Integer
+        data = END(Matrix{T})(roundapprox.(T, data))
+    else
+        data = END(Matrix{T})(Matrix{T}(data))
+    end
 
     return write(io, data)
 end
