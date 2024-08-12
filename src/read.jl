@@ -279,10 +279,10 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
             # Mark current position in file in case the pointer is incorrect
             mark(io)
             if fail === 0 && np != position(io)
-                    @debug "Pointer mismatch at position $(position(io)) where pointer was $np"
-                    seek(io, np)
+                @debug "Pointer mismatch at position $(string(position(io); base=16)) where pointer was $(string(np; base=16))"
+                seek(io, np)
             elseif fail > 1 # this is the second failed attempt
-                @debug "Second failed parameter read attempt from $(position(io))"
+                @debug "Second failed parameter read attempt from $(string(position(io); base=16))"
                 break
             end
 
@@ -302,7 +302,7 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
                         # Last readgroup failed, possibly due to a bad pointer. Reset to the ending
                         # location of the last successfully read parameter and try again. Count the failure.
                         reset(io)
-                        @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,catch_backtrace())
+                        @debug "Read group failed, last parameter ended at $(string(position(io); base=16)), pointer at $(string(np; base=16))" fail exception=(e,catch_backtrace())
                         fail += 1
                     else
                         rethrow(e)
@@ -322,7 +322,7 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
                 catch e
                     if e isa AssertionError || e isa ParameterTypeError
                         reset(io)
-                        @debug "Read group failed, last parameter ended at $(position(io)), pointer at $np" fail exception=(e,catch_backtrace())
+                        @debug "Read group failed, last parameter ended at $(string(position(io); base=16)), pointer at $(string(np; base=16))" fail exception=(e,catch_backtrace())
                         fail += 1
                     else
                         rethrow(e)
