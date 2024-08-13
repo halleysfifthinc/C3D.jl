@@ -153,7 +153,7 @@ function readdata(
         end
     end
 
-    return (permutedims(point), permutedims(residuals), permutedims(analog))
+    return (point', permutedims(residuals), analog')
 end
 
 """
