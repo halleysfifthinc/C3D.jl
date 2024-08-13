@@ -76,7 +76,7 @@ function assemble_analogdata(h::Header{END}, f::C3DFile{END}) where {END<:Abstra
             ANALOG_SCALE = f.groups[:ANALOG][Float32, :GEN_SCALE] *
                 f.groups[:ANALOG][Float32, :SCALE]
         elseif numchannels > 1
-            if haskey(groups[:ANALOG], :OFFSET2)
+            if haskey(f.groups[:ANALOG], :OFFSET2)
                 off_labels = get_multipled_parameter_names(f.groups, :ANALOG, :OFFSET)
                 ANALOG_OFFSET = convert(Vector{Float32}, reduce(vcat,
                     f.groups[:ANALOG][Vector{Int}, offset]
@@ -91,7 +91,7 @@ function assemble_analogdata(h::Header{END}, f::C3DFile{END}) where {END<:Abstra
             ANALOG_OFFSET[iszero.(ANALOG_OFFSET)] .= -0.0f0
 
 
-            if haskey(groups[:ANALOG], :SCALE2)
+            if haskey(f.groups[:ANALOG], :SCALE2)
                 scale_labels = get_multipled_parameter_names(f.groups, :ANALOG, :SCALE)
                 ANALOG_SCALE = convert(Vector{Float32}, reduce(vcat,
                     f.groups[:ANALOG][Vector{Int}, scale]
