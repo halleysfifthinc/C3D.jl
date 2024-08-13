@@ -44,15 +44,6 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
 
     numpts = groups[:POINT][Int, :USED]
 
-    if haskey(groups[:POINT], :LABELS2)
-        ptlabel_keys = get_multipled_parameter_names(groups, :POINT, :LABELS)
-        pt_labels = Iterators.flatten(
-            groups[:POINT][Vector{String}, label] for label in ptlabel_keys
-            )
-    else
-        pt_labels = groups[:POINT][Vector{String}, :LABELS]
-    end
-
     if strip_prefixes
         if haskey(groups, :SUBJECTS) && groups[:SUBJECTS][Int, :USES_PREFIXES] == 1
             rgx = Regex(
@@ -64,8 +55,16 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
         end
     end
 
-    nolabel_count = 1
     if !iszero(numpts)
+        if haskey(groups[:POINT], :LABELS2)
+            ptlabel_keys = get_multipled_parameter_names(groups, :POINT, :LABELS)
+            pt_labels = Iterators.flatten(
+                groups[:POINT][Vector{String}, label] for label in ptlabel_keys
+                )
+        else
+            pt_labels = groups[:POINT][Vector{String}, :LABELS]
+        end
+
         sizehint!(fpoint, numpts)
         sizehint!(fresiduals, numpts)
         sizehint!(cameras, numpts)
@@ -74,6 +73,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
         calculatedpoints = Vector{Bool}(undef, size(point, 1))
         goodpoints = Vector{Bool}(undef, size(point, 1))
 
+        nolabel_count = 1
         for (idx, ptname) in enumerate(pt_labels)
             idx > numpts && break # can't slice Iterators.flatten
             og_ptname = ptname
@@ -144,9 +144,10 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
 
     numanalogs = groups[:ANALOG][Int, :USED]
 
-    nolabel_count = 1
     if !iszero(numanalogs)
         sizehint!(fanalog, numanalogs)
+
+        nolabel_count = 1
         for (idx, name) in enumerate(an_labels)
             idx > numanalogs && break # can't slice Iterators.flatten
             og_name = name
