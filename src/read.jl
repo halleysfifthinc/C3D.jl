@@ -129,8 +129,8 @@ function readdata(
             SCALE = groups[:ANALOG][Float32, :GEN_SCALE] * groups[:ANALOG][Float32, :SCALE]
             analog .= (analog .- ANALOG_OFFSET) .* SCALE
         else
-            off_labels = get_multipled_parameter_names(groups, :ANALOG, :OFFSET)
-            if length(off_labels) > 1
+            if haskey(groups[:ANALOG], :OFFSET2)
+                off_labels = get_multipled_parameter_names(groups, :ANALOG, :OFFSET)
                 VECANALOG_OFFSET = convert(Vector{Float32}, reduce(vcat,
                     groups[:ANALOG][Vector{Int}, offset]
                     for offset in off_labels))[1:numchannels]
@@ -139,8 +139,8 @@ function readdata(
                     groups[:ANALOG][Vector{Int}, :OFFSET][1:numchannels])
             end
 
-            scale_labels = get_multipled_parameter_names(groups, :ANALOG, :SCALE)
-            if length(scale_labels) > 1
+            if haskey(groups[:ANALOG], :SCALE2)
+                scale_labels = get_multipled_parameter_names(groups, :ANALOG, :SCALE)
                 VECSCALE = convert(Vector{Float32}, reduce(vcat,
                     groups[:ANALOG][Vector{Int}, scale]
                     for scale in scale_labels))[1:numchannels]
