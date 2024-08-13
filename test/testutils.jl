@@ -49,15 +49,15 @@ function comparedata(fn)
     refdata = read(fio)
     seek(fio, datastart)
 
-    format = f.groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(endianness(f))::Type
-    ref = C3D.readdata(fio, f.header, f.groups, format)
+    T = f.groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(endianness(f))::Type
+    ref = C3D.readdata(fio, f.header, f.groups, T)
 
     compio = IOBuffer()
-    nb = C3D.writedata(compio, f)
+    nb = C3D.writedata(compio, f, T)
     compdata = take!(copy(compio))
 
     seekstart(compio)
-    comp = C3D.readdata(compio, C3D.Header(f), f.groups, format)
+    comp = C3D.readdata(compio, C3D.Header(f), f.groups, T)
 
     return (refdata, ref), (compdata, comp)
 end
