@@ -63,7 +63,7 @@ function unsafe_nonmissing(x)
     return unsafe_wrap(Array{real_eltype,ndims(x)}, Ptr{real_eltype}(pointer(x)), size(x))
 end
 
-function assemble_analogdata(h::Header{END}, f::C3DFile{END}) where {END<:AbstractEndian}
+function assemble_analogdata(h::Header{END}, f::C3DFile{END}, ::Type{T}) where {END<:AbstractEndian,T}
     numchannels::Int = f.groups[:ANALOG][Int, :USED]
     aspf = h.aspf
 
@@ -112,31 +112,32 @@ function assemble_analogdata(h::Header{END}, f::C3DFile{END}) where {END<:Abstra
     return analogdata
 end
 
-function assemble_pointdata(h::Header{END}, f::C3DFile{END}) where {END<:AbstractEndian}
-    POINT_SCALE = f.groups[:POINT][Float32, :SCALE]
-    T = POINT_SCALE > 0 ? Int16 : eltype(END)
-    POINT_SCALE = abs(POINT_SCALE)
+function assemble_pointdata(h::Header{END}, f::C3DFile{END}, ::Type{T}) where {END<:AbstractEndian,T}
+    POINT_SCALE = abs(f.groups[:POINT][Float32, :SCALE])
+    npoints = length(f.point)
+    npoints == 0 && return similar(Matrix{Float32}, (numpointframes(f),0,))
 
+    pointdata =  similar(Matrix{Float32}, (numpointframes(f),length(f.point)*4,))
     if T <: Int16
-        pointdata = reduce(hcat, (
-            [roundapprox.(T, unsafe_nonmissing(f.point[marker])./POINT_SCALE) makeresiduals(f, marker)]
-                for marker in keys(f.point) );
-            init=similar(valtype(f.point), (numpointframes(f),0,)))
+        for (i, (marker, pt_arr)) in enumerate(pairs(f.point))
+            pointdata[:,(1:3).+(i-1)*4] .= unsafe_nonmissing(pt_arr)./POINT_SCALE
+            pointdata[:,i*4] = makeresiduals(f, marker, T)
+        end
     else
-        pointdata = reduce(hcat, (
-            [ unsafe_nonmissing(f.point[marker]) makeresiduals(f, marker) ]
-                for marker in keys(f.point) );
-            init=similar(valtype(f.point), (numpointframes(f),0,)))
+        for (i, (marker, pt_arr)) in enumerate(pairs(f.point))
+            pointdata[:,(1:3).+(i-1)*4] = unsafe_nonmissing(pt_arr)
+            pointdata[:,i*4] = makeresiduals(f, marker, T)
+        end
     end
+
+    return pointdata
 end
 
-function writedata(io::IO, f::C3DFile{END}) where {END<:AbstractEndian}
+function writedata(io::IO, f::C3DFile{END}, ::Type{T}) where {END<:AbstractEndian,T}
     h = Header(f)
-    POINT_SCALE = f.groups[:POINT][Float32, :SCALE]
-    T = POINT_SCALE > 0 ? Int16 : eltype(END)
 
-    analogdata = assemble_analogdata(h, f)
-    pointdata = assemble_pointdata(h, f)
+    analogdata = assemble_analogdata(h, f, T)
+    pointdata = assemble_pointdata(h, f, T)
 
     data = permutedims([pointdata analogdata])
     if T <: Int16
@@ -253,7 +254,8 @@ function writec3d(io, f::C3DFile{END}) where END
         Iterators.repeated(0x00, max(datastart - position(io), 0)); init=0)
     @assert position(io) == datastart
 
-    nb += writedata(io, f)
+    T = f.groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(END)
+    nb += writedata(io, f, T)
 
     fileend = cld(nb, 512)*512
     padend = 512 - rem(nb, 512)
