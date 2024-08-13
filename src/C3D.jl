@@ -119,14 +119,16 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
             calcresiduals!(fresiduals[ptname], goodpoints, abs_scale)
 
             if missingpoints
+                pt_residual = fresiduals[ptname]
+                pt_point = fpoint[ptname]
                 for i in eachindex(fresiduals[ptname])
                     if calculatedpoints[i] & ~invalidpoints[i]
-                        fresiduals[ptname][i] = 0.0f0
+                        pt_residual[i] = 0.0f0
                     end
 
                     if invalidpoints[i]
-                        fpoint[ptname][i, :] .= missing
-                        fresiduals[ptname][i] = missing
+                        pt_point[i, :] .= (missing, missing, missing)
+                        pt_residual[i] = missing
                     end
                 end
             end
