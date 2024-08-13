@@ -42,6 +42,12 @@ SUITE["read"]["big"]["sample17/128analogchannels.c2d"]["full"] =
     @benchmarkable readc3d(fn) seconds=10 setup=(fn=artifact"sample17/128analogchannels.c3d")
 SUITE["read"]["big"]["sample19/sample19.c3d"]["full"] =
     @benchmarkable readc3d(fn) seconds=10 setup=(fn=artifact"sample19/sample19.c3d")
+SUITE["read"]["big"]["sample33/bigparlove.c3d"]["full"] =
+    @benchmarkable readc3d(fn) seconds=10 setup=(fn=artifact"sample33/bigparlove.c3d")
+SUITE["read"]["big"]["sample12/c24089 13.c3d"]["full"] =
+    @benchmarkable readc3d(fn) seconds=10 setup=(fn=artifact"sample12/c24089 13.c3d")
+SUITE["read"]["big"]["sample31/large01.c3d"]["full"] =
+    @benchmarkable readc3d(fn) seconds=10 setup=(fn=artifact"sample31/large01.c3d")
 
 SUITE["read"]["pc-real"]["sample01"]["params"] =
     @benchmarkable readc3d(fn; paramsonly=true) seconds=10 setup=(fn=artifact"sample01/Eb015pr.c3d")
@@ -75,6 +81,12 @@ SUITE["read"]["big"]["sample17/128analogchannels.c3d"]["params"] =
     @benchmarkable readc3d(fn; paramsonly=true) seconds=10 setup=(fn=artifact"sample17/128analogchannels.c3d")
 SUITE["read"]["big"]["sample19/sample19.c3d"]["params"] =
     @benchmarkable readc3d(fn; paramsonly=true) seconds=10 setup=(fn=artifact"sample19/sample19.c3d")
+SUITE["read"]["big"]["sample33/bigparlove.c3d"]["params"] =
+    @benchmarkable readc3d(fn; paramsonly=true) seconds=10 setup=(fn=artifact"sample33/bigparlove.c3d")
+SUITE["read"]["big"]["sample12/c24089 13.c3d"]["params"] =
+    @benchmarkable readc3d(fn; paramsonly=true) seconds=10 setup=(fn=artifact"sample12/c24089 13.c3d")
+SUITE["read"]["big"]["sample31/large01.c3d"]["params"] =
+    @benchmarkable readc3d(fn; paramsonly=true) seconds=10 setup=(fn=artifact"sample31/large01.c3d")
 
 SUITE["show"] = BenchmarkGroup()
 
