@@ -226,7 +226,7 @@ function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     @assert gid != 0
     _name = read(io, abs(nl))
     @assert any(!iscntrl∘Char, _name)
-    name = Symbol(replace(strip(transcode(String, view(_name, :))), r"[^a-zA-Z0-9_]" => '_'))
+    name = Symbol(replace(transcode(String, rstrip_vectorstring(!isspace∘Char, view(_name, :))), r"[^a-zA-Z0-9_]" => '_'))
 
     # @debug "Parameter $name at $pos has unofficially supported characters.
         # Unexpected results may occur" maxlog=occursin(r"[^a-zA-Z0-9_ ]", transcode(String, copy(_name)))
@@ -256,7 +256,7 @@ function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     end
 
     dl = read(io, UInt8)::UInt8
-    desc = copy(rstrip_cntrl_null_space(read(io, dl)))
+    desc = copy(rstrip_vectorstring(read(io, dl)))
 
     pointer = pos + np + abs(nl) + 2
     # @debug "wrong pointer in $name" position(io) pointer maxlog=(position(io) != pointer)
@@ -295,14 +295,9 @@ function _readarrayparameter(io::IO, END::Type{<:AbstractEndian{T}}, dims) where
     return read!(io, a, END)
 end
 
-# Taken from Base.iscntrl and Base.isspace, but for bytes instead of chars
-_iscntrl(c::Char) = iscntrl(c)
-_isspace(c::Char) = isspace(c)
-_iscntrl(c::Union{Int8,UInt8}) = c <= 0x1f || 0x7f <= c <= 0x9f
-_isspace(c::Union{Int8,UInt8}) = c == 0x20 || 0x09 <= c <= 0x0d || c == 0x85 || 0xa0 <= c
-
-function rstrip_cntrl_null_space(s)
-    l = findlast(c -> !_iscntrl(c) && !_isspace(c), s)
+rstrip_vectorstring(s) = rstrip_vectorstring(c -> (_c = Char(c); !iscntrl(_c) && !isspace(_c)), s)
+function rstrip_vectorstring(f, s)
+    l = findlast(f, s)
     if isnothing(l)
         return @view s[end:end-1]
     else
@@ -321,13 +316,15 @@ function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Ar
     if length(dims) > 1
         _, rdims... = dims
         data = Array{String}(undef, rdims)::Array{String}
+        temp = Vector{UInt16}(undef, dims[1])
         for ijk::CartesianIndex in CartesianIndices(data)
-            data[ijk] = string(rstrip(x -> iscntrl(x) || isspace(x),
-                transcode(String, convert(Vector{UInt16}, @view tdata[:, ijk]))))::String
+            temp .= @view tdata[:, ijk]
+            data[ijk] = transcode(String,
+                rstrip_vectorstring(convert(Vector{UInt16}, temp)))
             # @debug "" @view(tdata[:, ijk]), data[ijk]
         end
     else
-        data = [ rstrip(x -> iscntrl(x) || isspace(x), transcode(String, transcode(UInt16, _tdata))) ]
+        data = [ transcode(String, rstrip_vectorstring(convert(Vector{UInt16}, _tdata))) ]
     end
     return data
 end
