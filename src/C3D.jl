@@ -71,6 +71,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
         invalidpoints = Vector{Bool}(undef, size(point, 1))
         calculatedpoints = Vector{Bool}(undef, size(point, 1))
         goodpoints = Vector{Bool}(undef, size(point, 1))
+        abs_scale = abs(groups[:POINT][Float32, :SCALE])
 
         nolabel_count = 1
         for (idx, ptname) in enumerate(pt_labels)
@@ -115,7 +116,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
             invalidpoints .= ((@view(residuals[:,idx]) .% UInt16) .& 0x8000) .!== 0x0000
             calculatedpoints .= iszero.(@view(residuals[:,idx]) .& 0xff)
             goodpoints .= .~(invalidpoints .| calculatedpoints)
-            calcresiduals!(fresiduals[ptname], goodpoints, abs(groups[:POINT][Float32, :SCALE]))
+            calcresiduals!(fresiduals[ptname], goodpoints, abs_scale)
 
             if missingpoints
                 for i in eachindex(fresiduals[ptname])
