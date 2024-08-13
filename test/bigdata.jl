@@ -1,8 +1,9 @@
 @testset "Testing files with unusually large aspects" begin
 
-     @testset "sample15 - More than 127 points" begin
+     @testset "More than 127 points" begin
          @test_nothrow readc3d(artifact"sample15/FP1.C3D")
          @test_nothrow readc3d(artifact"sample15/FP2.C3D")
+         @test_nothrow readc3d(artifact"sample12/c24089 13.c3d")
      end
 
      @testset "sample17 - More than 128 channels" begin
