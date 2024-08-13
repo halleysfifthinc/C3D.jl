@@ -295,7 +295,7 @@ function _readarrayparameter(io::IO, END::Type{<:AbstractEndian{T}}, dims) where
     return read!(io, a, END)
 end
 
-rstrip_vectorstring(s) = rstrip_vectorstring(c -> (_c = Char(c); !iscntrl(_c) && !isspace(_c)), s)
+rstrip_vectorstring(s) = rstrip_vectorstring((c -> !isspace(c) && !iscntrl(c))∘Char, s)
 function rstrip_vectorstring(f, s)
     l = findlast(f, s)
     if isnothing(l)
@@ -318,7 +318,7 @@ function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Ar
         data = Array{String}(undef, rdims)::Array{String}
         temp = Vector{UInt16}(undef, dims[1])
         for ijk::CartesianIndex in CartesianIndices(data)
-            temp .= @view tdata[:, ijk]
+            temp .= tdata[:, ijk]
             data[ijk] = transcode(String,
                 rstrip_vectorstring(convert(Vector{UInt16}, temp)))
             # @debug "" @view(tdata[:, ijk]), data[ijk]
