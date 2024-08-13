@@ -245,9 +245,9 @@ function writec3d(io, f::C3DFile{END}) where END
         nb += write(io, 0x54)
     end
 
-    nb += sum(g -> write(io, g), groups(f))
+    nb += sum(g -> write(io, g), groups(f); init=0)
     params = collect(parameters(f))
-    nb += sum(p -> write(io, p, END), params[1:end-1])
+    nb += sum(p -> write(io, p, END), params[1:end-1]; init=0)
     # Properly, the `pointer` in the last parameter should be zero to signify the end of the
     # parameter section
     nb += write(io, last(params), END; last=true)
