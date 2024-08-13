@@ -67,49 +67,54 @@ function assemble_analogdata(h::Header{END}, f::C3DFile{END}, ::Type{T}) where {
     numchannels::Int = f.groups[:ANALOG][Int, :USED]
     aspf = h.aspf
 
-    analogdata = reduce(hcat, (f.analog[channel] for channel in keys(f.analog) );
-        init=similar(Matrix{eltype(valtype(f.analog))}, (numanalogframes(f),0,)))
-    if numchannels > 0
-        if numchannels == 1
-            ANALOG_OFFSET = f.groups[:ANALOG][Float32, :OFFSET]
-            ANALOG_SCALE = f.groups[:ANALOG][Float32, :GEN_SCALE] *
-                f.groups[:ANALOG][Float32, :SCALE]
-        elseif numchannels > 1
-            if haskey(f.groups[:ANALOG], :OFFSET2)
-                off_labels = get_multipled_parameter_names(f.groups, :ANALOG, :OFFSET)
-                ANALOG_OFFSET = convert(Vector{Float32}, reduce(vcat,
-                    f.groups[:ANALOG][Vector{Int}, offset]
-                    for offset in off_labels))[1:numchannels]'
-            else
-                ANALOG_OFFSET = convert(Vector{Float32},
-                    f.groups[:ANALOG][Vector{Int}, :OFFSET][1:numchannels])'
-            end
+    numchannels == 0 && return similar(Matrix{Float32}, (numpointframes(f),0,))
 
-            # addition of positive zero changes sign (to positive), negative zero addition
-            # leaves sign as-is
-            ANALOG_OFFSET[iszero.(ANALOG_OFFSET)] .= -0.0f0
-
-
-            if haskey(f.groups[:ANALOG], :SCALE2)
-                scale_labels = get_multipled_parameter_names(f.groups, :ANALOG, :SCALE)
-                ANALOG_SCALE = convert(Vector{Float32}, reduce(vcat,
-                    f.groups[:ANALOG][Vector{Int}, scale]
-                    for scale in scale_labels))[1:numchannels]'
-            else
-                ANALOG_SCALE = f.groups[:ANALOG][Vector{Float32}, :SCALE][1:numchannels]'
-            end
-            ANALOG_SCALE .*= f.groups[:ANALOG][Float32, :GEN_SCALE]
-
-            # Dividing by zero causes NaNs; dividing by 1 does nothing
-            ANALOG_SCALE[iszero.(ANALOG_SCALE)] .= 1.0f0
-        end
-        analogdata .= matrixround_ifintegers(analogdata ./ ANALOG_SCALE .+ ANALOG_OFFSET)
-        analogdata = reshape(analogdata', numchannels*aspf, numpointframes(f))'
-    else
-        analogdata = reshape(analogdata, (numpointframes(f),0))
+    analogdata  = similar(Matrix{Float32}, (numanalogframes(f),length(f.analog),))
+    for (i, (analog, an_arr)) in enumerate(pairs(f.analog))
+        analogdata[:,i] = an_arr
     end
 
-    return analogdata
+    if numchannels == 1
+        ANALOG_OFFSET = f.groups[:ANALOG][Float32, :OFFSET]
+        ANALOG_SCALE = f.groups[:ANALOG][Float32, :GEN_SCALE] *
+            f.groups[:ANALOG][Float32, :SCALE]
+
+        analogdata .= analogdata ./ ANALOG_SCALE .+ ANALOG_OFFSET
+        analogdata[:] = matrixround_ifintegers(analogdata)
+    elseif numchannels > 1
+        if haskey(f.groups[:ANALOG], :OFFSET2)
+            off_labels = get_multipled_parameter_names(f.groups, :ANALOG, :OFFSET)
+            VECANALOG_OFFSET = convert(Vector{Float32}, reduce(vcat,
+                f.groups[:ANALOG][Vector{Int}, offset]
+                for offset in off_labels))[1:numchannels]'
+        else
+            VECANALOG_OFFSET = convert(Vector{Float32},
+                f.groups[:ANALOG][Vector{Int}, :OFFSET][1:numchannels])'
+        end
+
+        # addition of positive zero changes sign (to positive), negative zero addition
+        # leaves sign as-is
+        VECANALOG_OFFSET[iszero.(VECANALOG_OFFSET)] .= -0.0f0
+
+
+        if haskey(f.groups[:ANALOG], :SCALE2)
+            scale_labels = get_multipled_parameter_names(f.groups, :ANALOG, :SCALE)
+            VECANALOG_SCALE = convert(Vector{Float32}, reduce(vcat,
+                f.groups[:ANALOG][Vector{Int}, scale]
+                for scale in scale_labels))[1:numchannels]'
+        else
+            VECANALOG_SCALE = f.groups[:ANALOG][Vector{Float32}, :SCALE][1:numchannels]'
+        end
+        VECANALOG_SCALE .*= f.groups[:ANALOG][Float32, :GEN_SCALE]
+
+        # Dividing by zero causes NaNs; dividing by 1 does nothing
+        VECANALOG_SCALE[iszero.(VECANALOG_SCALE)] .= 1.0f0
+
+        analogdata .= analogdata ./ VECANALOG_SCALE .+ VECANALOG_OFFSET
+        analogdata[:] = matrixround_ifintegers(analogdata)
+    end
+
+    return reshape(analogdata', numchannels*aspf, numpointframes(f))'
 end
 
 function assemble_pointdata(h::Header{END}, f::C3DFile{END}, ::Type{T}) where {END<:AbstractEndian,T}
