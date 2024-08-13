@@ -323,7 +323,7 @@ function _readarrayparameter(io::IO, ::Type{<:AbstractEndian{String}}, dims)::Ar
         data = Array{String}(undef, rdims)::Array{String}
         for ijk::CartesianIndex in CartesianIndices(data)
             data[ijk] = string(rstrip(x -> iscntrl(x) || isspace(x),
-                transcode(String, transcode(UInt16, @view tdata[:, ijk]))))::String
+                transcode(String, convert(Vector{UInt16}, @view tdata[:, ijk]))))::String
             # @debug "" @view(tdata[:, ijk]), data[ijk]
         end
     else
