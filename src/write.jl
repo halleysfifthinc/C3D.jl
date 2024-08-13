@@ -34,22 +34,22 @@ function matrixround_ifintegers(x)
     return y
 end
 
-function makeresiduals(f::C3DFile{END}, m::String) where {END}
-    scale = f.groups[:POINT][Float32, :SCALE]
-    T = scale > 0 ? Int16 : eltype(END)
-    scale = abs(scale)
+function makeresiduals(f::C3DFile{END}, m::String, ::Type{T}) where {END,T}
+    scale = abs(f.groups[:POINT][Float32, :SCALE])
+    rtol=scale/2
 
     camera = f.cameras[m]
     residual = f.residual[m]
     nonmiss_residual = unsafe_nonmissing(f.residual[m])
     r = similar(camera, T)
     for i in eachindex(r)
-        if ismissing(residual[i])
+        res = residual[i]
+        if ismissing(res)
             r[i] = convert(T, nonmiss_residual[i])
-        elseif iszero(residual[i])
+        elseif iszero(res)
             r[i] = convert(T, (camera[i] % Int16) << 8)
         else
-            rvalue = (roundapprox(UInt8, residual[i]/scale)) |
+            rvalue::Int16 = (roundapprox(UInt8, res/scale; rtol)) |
                             ((camera[i] % Int16) << 8)
             r[i] = convert(T, rvalue)
         end
