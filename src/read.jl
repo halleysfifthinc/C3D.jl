@@ -86,17 +86,20 @@ function readdata(
         # Analog Samples Per Frame => ASPF
         analog = zeros(Float32, numchannels, aspf*numframes)
 
+        nbanalog = numchannels*aspf
         analogtmp = Matrix{F}(undef, (numchannels,aspf))
     else
         analog = Array{Float32,2}(undef, 0,0)
     end
 
+    pos = position(io) # calculate position to avoid repeatedly acquire/release of file lock
     @inbounds for i in 1:numframes
         if hasmarkers
-            if _iosize - position(io) ≥ sizeof(pointtmp)
+            if _iosize - pos ≥ sizeof(pointtmp)
                 read!(io, pointtmp, END)
                 point[:,i] .= convert.(Float32, pointview)
                 residuals[:,i] .= convert.(Int32, resview) .% Int16
+                pos += nb*sizeof(F)
             else
                 # Make marker data for missing frames be treated as missing
                 residuals[:,i] .= -ones(Int16, nummarkers)
@@ -106,9 +109,10 @@ function readdata(
             end
         end
         if haschannels
-            if _iosize - position(io) ≥ sizeof(analogtmp)
+            if _iosize - pos ≥ sizeof(analogtmp)
                 read!(io, analogtmp, END)
                 analog[:,((i-1)*aspf+1):(i*aspf)] .= convert.(Float32, analogtmp)
+                pos += nbanalog*sizeof(F)
             else
                 @debug "End-of-file reached before expected; frame$(length(i:numframes) > 1 ? "s" : "") $(i:numframes) \
                     are missing"
