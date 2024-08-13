@@ -1,6 +1,6 @@
 using DeepDiffs, Test
 using C3D: AbstractEndian, LE, endianness, readparam, data, unsafe_nonmissing
-using C3D: rstrip_cntrl_null_space as _rstrip
+using C3D: rstrip_vectorstring as _rstrip
 
 macro test_nothrow(ex)
     esc(:(@test ($(ex); true)))
