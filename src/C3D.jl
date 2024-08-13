@@ -42,8 +42,6 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
     cameras = OrderedDict{String,Vector{UInt8}}()
     fanalog = OrderedDict{String,Vector{Float32}}()
 
-    numpts = groups[:POINT][Int, :USED]
-
     if strip_prefixes
         if haskey(groups, :SUBJECTS) && groups[:SUBJECTS][Int, :USES_PREFIXES] == 1
             rgx = Regex(
@@ -55,6 +53,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
         end
     end
 
+    numpts = groups[:POINT][Int, :USED]
     if !iszero(numpts)
         if haskey(groups[:POINT], :LABELS2)
             ptlabel_keys = get_multipled_parameter_names(groups, :POINT, :LABELS)
@@ -133,18 +132,17 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
         end
     end
 
-    if haskey(groups[:ANALOG], :LABELS2)
-        anlabel_keys = get_multipled_parameter_names(groups, :ANALOG, :LABELS)
-        an_labels = Iterators.flatten(
-            groups[:ANALOG][Vector{String}, label] for label in anlabel_keys
-            )
-    else
-        an_labels = groups[:ANALOG][Vector{String}, :LABELS]
-    end
-
     numanalogs = groups[:ANALOG][Int, :USED]
-
     if !iszero(numanalogs)
+        if haskey(groups[:ANALOG], :LABELS2)
+            anlabel_keys = get_multipled_parameter_names(groups, :ANALOG, :LABELS)
+            an_labels = Iterators.flatten(
+                groups[:ANALOG][Vector{String}, label] for label in anlabel_keys
+                )
+        else
+            an_labels = groups[:ANALOG][Vector{String}, :LABELS]
+        end
+
         sizehint!(fanalog, numanalogs)
 
         nolabel_count = 1
