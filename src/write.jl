@@ -113,13 +113,11 @@ function assemble_analogdata(h::Header{END}, f::C3DFile{END}) where {END<:Abstra
     return analogdata
 end
 
-function writedata(io::IO, f::C3DFile{END}) where {END<:AbstractEndian}
-    h = Header(f)
+function assemble_pointdata(h::Header{END}, f::C3DFile{END}) where {END<:AbstractEndian}
     POINT_SCALE = f.groups[:POINT][Float32, :SCALE]
     T = POINT_SCALE > 0 ? Int16 : eltype(END)
     POINT_SCALE = abs(POINT_SCALE)
 
-    analogdata = assemble_analogdata(h, f)
     if T <: Int16
         pointdata = reduce(hcat, (
             [roundapprox.(T, unsafe_nonmissing(f.point[marker])./POINT_SCALE) makeresiduals(f, marker)]
@@ -131,9 +129,18 @@ function writedata(io::IO, f::C3DFile{END}) where {END<:AbstractEndian}
                 for marker in keys(f.point) );
             init=similar(valtype(f.point), (numpointframes(f),0,)))
     end
+end
+
+function writedata(io::IO, f::C3DFile{END}) where {END<:AbstractEndian}
+    h = Header(f)
+    POINT_SCALE = f.groups[:POINT][Float32, :SCALE]
+    T = POINT_SCALE > 0 ? Int16 : eltype(END)
+
+    analogdata = assemble_analogdata(h, f)
+    pointdata = assemble_pointdata(h, f)
 
     data = permutedims([pointdata analogdata])
-    if T <: Integer
+    if T <: Int16
         data = END(Matrix{T})(roundapprox.(T, data))
     else
         data = END(Matrix{T})(Matrix{T}(data))
