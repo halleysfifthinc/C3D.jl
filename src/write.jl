@@ -1,7 +1,6 @@
 "round approximately (integer) numbers, or leave as is (to force an error when attempting to
 convert)"
-roundapprox(T, x::Missing; atol=0, rtol=0) = missing
-function roundapprox(T, x; atol=0, rtol::Real=atol>0 ? 0 : √eps(x))
+function roundapprox(::Type{T}, x; atol=0, rtol::Real=atol>0 ? 0 : √eps(x)) where T
     if ismissing(x)
         return missing
     else
