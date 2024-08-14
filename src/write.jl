@@ -146,6 +146,15 @@ function edited_desc()
     return string(now(UTC), " UTC by C3D.jl v", pkgversion(@__MODULE__))
 end
 
+"""
+    writec3d(filename::String, f::C3DFile)
+    writec3d(io::IO, f::C3DFile)
+
+Write a .c3d file to disk at `filename`.
+
+This function will add or append the write date/time and C3D.jl version to the
+MANUFACTURER:EDITED parameter.
+"""
 function writec3d(filename::String, f::C3DFile)
     open(filename, "w") do io
         writec3d(io, f)

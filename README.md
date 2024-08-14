@@ -6,16 +6,23 @@
 [![codecov](https://codecov.io/gh/halleysfifthinc/C3D.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/halleysfifthinc/C3D.jl)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 
-C3D is a common file format for motion capture and other biomechanics related measurement systems (force plate data, EMG, etc). This package completely implements the [C3D file spec](https://www.c3d.org), and can read files from all major manufacturers where they might differ from or extend the C3D file spec.
+C3D is a common file format for motion capture and other biomechanics related measurement
+systems (force plate data, EMG, etc). This package completely implements the [C3D file
+spec](https://www.c3d.org), and can read files from all major manufacturers where they might
+differ from or extend the C3D file spec.
 
-C3D.jl is exhaustively tested against sample data found on the [C3D website](https://www.c3d.org/sampledata.html) and can read many technically out-of-spec files.
+C3D.jl is exhaustively tested against sample data found on the [C3D
+website](https://www.c3d.org/sampledata.html) and can read many technically out-of-spec
+files.
 Please open an issue if you have a file that is not being read correctly. Pull requests welcome!
 
 ## Usage
 
 ### Reading data
 
-Marker and analog data are accessed through the `point` and `analog` fields. Note that all data is converted to Float32 upon reading, regardless of the original type (eg DEC types).
+Marker and analog data are accessed through the `point` and `analog` fields. Note that all
+data is converted to Float32 upon reading, regardless of the original type (eg DEC types).
+(See the docstring for additional keyword arguments.)
 
 ```julia
 julia> # The artifacts with the test data can only be used from the `C3D.jl` directory when `LazyArtifacts` has been loaded
@@ -48,24 +55,40 @@ julia> pc_real.analog["FZ1"]
 
 ### Writing data
 
-Write a C3D file using the `writec3d` function. The groups and parameters of a .c3d file describe the data contained by the file. As of v0.8, there are no C3D.jl functions that coordinate modifying a `C3DFile` object, therefore, it is your responsibility to ensure that any modifications (adding/removing a marker or analog channel, etc) produce a internally-consistent (i.e. groups/parameters have been correctly updated to match the modified data, etc) file before writing.
+Write a C3D file using the `writec3d` function. The groups and parameters of a .c3d file
+describe the data contained by the file. As of v0.8, there are no C3D.jl functions that
+coordinate modifying a `C3DFile` object, therefore, it is your responsibility to ensure that
+any modifications (adding/removing a marker or analog channel, etc) produce a
+internally-consistent (i.e. groups/parameters have been correctly updated to match the
+modified data, etc) file before writing.
 
 ```julia
 julia> writec3d("myfile.c3d", pc_real)
 307200 # number of bytes written
 ```
 
-Writing c3d files is exhaustively tested against the corpus of sample data from the C3D.org website, and `writec3d` is tested to ensure that all files that are written are functionally[^1] and/or bitwise identical to the original at the binary file level in the vast majority[^2] of cases, and in all cases, the groups, parameters, and data for a `C3DFile` that was "copied" with `writec3d` will be exactly identical to the groups, parameters, and data from the original `C3DFile`.
+Writing c3d files is exhaustively tested against the corpus of sample data from the C3D.org
+website, and `writec3d` is tested to ensure that all files that are written are
+functionally[^1] and/or bitwise identical to the original at the binary file level in the
+vast majority[^2] of cases, and in all cases, the groups, parameters, and data for a
+`C3DFile` that was "copied" with `writec3d` will be exactly identical to the groups,
+parameters, and data from the original `C3DFile`.
 
 [^1]: Many manufacturers include unnecessary trailing whitespace in string parameters. C3D.jl strips trailing whitespace when reading .c3d files; this results in slightly different (smaller) parameters when written to file, but the parameter data is otherwise the same.
 
-[^2]: There are only two situations in which the binary data in the file will differ from the original file: 
+[^2]: There are only two situations in which the binary data in the file will differ from the original file:
     1. Some manufacturers write residuals as unsigned integers; this is incorrect according to the file-spec and C3D.jl follows the spec when writing the residuals back to file. However, the actual residual data is unchanged.
     2. Limitations of [floating-point arithmetic](https://en.wikipedia.org/wiki/Floating-point_arithmetic) mean that some analog samples may not convert exactly back after un-scaling (i.e. slightly different in the file), but the scaled values are exactly identical.
 
 #### Point residuals, invalid and calculated points
 
-According to the C3D format documentation, invalid data points are signified by setting the residual word to `-1.0`. This convention is respected in C3D.jl by changing the residual and coordinates of invalid points/frames to `missing`. If your C3D files do not respect this convention, or if you wish to ignore this for some other reason, this behavior can be disabled by setting keyword arg `missingpoints=false` in the `readc3d` function. Convention is to signify calculated points (e.g. filtered, interpolated, etc) by setting the residual value to `0.0`.
+According to the C3D format documentation, invalid data points are signified by setting the
+residual word to `-1.0`. This convention is respected in C3D.jl by changing the residual and
+coordinates of invalid points/frames to `missing`. If your C3D files do not respect this
+convention, or if you wish to ignore this for some other reason, this behavior can be
+disabled by setting keyword arg `missingpoints=false` in the `readc3d` function. Convention
+is to signify calculated points (e.g. filtered, interpolated, etc) by setting the residual
+value to `0.0`.
 
 ```julia
 julia> bball = readc3d(artifact"sample16/basketball.c3d")
@@ -158,7 +181,11 @@ julia> pc_real.groups[:POINT][Int, :USED]
 
 # Advanced: Debugging
 
-Set the `JULIA_DEBUG` environment variable to `"C3D"` (e.g. from within Julia, `ENV["JULIA_DEBUG"] = "C3D"`) to enable debug logging. In addition, there are two keyword arguments to `readc3d` which may be useful if a file is error'ing when being read: `paramsonly=true` will only read the parameter section and skip reading the data, and `validate=false` will disable parameter validation.
+Set the `JULIA_DEBUG` environment variable to `"C3D"` (e.g. from within Julia,
+`ENV["JULIA_DEBUG"] = "C3D"`) to enable debug logging. In addition, there are two keyword
+arguments to `readc3d` which may be useful if a file is error'ing when being read:
+`paramsonly=true` will only read the parameter section and skip reading the data, and
+`validate=false` will disable parameter validation.
 
 ```julia
 julia> pc_real = readc3d("data/sample01/Eb015pr.c3d"; paramsonly=true)
