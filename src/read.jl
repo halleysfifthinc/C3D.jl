@@ -166,8 +166,7 @@ end
 Read the C3D file at `fn`.
 
 # Keyword arguments
-- `paramsonly::Bool = false`: Only reads the header and parameters
-- `validateparams::Bool = true`: Validates parameters against C3D requirements
+- `strip_prefixes::Bool = false`: Remove subject prefixes from labels in the `point` dictionary
 - `missingpoints::Bool = true`: Sets invalid points to `missing`
 - `handle_duplicate_parameters::Symbol = :keeplast`: How to handle multiple parameters in a
   group with the same name. Options are:
@@ -175,6 +174,8 @@ Read the C3D file at `fn`.
   - `:keeplast`: The last parameter with the duplicated name is kept.
   - `:append_position`: All duplicate parameters are kept and their position in the C3D file
     is appended to their name.
+- `paramsonly::Bool = false`: Only reads the header and parameters
+- `validateparams::Bool = true`: Validates parameters against C3D requirements
 
 """
 function readc3d(fn::AbstractString; paramsonly=false, validate=true,
