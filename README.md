@@ -1,7 +1,7 @@
 <img alt="C3D.jl logo where the 'C', '3', and 'D' are in the Julialang colors of red, green, and purple" src="https://github.com/halleysfifthinc/C3D.jl/assets/7356205/4d541fe0-04a4-46c9-8228-c45c6ec48587" width=600>
 
-[![version](https://juliahub.com/docs/C3D/version.svg)](https://juliahub.com/ui/Packages/C3D/Y0cAa)
-[![pkgeval](https://juliahub.com/docs/C3D/pkgeval.svg)](https://juliahub.com/ui/Packages/C3D/Y0cAa)
+[![version](https://juliahub.com/docs/General/C3D/stable/version.svg)](https://juliahub.com/ui/Packages/General/C3D)
+[![pkgeval](https://juliahub.com/docs/General/C3D/stable/pkgeval.svg)](https://juliahub.com/ui/Packages/General/C3D)
 [![CI](https://github.com/halleysfifthinc/C3D.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/halleysfifthinc/C3D.jl/actions/workflows/CI.yml)
 [![codecov](https://codecov.io/gh/halleysfifthinc/C3D.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/halleysfifthinc/C3D.jl)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
