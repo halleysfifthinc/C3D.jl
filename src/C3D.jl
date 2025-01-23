@@ -214,7 +214,7 @@ function numanalogframes(f::C3DFile)
     end
 end
 
-endianness(f::C3DFile{END}) where END = END
+endianness(::Type{C3DFile{END}}) where END = END
 
 groups(f::C3DFile) = values(f.groups)
 parameters(f::C3DFile) = Iterators.flatten((values(group) for group in groups(f)))

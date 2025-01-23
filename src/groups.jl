@@ -80,6 +80,7 @@ end
 Base.keys(g::Group) = keys(g.params)
 Base.values(g::Group) = values(g.params)
 Base.haskey(g::Group, key) = haskey(g.params, key)
+endianness(::Type{Group{END}}) where END = END
 
 # TODO: Add get! method?
 function Base.get(g::Group, key, default)

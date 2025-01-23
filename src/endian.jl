@@ -15,6 +15,8 @@ BE{T}(::Type{NT}) where {T,NT} = BE{NT}
 LE{T}(::Type{OT}) where {T,OT<:AbstractEndian} = LE{eltype(OT)}
 BE{T}(::Type{OT}) where {T,OT<:AbstractEndian} = BE{eltype(OT)}
 
+endianness(x) = endianness(typeof(x))
+
 function Base.read(io::IO, ::Type{LittleEndian{T}}) where T
     return ltoh(read(io, T))
 end
