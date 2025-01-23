@@ -1,5 +1,5 @@
 using DeepDiffs, Test
-using C3D: AbstractEndian, LE, endianness, readparam, data, unsafe_nonmissing
+using C3D: AbstractEndian, LE, endianness, readparam, data, unsafe_nonmissing, native_eltype
 using C3D: rstrip_vectorstring as _rstrip
 
 macro test_nothrow(ex)
@@ -49,7 +49,7 @@ function comparedata(fn)
     refdata = read(fio)
     seek(fio, datastart)
 
-    T = f.groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(endianness(f))::Type
+    T = native_eltype(f)
     ref = C3D.readdata(fio, f.header, f.groups, T)
 
     compio = IOBuffer()

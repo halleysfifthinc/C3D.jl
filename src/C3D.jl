@@ -216,6 +216,9 @@ end
 
 endianness(::Type{C3DFile{END}}) where END = END
 
+native_eltype(f::C3DFile{END}) where END = native_eltype(f.groups)
+native_eltype(groups) = groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(endianness(valtype(groups)))::Type
+
 groups(f::C3DFile) = values(f.groups)
 parameters(f::C3DFile) = Iterators.flatten((values(group) for group in groups(f)))
 

@@ -234,7 +234,7 @@ the docstring for valid options."))
         close(io)
         return C3DFile(fn, header, groups, point, residual, cameras, analog)
     else
-        format = groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(END)::Type
+        format = native_eltype(groups)
 
         if iszero(groups[:POINT][Int, :DATA_START]-1)
             if !iszero(header.datastart-1)

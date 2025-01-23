@@ -268,7 +268,7 @@ function writec3d(io, f::C3DFile{END}) where END
         Iterators.repeated(0x00, max(datastart - position(io), 0)); init=0)
     @assert position(io) == datastart
 
-    T = f.groups[:POINT][Float32, :SCALE] > 0 ? Int16 : eltype(END)
+    T = native_eltype(f)
     nb += writedata(io, f, T)
 
     fileend = cld(nb, 512)*512
