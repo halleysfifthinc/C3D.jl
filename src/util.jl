@@ -3,7 +3,12 @@ function _naturalsortby(x)
     if isnothing(m)
         return typemin(Int)
     else
-        return Base.parse(Int, m[1])
+        num = m[1]
+        if isnothing(num)
+            return typemin(Int)
+        else
+            return Base.parse(Int, num)
+        end
     end
 end
 
