@@ -12,7 +12,10 @@ PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 VaxData = "a6f58a78-e649-57e2-81bc-1d865c7b74f7"
 
 [compat]
-PrecompileTools = "1"
+Dates = "1"
+DelimitedFiles = "1"
+LazyArtifacts = "1"
 OrderedCollections = "1.6"
-VaxData = "0.5,0.6,1"
+PrecompileTools = "1"
+VaxData = "1"
 julia = "1.9"
