@@ -10,9 +10,13 @@ end
 
 function calcresiduals!(x::AbstractVector{T}, indices::Vector{I}, scale) where {T,I}
     scale = abs(scale)
+    _T = nonmissingtype(T)
+    ptr = Ptr{_T}(pointer(x))
+
     @inbounds for i in eachindex(x)
         if indices[i]
-            x[i] = (convert(Int16, x[i]) % UInt8) * scale
+            xi = unsafe_load(ptr, i) # pinkie-swear it's not missing
+            x[i] = (convert(Int16, xi) % UInt8) * scale
         end
     end
 
@@ -256,18 +260,23 @@ the docstring for valid options."))
     return res
 end
 
-"requires a::Vector{Parameter} sorted by gid; returns views"
-function split_filter!(f, a)
+"""
+    split_filter!(f::Function, a::AbstractVector) -> (trues, falses)
+
+Returns arrays `trues` and `falses` where `[trues; falses] == a`. `trues` is a copy, while
+`falses` is a view. `a` is assumed to be sorted by `f`.
+"""
+function split_filter!(f, a::AbstractVector)
     if isempty(a)
-        return similar(a, ntuple(_-> 0, ndims(a))), @view a[end+1:end]
+        return similar(a, (0,)), @view a[end+1:end]
     end
 
     true_is = searchsorted(a, first(a); by=f)
     trues = a[true_is]
-    if isempty(true_is)
-        @views falses = a[begin:end]
+    falses = if isempty(true_is)
+        @views a[begin:end]
     else
-        @views falses = a[last(true_is)+1:end]
+        @views a[last(true_is)+1:end]
     end
 
     return trues, falses
