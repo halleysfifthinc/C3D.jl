@@ -1,6 +1,7 @@
 [deps]
 Artifacts = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 DeepDiffs = "ab62b9b5-e342-54a8-a765-a90f495de1a6"
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 LazyArtifacts = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 LoggingExtras = "e6f89c97-d47a-5376-807f-9c37f3926c36"
