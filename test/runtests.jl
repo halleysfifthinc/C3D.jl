@@ -1,4 +1,4 @@
-using C3D, Test, LazyArtifacts, Artifacts, TOML, Logging, LoggingExtras, JET
+using C3D, Test, LazyArtifacts, Artifacts, TOML, Logging, LoggingExtras, JET, Aqua
 using TOML: parsefile
 
 ## List of sample data archived from the C3D.org website on Dec 12, 2022
@@ -47,6 +47,9 @@ function duplicate_warning(logargs)
 end
 
 @testset verbose=true "C3D" begin
+    @testset "Aqua tests" begin
+        Aqua.test_all(C3D)
+    end
     with_logger(ActiveFilteredLogger(duplicate_warning, global_logger())) do
         include("identical.jl")
         include("publicinterface.jl")
