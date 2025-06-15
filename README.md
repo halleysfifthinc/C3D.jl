@@ -58,7 +58,7 @@ julia> pc_real.analog["FZ1"]
 Write a C3D file using the `writec3d` function. The groups and parameters of a .c3d file
 describe the data contained by the file. As of v0.8, there are no C3D.jl functions that
 coordinate modifying a `C3DFile` object, therefore, it is your responsibility to ensure that
-any modifications (adding/removing a marker or analog channel, etc) produce a
+any modifications (adding/removing a marker or analog channel, etc) produce an
 internally-consistent (i.e. groups/parameters have been correctly updated to match the
 modified data, etc) file before writing.
 
@@ -67,10 +67,9 @@ julia> writec3d("myfile.c3d", pc_real)
 307200 # number of bytes written
 ```
 
-Writing c3d files is exhaustively tested against the corpus of sample data from the C3D.org
-website, and `writec3d` is tested to ensure that all files that are written are
-functionally[^1] and/or bitwise identical to the original at the binary file level in the
-vast majority[^2] of cases, and in all cases, the groups, parameters, and data for a
+`writec3d` is exhaustively tested against the corpus of sample data from the C3D.org website
+to ensure that all files that are written are functionally[^1] and/or bitwise identical[^2] to
+the original at the binary file level. In all cases, the groups, parameters, and data for a
 `C3DFile` that was "copied" with `writec3d` will be exactly identical to the groups,
 parameters, and data from the original `C3DFile`.
 
