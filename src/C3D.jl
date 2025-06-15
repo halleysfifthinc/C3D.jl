@@ -327,10 +327,8 @@ end
     path, io = mktemp()
     close(io)
     fn1 = joinpath(artifact"sample01", "Eb015pr.c3d")
-    fn2 = joinpath(artifact"sample01", "Eb015pi.c3d")
     @compile_workload begin
         f = readc3d(fn1)
-            readc3d(fn2)
         show(devnull, f)
         show(devnull, MIME("text/plain"), f)
         writetrc(path, f)
