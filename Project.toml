@@ -1,7 +1,7 @@
 name = "C3D"
 uuid = "de436766-0b2a-5f82-bc5b-1ccc5f599b83"
 authors = ["Allen Hill <allenofthehills@gmail.com>"]
-version = "0.8.0"
+version = "0.8.1"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
