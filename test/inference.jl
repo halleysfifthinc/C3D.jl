@@ -1,5 +1,7 @@
 @testset "Inference" begin
-    test_package(C3D; target_modules=(C3D,))
+    @static if isempty(VERSION.prerelease)
+        test_package(C3D; target_modules=(C3D,))
+    end
 
     f = readc3d(artifact"sample01/Eb015pr.c3d")
 

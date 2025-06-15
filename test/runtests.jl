@@ -1,6 +1,10 @@
-using C3D, Test, LazyArtifacts, Artifacts, TOML, Logging, LoggingExtras, JET, Aqua,
+using C3D, Test, LazyArtifacts, Artifacts, TOML, Logging, LoggingExtras, Aqua,
     ExplicitImports
 using TOML: parsefile
+
+@static if isempty(VERSION.prerelease)
+using JET
+end
 
 ## List of sample data archived from the C3D.org website on Dec 12, 2022
 # sample00 - Current C3D samples                         https://www.c3d.org/data/Sample00.zip
