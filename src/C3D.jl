@@ -1,6 +1,11 @@
 module C3D
 
-using VaxData, OrderedCollections, PrecompileTools, LazyArtifacts, Dates, DelimitedFiles
+using Dates: Dates, Hour, Minute, Second, UTC, canonicalize, now
+using DelimitedFiles: writedlm
+using LazyArtifacts: @artifact_str
+using OrderedCollections: OrderedCollections, LittleDict, OrderedDict
+using PrecompileTools: @compile_workload, @setup_workload
+using VaxData: VaxFloat, VaxFloatF
 
 export readc3d, writec3d, numpointframes, numanalogframes, writetrc
 

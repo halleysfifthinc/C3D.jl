@@ -1,4 +1,5 @@
-using C3D, Test, LazyArtifacts, Artifacts, TOML, Logging, LoggingExtras, JET, Aqua
+using C3D, Test, LazyArtifacts, Artifacts, TOML, Logging, LoggingExtras, JET, Aqua,
+    ExplicitImports
 using TOML: parsefile
 
 ## List of sample data archived from the C3D.org website on Dec 12, 2022
@@ -49,6 +50,17 @@ end
 @testset verbose=true "C3D" begin
     @testset "Aqua tests" begin
         Aqua.test_all(C3D)
+    end
+    @testset "Explicit and public imports" begin
+        @test check_no_implicit_imports(C3D) === nothing
+        @test check_no_stale_explicit_imports(C3D) === nothing
+        @test check_all_explicit_imports_via_owners(C3D) === nothing
+        @test check_all_qualified_accesses_are_public(C3D;
+            ignore=(
+                :CompoundPeriod, :value, # Dates
+                :filter, :format_bytes, :_setindex!, :ht_keyindex2_shorthash!, # Base/Iterators
+                :add_new! # OrderedCollections
+            )) === nothing
     end
     with_logger(ActiveFilteredLogger(duplicate_warning, global_logger())) do
         include("identical.jl")
