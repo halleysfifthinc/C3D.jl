@@ -61,8 +61,11 @@ const readable_files = [
     @testset "Show" begin
         @testset "$file" for file in readable_files
             @test_internalconsistency readc3d(file)
-            @test_nothrow show(devnull, readc3d(file))
-            @test_nothrow show(devnull, MIME"text/plain"(), readc3d(file))
+            f = readc3d(file)
+            @test_nothrow show(devnull, f)
+            @test_nothrow show(devnull, MIME"text/plain"(), f)
+            @test_nothrow show(devnull, f.groups[:POINT])
+            @test_nothrow show(devnull, MIME"text/plain"(), f.groups[:POINT])
         end
     end
 end

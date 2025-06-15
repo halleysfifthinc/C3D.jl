@@ -1,6 +1,11 @@
 module C3D
 
-using VaxData, OrderedCollections, PrecompileTools, LazyArtifacts, Dates, DelimitedFiles
+using Dates: Dates, Hour, Minute, Second, UTC, canonicalize, now
+using DelimitedFiles: writedlm
+using LazyArtifacts: LazyArtifacts, @artifact_str
+using OrderedCollections: OrderedCollections, LittleDict, OrderedDict
+using PrecompileTools: @compile_workload, @setup_workload
+using VaxData: VaxFloat, VaxFloatF
 
 export readc3d, writec3d, numpointframes, numanalogframes, writetrc
 
@@ -322,10 +327,8 @@ end
     path, io = mktemp()
     close(io)
     fn1 = joinpath(artifact"sample01", "Eb015pr.c3d")
-    fn2 = joinpath(artifact"sample01", "Eb015pi.c3d")
     @compile_workload begin
         f = readc3d(fn1)
-            readc3d(fn2)
         show(devnull, f)
         show(devnull, MIME("text/plain"), f)
         writetrc(path, f)
