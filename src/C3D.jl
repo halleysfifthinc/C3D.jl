@@ -2,7 +2,7 @@ module C3D
 
 using Dates: Dates, Hour, Minute, Second, UTC, canonicalize, now
 using DelimitedFiles: writedlm
-using LazyArtifacts: @artifact_str
+using LazyArtifacts: LazyArtifacts, @artifact_str
 using OrderedCollections: OrderedCollections, LittleDict, OrderedDict
 using PrecompileTools: @compile_workload, @setup_workload
 using VaxData: VaxFloat, VaxFloatF
