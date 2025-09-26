@@ -303,13 +303,13 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
             # Group
             skip(io, -2)
             push!(gs, read(io, Group{END}))
-            np = gs[end].pos + gs[end].np + length(gs[end]._name) + 2
+            np = fileposition(gs[end]) + gs[end].np + namelength(gs[end]) + 2
             moreparams = gs[end].np != 0 ? true : false
         else
             # Parameter
             skip(io, -2)
             push!(ps, readparam(io, END))
-            np = ps[end].pos + ps[end].np + length(ps[end]._name) + 2
+            np = fileposition(ps[end]) + ps[end].np + namelength(ps[end]) + 2
             moreparams = ps[end].np != 0 ? true : false
         end
 
@@ -332,7 +332,7 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
                 skip(io, -2)
                 try
                     push!(gs, read(io, Group{END}))
-                    np = gs[end].pos + gs[end].np + length(gs[end]._name) + 2
+                    np = fileposition(gs[end]) + gs[end].np + namelength(gs[end]) + 2
                     moreparams = gs[end].np != 0 ? true : false # break if the pointer is 0 (ie the parameters are finished)
                     fail = 0 # reset fail counter following a successful read
                 catch e
@@ -355,7 +355,7 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
                     lastps = readparam(io, END)
                     push!(ps, lastps)
                     moreparams = lastps.np != 0 ? true : false
-                    np = _position(lastps) + Int(lastps.np) + length(lastps._name) + 2
+                    np = fileposition(lastps) + Int(lastps.np) + namelength(lastps) + 2
                     fail = 0
                 catch e
                     if e isa AssertionError || e isa ParameterTypeError
@@ -377,20 +377,20 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
             end
         end
 
-        group_names = map(g -> g.name, gs)
+        group_names = map(name, gs)
         dup_group_names = findduplicates(group_names)
         if !isempty(dup_group_names)
             # @debug "duplicate group names detected"
-            if !allunique(gid.(gs)) # Duplicate names with the same GID
+            if !allunique(gid, gs) # Duplicate names with the same GID
                 for group in gs
-                    group.name ∈ dup_group_names || continue
+                    name(group) ∈ dup_group_names || continue
 
-                    @warn "Multiple groups with the same name \"$(group.name)\" and \
+                    @warn "Multiple groups with the same name \"$(name(group))\" and \
 group ID `$(gid(group))`. The second duplicate group will be deleted to keep group names
-unique (no parameters will be lost)." _id=(group.name, gid(group)) maxlog=1
+unique (no parameters will be lost)." _id=(name(group), gid(group)) maxlog=1
 
                     # could be more than 1 duplicate
-                    is = findall(==(group.name)∘(g->g.name), gs)
+                    is = findall(==(name(group))∘name, gs)
                     @assert !isempty(is)
                     @assert group === gs[first(is)]
 
@@ -402,20 +402,20 @@ unique (no parameters will be lost)." _id=(group.name, gid(group)) maxlog=1
                 end
             else # Duplicate names with different GIDs
                 for group in gs
-                    group.name ∈ dup_group_names || continue
+                    name(group) ∈ dup_group_names || continue
 
                     # @debug group isduplicate(group, gs; by=(g->g.name))
-                    @warn "Multiple groups with the same name \"$(group.name)\". The \
-group ID will be appended to the duplicate group names to keep group names unique." _id=group.name maxlog=1
-                    dups = findall(==(group.name)∘(g->g.name), gs)
+                    @warn "Multiple groups with the same name \"$(name(group))\". The \
+group ID will be appended to the duplicate group names to keep group names unique." _id=name(group) maxlog=1
+                    dups = findall(==(name(group))∘name, gs)
                     for i in dups
-                        gs[i].name = Symbol(gs[i].name, "_", gid(gs[i]))
+                        gs[i].name = Symbol(name(gs[i]), "_", gid(gs[i]))
                     end
                 end
             end
         end
 
-        group_names = map(g -> g.name, gs)
+        group_names = map(name, gs)
         groups = LittleDict{Symbol,Group{END},Vector{Symbol},Vector{Group{END}}}(group_names, gs)
         sort!(ps; by=gid)
         psv = @view ps[begin:end]
@@ -423,8 +423,8 @@ group ID will be appended to the duplicate group names to keep group names uniqu
         for group in sort(gs; by=gid)
             group_params, psv = split_filter!(gid, psv)
             if isempty(group_params)
-               @debug "group $(group.name) is empty" group_params, psv
-               break
+                @debug "group $(name(group)) is empty" group_params, psv
+                break
             end
             unique!(identity, group_params; seen=Set{Parameter}()) # remove literal duplicates
 
@@ -437,7 +437,7 @@ group ID will be appended to the duplicate group names to keep group names uniqu
                     # @debug "dropping duplicates"
                     unique!(name, group_params)
                 elseif handle_duplicate_parameters === :keeplast
-                    # @debug "keeping last duplicate" issorted(_position.(group_params))
+                    # @debug "keeping last duplicate" issorted(fileposition.(group_params))
                     dups = similar(BitVector, axes(group_params, 1))
                     dups .= false
                     _dups = similar(dups)
@@ -471,9 +471,9 @@ group ID will be appended to the duplicate group names to keep group names uniqu
                     for i in eachindex(dups)
                         dups[i] || continue
                         param = group_params[i]
-                        cnt = cnts[param.name] += 1
+                        cnt = cnts[name(param)] += 1
                         # @debug "$(param.name) => $(Symbol(param.name, "_", cnt))"
-                        param.name = Symbol(param.name, "_", cnt)
+                        param.name = Symbol(name(param), "_", cnt)
                     end
                 end
                 param_names = map(name, group_params)
@@ -485,10 +485,10 @@ group ID will be appended to the duplicate group names to keep group names uniqu
 
         while !isempty(psv)
             _gid = gid(psv[1])
-            group_params, psv = split_filter!(p -> gid(p) === _gid, psv)
+            group_params, psv = split_filter!(Base.Fix1(===,_gid)∘gid, psv)
             groupsym = Symbol("GID_$(_gid)_MISSING")
 
-            param_names = map(g -> g.name, group_params)
+            param_names = map(name, group_params)
             @assert allunique(param_names)::Bool
 
             if !haskey(groups, groupsym)

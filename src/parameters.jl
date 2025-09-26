@@ -94,14 +94,10 @@ function Base.hash(p::Parameter, h::UInt)
     return h
 end
 
-gid(p::Parameter) = abs(p.gid)
-name(p::Parameter{ArrayParameter{T,N}}) where {T,N} = getfield(p, :name)
-name(p::Parameter{StringParameter}) = getfield(p, :name)
-name(p::Parameter{ScalarParameter{T}}) where T = getfield(p, :name)
-
-_position(p::Parameter{ArrayParameter{T,N}}) where {T,N} = getfield(p, :pos)
-_position(p::Parameter{StringParameter}) = getfield(p, :pos)
-_position(p::Parameter{ScalarParameter{T}}) where T = getfield(p, :pos)
+gid(@nospecialize p::Parameter) = abs(p.gid)
+name(@nospecialize p::Parameter) = p.name
+namelength(@nospecialize p::Parameter) = length(p._name)
+fileposition(@nospecialize p::Parameter) = p.pos
 
 payload(p::Parameter{ArrayParameter{T,N}}) where {T,N} = getfield(p, :payload)
 payload(p::Parameter{StringParameter}) = getfield(p, :payload)

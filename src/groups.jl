@@ -50,8 +50,10 @@ function Base.:(==)(g1::Group, g2::Group)
     return g1.gid === g2.gid && g1.name === g2.name && g1.params == g2.params
 end
 
-gid(g::Group{E}) where E = abs(g.gid)
-_position(g::Group{E}) where E = g.pos
+gid(@nospecialize g::Group) = abs(g.gid)
+fileposition(@nospecialize g::Group) = g.pos
+name(@nospecialize g::Group) = g.name
+namelength(@nospecialize g::Group) = length(g._name)
 
 function Base.getindex(g::Group, k::Symbol)
     return data(getindex(g.params, k))
