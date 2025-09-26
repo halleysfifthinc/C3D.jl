@@ -29,12 +29,12 @@ struct ArrayParameter{T,N} <: AbstractParameter{T,N}
     #  4 => Float data
 
     nd::UInt8
-    dims::NTuple{N,Int} # Vector of bytes (Int8 technically) describing array dimensions
+    dims::Vector{Int} # Vector of bytes (Int8 technically) describing array dimensions
     data::Array{T,N}
 end
 
 struct StringParameter <: AbstractParameter{String,1}
-    data::Array{String,1}
+    data::Vector{String}
 end
 
 function StringParameter(s::String)
@@ -56,7 +56,7 @@ end
 
 function Parameter(name, desc, payload::AbstractArray{T,N}; gid=0, locked=signbit(gid)) where {T<:Union{Int8,Int16,Float32},N}
     return Parameter(0, gid, locked, 0, name, desc,
-        ArrayParameter{T,N}(sizeof(T), ndims(payload), size(payload), payload))
+        ArrayParameter{T,N}(sizeof(T), ndims(payload), collect(size(payload)), payload))
 end
 
 function Parameter(name, desc, payload::T; gid=0, locked=signbit(gid)) where {T <: Union{UInt8,UInt16,Float32}}
@@ -245,8 +245,15 @@ function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     nd = read(io, UInt8)
     local data::AbstractArray
     if nd > 0
-        dims = (Int.(read!(io, Array{UInt8}(undef, nd)))...,)
-        data = _readarrayparameter(io, END(T), dims)
+        dims = Int.(read!(io, Array{UInt8}(undef, nd)))
+        if nd === 2
+            data = _readarrayparameter(io, END(T), (dims[1], dims[2]))
+        elseif nd === 3
+            data = _readarrayparameter(io, END(T), (dims[1], dims[2], dims[3]))
+        else
+            # data = _readarrayparameter(io, END(T), ntuple(i -> dims[i], nd))
+            data = _readarrayparameter(io, END(T), (dims...,))
+        end
     else
         data = _readscalarparameter(io, END(T))
     end
@@ -260,15 +267,15 @@ function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     if nd > 0
         if elsize == -1
             if nd ≤ 2 # Vector{String}
-                payload = StringParameter(data)
+                payload = StringParameter(data::Vector{String})
             else
-                payload = ArrayParameter(elsize, nd, size(data), data)
+                payload = ArrayParameter(elsize, nd, collect(size(data::Array{String})), data::Array{String})
             end
         elseif isone(prod(dims))
             # In the event of an 'array' parameter with only one element
             payload = ScalarParameter(only(data))
         else
-            payload = ArrayParameter(elsize, nd, dims, data)
+            payload = ArrayParameter(elsize, nd, collect(dims), data)
         end
     else
         payload = ScalarParameter(only(data))
