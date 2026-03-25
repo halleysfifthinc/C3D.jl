@@ -51,8 +51,9 @@ Write the C3DFile `f` to a .trc format at `filename`.
 # Keyword arguments
 - `delim::Char='\\t'`: The text delimiter to use
 - `strip_prefixes::Bool=true`: Strip marker label prefixes if they exist
-- `subject::String=""`: The subject (among multiple subjects) in the C3DFile to write
-- `prefixes::Vector{String}=[subject]`: Marker label prefixes to strip if
+- `subject::String=nothing`: Only write this subject's markers (assumes marker names are
+  prefixed with this string)
+- `prefixes::Vector{String}=nothing`: Marker label prefixes to strip if
   `strip_prefixes == true`
 - `remove_unlabeled_markers::Bool=true`: Remove markers with empty labels, labels
   matching `r"(\\*\\d+|M\\d\\d\\d)"`
@@ -67,8 +68,8 @@ function writetrc(filename::String, f::C3DFile;
     precision::Int=6,
     strip_prefixes::Bool=true,
     remove_unlabeled_markers::Bool=true,
-    subject::String="",
-    prefixes::Vector{String}=[subject],
+    subject::Union{Nothing,String}=nothing,
+    prefixes::Union{Nothing,Vector{String}}=nothing,
     lab_orientation::AbstractMatrix{T}=eye3,
     virtual_markers::Dict{String,Matrix{U}}=Dict{String,Matrix{Float32}}()
 ) where {T,U}
@@ -83,26 +84,24 @@ function writetrc(io, f::C3DFile;
     precision::Int=6,
     strip_prefixes::Bool=true,
     remove_unlabeled_markers::Bool=true,
-    subject::String="",
-    prefixes::Vector{String}=[subject],
+    subject::Union{Nothing,String}=nothing,
+    prefixes::Union{Nothing,Vector{String}}=nothing,
     lab_orientation::AbstractMatrix{T}=eye3,
     virtual_markers::Dict{String,Matrix{U}}=Dict{String,Matrix{Float32}}()
 ) where {T,U}
-    if subject !== ""
-        if haskey(f.groups, :SUBJECTS)
-            any(subject .== f.groups[:SUBJECTS][Vector{String}, :NAMES]) || throw(ArgumentError("subject $subject does not exist in $f.groups[:SUBJECTS]"))
-        elseif strip_prefixes && prefixes == [subject]
-            @warn "subject $subject does not exist in $f.groups[:SUBJECTS] and may not be the correct prefix"
-        end
-    end
-
     len = numpointframes(f)
     period = inv(f.groups[:POINT][Float64, :RATE])
 
     mkrnames = collect(keys(f.point))
-    if subject !== ""
-        filter!(x -> startswith(x, subject), mkrnames)
-        isempty(mkrnames) && @warn "no markers matched subject $subject"
+    if !isnothing(subject)
+        if haskey(f.groups, :SUBJECTS)
+            any(subject .== f.groups[:SUBJECTS][Vector{String}, :NAMES]) || throw(ArgumentError("subject $subject does not exist in $f.groups[:SUBJECTS]"))
+        else # try filtering markers with the default prefix anyways
+            filter!(startswith(subject), mkrnames)
+            if isempty(mkrnames)
+                throw(ArgumentError("this file doesn't list any subjects in $f.groups[:SUBJECTS] and no markers are prefixed with $subject"))
+            end
+        end
     end
 
     if !isdisjoint(keys(f.groups[:POINT]), (:ANGLES, :POWERS, :FORCES, :MOMENTS))
@@ -119,7 +118,7 @@ function writetrc(io, f::C3DFile;
             f.groups[:SUBJECTS][Int, :USES_PREFIXES] == 1) ||
             (!haskey(f.groups[:SUBJECTS], :USES_PREFIXES) &&
             haskey(f.groups[:SUBJECTS], :LABEL_PREFIXES)))
-            if subject !== ""
+            if !isnothing(subject)
                 subi = findfirst(==(subject), f.groups[:SUBJECTS][Vector{String}, :NAMES])
                 r = Regex("("*f.groups[:SUBJECTS][Vector{String}, :LABEL_PREFIXES][subi] *
                         ")(?<label>\\w*)")
@@ -129,7 +128,7 @@ function writetrc(io, f::C3DFile;
                         prefixes], '|')*")(?<label>\\w*)")
                 mkrnames_stripped = replace.(mkrnames, r => s"\g<label>")
             end
-        elseif subject !== "" || prefixes !== [""]
+        elseif !isnothing(subject) || !isnothing(prefixes)
             if any(subject .== prefixes)
                 r = Regex("("*join(prefixes, '|')*")(?<label>\\w*)")
             else
