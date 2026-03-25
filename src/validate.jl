@@ -93,7 +93,7 @@ function validatec3d(header, groups)
         groups[:POINT].params[:DATA_START].payload.data = header.datastart
     end
 
-    POINT_USED = groups[:POINT][Int, :USED]
+    POINT_USED::Int = groups[:POINT][Int, :USED]
     if POINT_USED != 0 # There are markers
         # If there are markers, the additional set of required parameters is ratescale
         if !(:RATE ∈ pointkeys)
@@ -108,7 +108,7 @@ function validatec3d(header, groups)
                 @debug ":POINT is missing parameter :LABELS"
                 labels = [ "M"*string(i, pad=3) for i in 1:POINT_USED ]
                 groups[:POINT].params[:LABELS] = Parameter("LABELS", "Marker labels",
-                    labels; gid=groups[:POINT].gid)
+                    labels; gid=gid(groups[:POINT]))
             elseif !haskey(groups[:POINT], :DESCRIPTIONS)
                 @debug ":POINT is missing parameter :DESCRIPTIONS"
             elseif !haskey(groups[:POINT], :UNITS)
@@ -128,7 +128,7 @@ function validatec3d(header, groups)
             UInt16(0) : UInt16(header.ampf÷header.aspf); gid=groups[:ANALOG].gid)
     end
 
-    ANALOG_USED = groups[:ANALOG][Int, :USED]
+    ANALOG_USED::Int = groups[:ANALOG][Int, :USED]
     if signbit(ANALOG_USED)
         groups[:ANALOG].params[:USED] = unsigned(groups[:ANALOG].params[:USED])
     end
@@ -154,8 +154,8 @@ function validatec3d(header, groups)
             if !haskey(groups[:ANALOG], :LABELS)
                 @debug ":ANALOG is missing parameter :LABELS"
                 labels = [ "A"*string(i, pad=3) for i in 1:ANALOG_USED ]
-                groups[:ANALOG].params[:LABELS] = Parameter{StringParameter}("LABELS",
-                    "Channel labels", labels; gid=groups[:ANALOG].gid)
+                groups[:ANALOG].params[:LABELS] = Parameter("LABELS", "Channel labels",
+                    labels; gid=gid(groups[:ANALOG]))
             elseif !haskey(groups[:ANALOG], :DESCRIPTIONS)
                 @debug ":ANALOG is missing parameter :DESCRIPTIONS"
             elseif !haskey(groups[:ANALOG], :UNITS)
@@ -185,7 +185,7 @@ function validatec3d(header, groups)
         for grp in missing_groups
             if issubset(keys(groups[Symbol(grp.match)]), (:ACTUAL_START_FIELD, :ACTUAL_END_FIELD))
                 if !haskey(groups, :TRIAL)
-                    groups[:TRIAL] = Group("TRIAL", ""; gid=-tryparse(Int8, grp[1]))
+                    groups[:TRIAL] = Group("TRIAL", ""; gid=-parse(Int8, grp[1]))
                 end
                 merge!(groups[:TRIAL].params, groups[Symbol(grp.match)].params)
                 delete!(groups, Symbol(grp.match))

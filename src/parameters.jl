@@ -270,7 +270,7 @@ function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
             if nd ≤ 2 # Vector{String}
                 payload = StringParameter(data::Vector{String})
             else
-                payload = ArrayParameter(elsize, nd, collect(size(data::Array{String})), data::Array{String})
+                payload = ArrayParameter(elsize, nd, collect(size(data::Array{String}))::Vector{Int}, data::Array{String})
             end
         elseif isone(prod(dims))
             # In the event of an 'array' parameter with only one element
@@ -289,7 +289,7 @@ function _readscalarparameter(io::IO, END::Type{<:AbstractEndian{T}}) where {T}
     return [read(io, END)]
 end
 
-function _readscalarparameter(io::IO, ::Type{<:AbstractEndian{String}})::String
+function _readscalarparameter(io::IO, ::Type{<:AbstractEndian{String}})
     return [rstrip(x -> iscntrl(x) || isspace(x), transcode(String, read(io, UInt8)))]
 end
 
