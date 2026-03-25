@@ -192,7 +192,7 @@ function add_edited!(f::C3DFile{END}) where END
     return nothing
 end
 
-function writec3d(io, f::C3DFile{END}) where END
+function writec3d(io::IO, f::C3DFile{END}) where {END <: AbstractEndian}
     add_edited!(f)
 
     # we may add groups and/or parameters during read validation; default gids for new
