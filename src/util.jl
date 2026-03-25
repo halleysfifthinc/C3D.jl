@@ -159,6 +159,9 @@ function writetrc(io, f::C3DFile;
     mkrnames = mkrnames[ord]
     mkrnames_stripped = mkrnames_stripped[ord]
 
+    nummkr = length(mkrnames)
+    numxmkr = length(virtual_markers)
+
     # Header
     line1 = ["PathFileType", "4", "(X/Y/Z)", basename(f.name)*'\n']
     line2 = ["DataRate", "CameraRate", "NumFrames", "NumMarkers", "Units", "OrigDataRate",
@@ -168,7 +171,7 @@ function writetrc(io, f::C3DFile;
     print(io, f.groups[:POINT][Float32, :RATE], delim)
     print(io, f.groups[:POINT][Float32, :RATE], delim)
     print(io, len, delim)
-    print(io, length(mkrnames) + length(virtual_markers), delim)
+    print(io, length(mkrnames) + numxmkr, delim)
     print(io, strip(f.groups[:POINT][String, :UNITS], Char(0x00)), delim)
     print(io, f.groups[:POINT][Float32, :RATE], delim)
     print(io, 1, delim)
@@ -190,14 +193,16 @@ function writetrc(io, f::C3DFile;
     # Coordinate line
     write(io, delim^2)
     join(io, (string('X', n, delim, 'Y', n, delim, 'Z', n)
-              for n in 1:(length(mkrnames)+length(virtual_markers))), delim)
+              for n in 1:(nummkr+numxmkr)), delim)
     write(io, '\n'^2)
 
     # Core data block
-    et = promote_type(Float32, T, U)
+    et = if !isempty(virtual_markers)
+        promote_type(Float32, T, U)
+    else
+        promote_type(Float32, T)
+    end
     nanet = convert(et, NaN)
-    nummkr = length(mkrnames)
-    numxmkr = length(extra_mkrnames)
     data = Matrix{Union{Missing,et}}(undef, len, 1+3*(nummkr + numxmkr))
 
     data[:,1] .= range(zero(et), step=period, length=len)
