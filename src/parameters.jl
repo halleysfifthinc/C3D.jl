@@ -265,6 +265,7 @@ function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     # @debug "wrong pointer in $name" position(io) pointer maxlog=(position(io) != pointer)
 
     if nd > 0
+        @assert @isdefined(dims) "dims should be defined if `nd > 0`"
         if elsize == -1
             if nd ≤ 2 # Vector{String}
                 payload = StringParameter(data::Vector{String})
@@ -391,7 +392,7 @@ function Base.write(
     return nb
 end
 
-function writesize(p::Parameter{P}) where {P}
-    return 7 + length(p._name) + length(p._desc) + _ndims(p) + prod(_size(p))*abs(_elsize(p))
+function writesize(p::Parameter{P})::Int where {P}
+    return 7 + namelength(p) + length(p._desc) + _ndims(p) + prod(_size(p))*abs(_elsize(p))
 end
 
