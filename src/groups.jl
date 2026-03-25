@@ -88,9 +88,9 @@ endianness(::Type{Group{END}}) where END = END
 function Base.get(g::Group, key, default)
     return haskey(g, key) ? g[key] : default
 end
-function Base.get(g::Group, key::Tuple{Type,Symbol}, default::T) where T
+function Base.get(g::Group, key::Tuple{Type{T},Symbol}, default::U) where {U,T}
     _key = last(key)
-    return haskey(g, _key) ? g[key...] : default
+    return haskey(g, _key) ? g[U, _key] : default
 end
 
 

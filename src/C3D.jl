@@ -234,7 +234,7 @@ function Header{END}(f::C3DFile{OEND}) where {END<:AbstractEndian,OEND<:Abstract
     npoints::UInt16 = f.groups[:POINT][Int, :USED]
     pointrate::Float32 = get(f.groups[:POINT], (Float32, :RATE), h.pointrate)
     if isinteger(get(f.groups[:ANALOG], (Float32, :RATE), pointrate)/pointrate)
-        aspf = convert(UInt16, get(f.groups[:ANALOG], (Float32, :RATE), pointrate)/pointrate)
+        aspf::UInt16 = convert(UInt16, get(f.groups[:ANALOG], (Float32, :RATE), pointrate)/pointrate)
     else
         throw(ArgumentError("ANALOG:RATE is not an integer multiple of POINT:RATE; writing out-of-spec C3DFiles is not supported"))
     end
