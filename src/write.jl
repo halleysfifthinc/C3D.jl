@@ -83,7 +83,7 @@ function assemble_analogdata(h::Header{END}, f::C3DFile{END}, ::Type{T}) where {
         analogdata[:] = matrixround_ifintegers(analogdata)
     elseif numchannels > 1
         if haskey(f.groups[:ANALOG], :OFFSET2)
-            off_labels = get_multipled_parameter_names(f.groups, :ANALOG, :OFFSET)
+            off_labels = get_multipled_parameter_names(f.groups[:ANALOG], :OFFSET)
             VECANALOG_OFFSET = convert(Vector{Float32}, reduce(vcat,
                 f.groups[:ANALOG][Vector{Int}, offset]
                 for offset in off_labels))[1:numchannels]'
@@ -98,7 +98,7 @@ function assemble_analogdata(h::Header{END}, f::C3DFile{END}, ::Type{T}) where {
 
 
         if haskey(f.groups[:ANALOG], :SCALE2)
-            scale_labels = get_multipled_parameter_names(f.groups, :ANALOG, :SCALE)
+            scale_labels = get_multipled_parameter_names(f.groups[:ANALOG], :SCALE)
             VECANALOG_SCALE = convert(Vector{Float32}, reduce(vcat,
                 f.groups[:ANALOG][Vector{Int}, scale]
                 for scale in scale_labels))[1:numchannels]'

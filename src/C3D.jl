@@ -61,7 +61,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
     numpts = groups[:POINT][Int, :USED]
     if !iszero(numpts)
         if haskey(groups[:POINT], :LABELS2)
-            ptlabel_keys = get_multipled_parameter_names(groups, :POINT, :LABELS)
+            ptlabel_keys = get_multipled_parameter_names(groups[:POINT], :LABELS)
             pt_labels = Iterators.flatten(
                 groups[:POINT][Vector{String}, label] for label in ptlabel_keys
                 )
@@ -143,7 +143,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
     numanalogs = groups[:ANALOG][Int, :USED]
     if !iszero(numanalogs)
         if haskey(groups[:ANALOG], :LABELS2)
-            anlabel_keys = get_multipled_parameter_names(groups, :ANALOG, :LABELS)
+            anlabel_keys = get_multipled_parameter_names(groups[:ANALOG], :LABELS)
             an_labels = Iterators.flatten(
                 groups[:ANALOG][Vector{String}, label] for label in anlabel_keys
                 )
