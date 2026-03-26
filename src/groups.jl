@@ -79,6 +79,11 @@ function typedindex(g::Group, ::Type{T}, k) where T
     return r
 end
 
+function Base.setindex!(g::Group, p::Parameter, k::Symbol)
+    name(p) === k || throw(ArgumentError("key must match match parameter name"))
+    return g.params[k] = p
+end
+
 Base.keys(g::Group) = keys(g.params)
 Base.values(g::Group) = values(g.params)
 Base.haskey(g::Group, key) = haskey(g.params, key)
