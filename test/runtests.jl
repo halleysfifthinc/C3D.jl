@@ -79,5 +79,6 @@ end
         include("utils.jl")
 
         include("write.jl")
+        include("extended.jl")
     end
 end

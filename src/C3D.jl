@@ -27,9 +27,9 @@ struct C3DFile{END<:AbstractEndian}
 end
 
 include("read.jl")
+include("util.jl")
 include("validate.jl")
 include("write.jl")
-include("util.jl")
 
 struct DuplicateMarkerError
     msg::String
@@ -60,14 +60,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
 
     numpts = groups[:POINT][Int, :USED]
     if !iszero(numpts)
-        if haskey(groups[:POINT], :LABELS2)
-            ptlabel_keys = get_multipled_parameter_names(groups, :POINT, :LABELS)
-            pt_labels = Iterators.flatten(
-                groups[:POINT][Vector{String}, label] for label in ptlabel_keys
-                )
-        else
-            pt_labels = groups[:POINT][Vector{String}, :LABELS]
-        end
+        pt_labels = flatten_extended_params(groups[:POINT], :LABELS, String)
 
         sizehint!(fpoint, numpts)
         sizehint!(fresiduals, numpts)
@@ -142,14 +135,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
 
     numanalogs = groups[:ANALOG][Int, :USED]
     if !iszero(numanalogs)
-        if haskey(groups[:ANALOG], :LABELS2)
-            anlabel_keys = get_multipled_parameter_names(groups, :ANALOG, :LABELS)
-            an_labels = Iterators.flatten(
-                groups[:ANALOG][Vector{String}, label] for label in anlabel_keys
-                )
-        else
-            an_labels = groups[:ANALOG][Vector{String}, :LABELS]
-        end
+        an_labels = flatten_extended_params(groups[:ANALOG], :LABELS, String)
 
         sizehint!(fanalog, numanalogs)
 
