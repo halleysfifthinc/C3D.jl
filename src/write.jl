@@ -187,7 +187,7 @@ function add_edited!(f::C3DFile{END}) where END
     else
         push!(_data, edited_desc())
     end
-    f.groups[:MANUFACTURER].params[:EDITED] = p
+    f.groups[:MANUFACTURER][:EDITED] = p
 
     return nothing
 end

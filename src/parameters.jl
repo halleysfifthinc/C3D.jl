@@ -47,7 +47,7 @@ end
 
 function Parameter(pos, gid, lock, np, name, desc, payload)
     return Parameter(pos, convert(Int8, gid), lock, convert(Int16, np),
-        Vector{UInt8}(name), Symbol(name), Vector{UInt8}(desc), payload)
+        Vector{UInt8}(string(name)), Symbol(name), Vector{UInt8}(desc), payload)
 end
 
 function Parameter(name, desc, payload::P; gid=0, locked=signbit(gid)) where {P<:Union{Vector{String},String}}
@@ -61,6 +61,11 @@ end
 
 function Parameter(name, desc, payload::T; gid=0, locked=signbit(gid)) where {T <: Union{UInt8,UInt16,Float32}}
     return Parameter(0, gid, locked, 0, name, desc, ScalarParameter{T}(payload))
+end
+
+# Convenience: accept plain Int as UInt16 scalar (common in tests and editing code)
+function Parameter(name, desc, payload::Int; gid=0, locked=signbit(gid))
+    return Parameter(name, desc, UInt16(payload); gid, locked)
 end
 
 function Parameter{StringParameter}(p::Parameter{ScalarParameter{String}})
