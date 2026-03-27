@@ -83,7 +83,7 @@ function assemble_analogdata(h::Header{END}, f::C3DFile{END}, ::Type{T}) where {
         analogdata[:] = matrixround_ifintegers(analogdata)
     elseif numchannels > 1
         if haskey(f.groups[:ANALOG], :OFFSET2)
-            off_labels = get_multipled_parameter_names(f.groups, :ANALOG, :OFFSET)
+            off_labels = get_extended_parameter_names(f.groups[:ANALOG], :OFFSET)
             VECANALOG_OFFSET = convert(Vector{Float32}, reduce(vcat,
                 f.groups[:ANALOG][Vector{Int}, offset]
                 for offset in off_labels))[1:numchannels]'
@@ -98,7 +98,7 @@ function assemble_analogdata(h::Header{END}, f::C3DFile{END}, ::Type{T}) where {
 
 
         if haskey(f.groups[:ANALOG], :SCALE2)
-            scale_labels = get_multipled_parameter_names(f.groups, :ANALOG, :SCALE)
+            scale_labels = get_extended_parameter_names(f.groups[:ANALOG], :SCALE)
             VECANALOG_SCALE = convert(Vector{Float32}, reduce(vcat,
                 f.groups[:ANALOG][Vector{Int}, scale]
                 for scale in scale_labels))[1:numchannels]'
@@ -179,19 +179,20 @@ function add_edited!(f::C3DFile{END}) where END
     if p isa Parameter{ScalarParameter{String}}
         p = Parameter{StringParameter}(p)
     end
-    if isempty(p.payload.data)
-        push!(p.payload.data, edited_desc())
-    elseif isempty(first(p.payload.data))
-        p.payload.data[1] = edited_desc()
+    _data = data(p)::Vector{String}
+    if isempty(_data)
+        push!(_data, edited_desc())
+    elseif length(_data) == 1 && isempty(only(_data))
+        _data[1] = edited_desc()
     else
-        push!(p.payload.data, edited_desc())
+        push!(_data, edited_desc())
     end
-    f.groups[:MANUFACTURER].params[:EDITED] = p
+    f.groups[:MANUFACTURER][:EDITED] = p
 
     return nothing
 end
 
-function writec3d(io, f::C3DFile{END}) where END
+function writec3d(io::IO, f::C3DFile{END}) where {END <: AbstractEndian}
     add_edited!(f)
 
     # we may add groups and/or parameters during read validation; default gids for new
@@ -222,12 +223,14 @@ function writec3d(io, f::C3DFile{END}) where END
         end
 
         # update parameter gids to match group gid `g_gid`
-        foreach(values(g)) do p
-            p.gid = abs(g_gid)
+        let gid = abs(g_gid)
+            foreach(values(g)) do p
+                p.gid = gid
+            end
         end
     end
 
-    nb = 0
+    nb::Int = 0
     header = Header(f)
     nb += write(io, header)
     f.groups[:POINT].params[:DATA_START].payload.data = header.datastart
@@ -256,10 +259,10 @@ function writec3d(io, f::C3DFile{END}) where END
 
     nb += sum(g -> write(io, g), groups(f); init=0)
     params = collect(parameters(f))
-    nb += sum(p -> write(io, p, END), params[1:end-1]; init=0)
+    nb += sum(p -> write(io, p, END), @view params[1:end-1]; init=0)::Int
     # Properly, the `pointer` in the last parameter should be zero to signify the end of the
     # parameter section
-    nb += write(io, last(params), END; last=true)
+    nb += write(io, last(params::Vector{Parameter}), END; last=true)::Int
 
     datastart = (header.datastart % Int - 1)*512
     # pad with zeros until the beginning of the data section

@@ -47,7 +47,7 @@ end
 
 function Parameter(pos, gid, lock, np, name, desc, payload)
     return Parameter(pos, convert(Int8, gid), lock, convert(Int16, np),
-        Vector{UInt8}(name), Symbol(name), Vector{UInt8}(desc), payload)
+        Vector{UInt8}(string(name)), Symbol(name), Vector{UInt8}(desc), payload)
 end
 
 function Parameter(name, desc, payload::P; gid=0, locked=signbit(gid)) where {P<:Union{Vector{String},String}}
@@ -61,6 +61,11 @@ end
 
 function Parameter(name, desc, payload::T; gid=0, locked=signbit(gid)) where {T <: Union{UInt8,UInt16,Float32}}
     return Parameter(0, gid, locked, 0, name, desc, ScalarParameter{T}(payload))
+end
+
+# Convenience: accept plain Int as UInt16 scalar (common in tests and editing code)
+function Parameter(name, desc, payload::Int; gid=0, locked=signbit(gid))
+    return Parameter(name, desc, UInt16(payload); gid, locked)
 end
 
 function Parameter{StringParameter}(p::Parameter{ScalarParameter{String}})
@@ -265,11 +270,12 @@ function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     # @debug "wrong pointer in $name" position(io) pointer maxlog=(position(io) != pointer)
 
     if nd > 0
+        @assert @isdefined(dims) "dims should be defined if `nd > 0`"
         if elsize == -1
             if nd ≤ 2 # Vector{String}
                 payload = StringParameter(data::Vector{String})
             else
-                payload = ArrayParameter(elsize, nd, collect(size(data::Array{String})), data::Array{String})
+                payload = ArrayParameter(elsize, nd, collect(size(data::Array{String}))::Vector{Int}, data::Array{String})
             end
         elseif isone(prod(dims))
             # In the event of an 'array' parameter with only one element
@@ -288,7 +294,7 @@ function _readscalarparameter(io::IO, END::Type{<:AbstractEndian{T}}) where {T}
     return [read(io, END)]
 end
 
-function _readscalarparameter(io::IO, ::Type{<:AbstractEndian{String}})::String
+function _readscalarparameter(io::IO, ::Type{<:AbstractEndian{String}})
     return [rstrip(x -> iscntrl(x) || isspace(x), transcode(String, read(io, UInt8)))]
 end
 
@@ -391,7 +397,7 @@ function Base.write(
     return nb
 end
 
-function writesize(p::Parameter{P}) where {P}
-    return 7 + length(p._name) + length(p._desc) + _ndims(p) + prod(_size(p))*abs(_elsize(p))
+function writesize(p::Parameter{P})::Int where {P}
+    return 7 + namelength(p) + length(p._desc) + _ndims(p) + prod(_size(p))*abs(_elsize(p))
 end
 

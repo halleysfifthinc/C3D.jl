@@ -60,24 +60,24 @@ function validatec3d(header, groups)
     if !(rpoint ⊆ pointkeys)
         if !(:USED in pointkeys)
             @debug "POINT:USED was missing; setting as $(header.npoints) from header"
-            groups[:POINT].params[:USED] = Parameter("USED", "", UInt16(header.npoints);
+            groups[:POINT][:USED] = Parameter("USED", "", UInt16(header.npoints);
                 gid=groups[:POINT].gid)
         end
 
         if !(:FRAMES in pointkeys)
             @debug "POINT:FRAMES was missing; setting as $(header.lframe - header.fframe + 1) from header"
-            groups[:POINT].params[:FRAMES] = Parameter("FRAMES", "", UInt16(header.lframe - header.fframe + 1);
+            groups[:POINT][:FRAMES] = Parameter("FRAMES", "", UInt16(header.lframe - header.fframe + 1);
                 gid=groups[:POINT].gid)
         end
 
         if !(:DATA_START in pointkeys)
             @debug "POINT:DATA_START was missing; setting as $(header.datastart) from header"
-            groups[:POINT].params[:DATA_START] = Parameter("DATA_START", "", UInt16(header.datastart);
+            groups[:POINT][:DATA_START] = Parameter("DATA_START", "", UInt16(header.datastart);
                 gid=groups[:POINT].gid)
         end
 
         if !(:SCALE in pointkeys)
-            groups[:POINT].params[:SCALE] = Parameter("SCALE", "", Float32(header.scale);
+            groups[:POINT][:SCALE] = Parameter("SCALE", "", Float32(header.scale);
                 gid=groups[:POINT].gid)
         end
     end
@@ -85,7 +85,7 @@ function validatec3d(header, groups)
     # Fix the sign for any point parameters that are likely to need it
     for (group, param) in pointsigncheck
         if any(signbit, groups[group].params[param].payload.data)
-            groups[group].params[param] = unsigned(groups[group].params[param])
+            groups[group][param] = unsigned(groups[group].params[param])
         end
     end
 
@@ -93,11 +93,11 @@ function validatec3d(header, groups)
         groups[:POINT].params[:DATA_START].payload.data = header.datastart
     end
 
-    POINT_USED = groups[:POINT][Int, :USED]
+    POINT_USED::Int = groups[:POINT][Int, :USED]
     if POINT_USED != 0 # There are markers
         # If there are markers, the additional set of required parameters is ratescale
         if !(:RATE ∈ pointkeys)
-            groups[:POINT].params[:RATE] = Parameter("RATE", "Video sampling rate",
+            groups[:POINT][:RATE] = Parameter("RATE", "Video sampling rate",
                 Float32(header.pointrate); gid=groups[:POINT].gid)
         end
 
@@ -107,8 +107,8 @@ function validatec3d(header, groups)
                 # parameter, this implementation requires LABELS (for indexing)
                 @debug ":POINT is missing parameter :LABELS"
                 labels = [ "M"*string(i, pad=3) for i in 1:POINT_USED ]
-                groups[:POINT].params[:LABELS] = Parameter("LABELS", "Marker labels",
-                    labels; gid=groups[:POINT].gid)
+                groups[:POINT][:LABELS] = Parameter("LABELS", "Marker labels",
+                    labels; gid=gid(groups[:POINT]))
             elseif !haskey(groups[:POINT], :DESCRIPTIONS)
                 @debug ":POINT is missing parameter :DESCRIPTIONS"
             elseif !haskey(groups[:POINT], :UNITS)
@@ -116,7 +116,7 @@ function validatec3d(header, groups)
             end
         elseif groups[:POINT].params[:LABELS] isa Parameter{ScalarParameter}
             # ie There is only one used marker (or the others are unlabeled)
-            groups[:POINT].params[:LABELS] = Parameter{StringParameter}(groups[:POINT].params[:LABELS])
+            groups[:POINT][:LABELS] = Parameter{StringParameter}(groups[:POINT].params[:LABELS])
         end
     end # End validate :POINT
 
@@ -124,18 +124,18 @@ function validatec3d(header, groups)
     analogkeys = keys(groups[:ANALOG].params)
     if !haskey(groups[:ANALOG], :USED)
         @debug "ANALOG:USED was missing; setting as $(iszero(header.ampf) ? 0 : header.ampf÷header.aspf)"
-        groups[:ANALOG].params[:USED] = Parameter("USED", "", iszero(header.ampf) ?
+        groups[:ANALOG][:USED] = Parameter("USED", "", iszero(header.ampf) ?
             UInt16(0) : UInt16(header.ampf÷header.aspf); gid=groups[:ANALOG].gid)
     end
 
-    ANALOG_USED = groups[:ANALOG][Int, :USED]
+    ANALOG_USED::Int = groups[:ANALOG][Int, :USED]
     if signbit(ANALOG_USED)
-        groups[:ANALOG].params[:USED] = unsigned(groups[:ANALOG].params[:USED])
+        groups[:ANALOG][:USED] = unsigned(groups[:ANALOG].params[:USED])
     end
 
     if ANALOG_USED != 0 # There are analog channels
         if !(:RATE in analogkeys)
-            groups[:ANALOG].params[:RATE] = Parameter("RATE", "Analog sampling rate",
+            groups[:ANALOG][:RATE] = Parameter("RATE", "Analog sampling rate",
                 Float32(groups[:POINT][Float32, :RATE] * header.aspf); gid=groups[:ANALOG].gid)
         end
 
@@ -154,15 +154,15 @@ function validatec3d(header, groups)
             if !haskey(groups[:ANALOG], :LABELS)
                 @debug ":ANALOG is missing parameter :LABELS"
                 labels = [ "A"*string(i, pad=3) for i in 1:ANALOG_USED ]
-                groups[:ANALOG].params[:LABELS] = Parameter{StringParameter}("LABELS",
-                    "Channel labels", labels; gid=groups[:ANALOG].gid)
+                groups[:ANALOG][:LABELS] = Parameter("LABELS", "Channel labels",
+                    labels; gid=gid(groups[:ANALOG]))
             elseif !haskey(groups[:ANALOG], :DESCRIPTIONS)
                 @debug ":ANALOG is missing parameter :DESCRIPTIONS"
             elseif !haskey(groups[:ANALOG], :UNITS)
                 @debug ":ANALOG is missing parameter :UNITS"
             end
         elseif groups[:ANALOG].params[:LABELS] isa ScalarParameter
-            groups[:ANALOG].params[:LABELS] = StringParameter(groups[:ANALOG].params[:LABELS])
+            groups[:ANALOG][:LABELS] = StringParameter(groups[:ANALOG].params[:LABELS])
         end
 
         # Pad scale and offset if shorter than :USED
@@ -185,7 +185,7 @@ function validatec3d(header, groups)
         for grp in missing_groups
             if issubset(keys(groups[Symbol(grp.match)]), (:ACTUAL_START_FIELD, :ACTUAL_END_FIELD))
                 if !haskey(groups, :TRIAL)
-                    groups[:TRIAL] = Group("TRIAL", ""; gid=-tryparse(Int8, grp[1]))
+                    groups[:TRIAL] = Group("TRIAL", ""; gid=-parse(Int8, grp[1]))
                 end
                 merge!(groups[:TRIAL].params, groups[Symbol(grp.match)].params)
                 delete!(groups, Symbol(grp.match))

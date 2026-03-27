@@ -12,13 +12,39 @@ function _naturalsortby(x)
     end
 end
 
-function get_multipled_parameter_names(groups, group, param)
+function get_extended_parameter_names(group, param)
     rgx = Regex("^$(param)\\d*")
-    params = filter(collect(keys(groups[Symbol(group)]))) do k
+    params = filter(collect(keys(group))) do k
         contains(string(k), rgx)
     end
     sort!(params; by=_naturalsortby)
     return params
+end
+
+"""
+    _extended_key(base, mult) -> Symbol
+
+Return the parameter key for the given 0-based overflow index: `:LABELS` for mult=0,
+`:LABELS2` for mult=1, `:LABELS3` for mult=2, etc.
+"""
+_extended_key(base::Symbol, mult::Int) = mult == 0 ? base : Symbol(string(base, mult + 1))
+
+"""
+    _find_in_extended(group, base, value) -> Union{Int, Nothing}
+
+Return the global position of `value` across the overflow chain for `base`,
+or `nothing` if not found.
+"""
+function _find_in_extended(group, base::Symbol, value)
+    all_keys = get_extended_parameter_names(group, base)
+    offset = 0
+    for key in all_keys
+        arr = group[key]
+        idx = findfirst(==(value), arr)
+        !isnothing(idx) && return offset + idx
+        offset += length(arr)
+    end
+    return nothing
 end
 
 "loosely based on countmap (addcounts_dict!) from StatsBase"
@@ -51,8 +77,9 @@ Write the C3DFile `f` to a .trc format at `filename`.
 # Keyword arguments
 - `delim::Char='\\t'`: The text delimiter to use
 - `strip_prefixes::Bool=true`: Strip marker label prefixes if they exist
-- `subject::String=""`: The subject (among multiple subjects) in the C3DFile to write
-- `prefixes::Vector{String}=[subject]`: Marker label prefixes to strip if
+- `subject::String=nothing`: Only write this subject's markers (assumes marker names are
+  prefixed with this string)
+- `prefixes::Vector{String}=nothing`: Marker label prefixes to strip if
   `strip_prefixes == true`
 - `remove_unlabeled_markers::Bool=true`: Remove markers with empty labels, labels
   matching `r"(\\*\\d+|M\\d\\d\\d)"`
@@ -67,8 +94,8 @@ function writetrc(filename::String, f::C3DFile;
     precision::Int=6,
     strip_prefixes::Bool=true,
     remove_unlabeled_markers::Bool=true,
-    subject::String="",
-    prefixes::Vector{String}=[subject],
+    subject::Union{Nothing,String}=nothing,
+    prefixes::Union{Nothing,Vector{String}}=nothing,
     lab_orientation::AbstractMatrix{T}=eye3,
     virtual_markers::Dict{String,Matrix{U}}=Dict{String,Matrix{Float32}}()
 ) where {T,U}
@@ -83,26 +110,24 @@ function writetrc(io, f::C3DFile;
     precision::Int=6,
     strip_prefixes::Bool=true,
     remove_unlabeled_markers::Bool=true,
-    subject::String="",
-    prefixes::Vector{String}=[subject],
+    subject::Union{Nothing,String}=nothing,
+    prefixes::Union{Nothing,Vector{String}}=nothing,
     lab_orientation::AbstractMatrix{T}=eye3,
     virtual_markers::Dict{String,Matrix{U}}=Dict{String,Matrix{Float32}}()
 ) where {T,U}
-    if subject !== ""
-        if haskey(f.groups, :SUBJECTS)
-            any(subject .== f.groups[:SUBJECTS][Vector{String}, :NAMES]) || throw(ArgumentError("subject $subject does not exist in $f.groups[:SUBJECTS]"))
-        elseif strip_prefixes && prefixes == [subject]
-            @warn "subject $subject does not exist in $f.groups[:SUBJECTS] and may not be the correct prefix"
-        end
-    end
-
     len = numpointframes(f)
     period = inv(f.groups[:POINT][Float64, :RATE])
 
     mkrnames = collect(keys(f.point))
-    if subject !== ""
-        filter!(x -> startswith(x, subject), mkrnames)
-        isempty(mkrnames) && @warn "no markers matched subject $subject"
+    if !isnothing(subject)
+        if haskey(f.groups, :SUBJECTS)
+            any(subject .== f.groups[:SUBJECTS][Vector{String}, :NAMES]) || throw(ArgumentError("subject $subject does not exist in $f.groups[:SUBJECTS]"))
+        else # try filtering markers with the default prefix anyways
+            filter!(startswith(subject), mkrnames)
+            if isempty(mkrnames)
+                throw(ArgumentError("this file doesn't list any subjects in $f.groups[:SUBJECTS] and no markers are prefixed with $subject"))
+            end
+        end
     end
 
     if !isdisjoint(keys(f.groups[:POINT]), (:ANGLES, :POWERS, :FORCES, :MOMENTS))
@@ -119,7 +144,7 @@ function writetrc(io, f::C3DFile;
             f.groups[:SUBJECTS][Int, :USES_PREFIXES] == 1) ||
             (!haskey(f.groups[:SUBJECTS], :USES_PREFIXES) &&
             haskey(f.groups[:SUBJECTS], :LABEL_PREFIXES)))
-            if subject !== ""
+            if !isnothing(subject)
                 subi = findfirst(==(subject), f.groups[:SUBJECTS][Vector{String}, :NAMES])
                 r = Regex("("*f.groups[:SUBJECTS][Vector{String}, :LABEL_PREFIXES][subi] *
                         ")(?<label>\\w*)")
@@ -129,7 +154,7 @@ function writetrc(io, f::C3DFile;
                         prefixes], '|')*")(?<label>\\w*)")
                 mkrnames_stripped = replace.(mkrnames, r => s"\g<label>")
             end
-        elseif subject !== "" || prefixes !== [""]
+        elseif !isnothing(subject) || !isnothing(prefixes)
             if any(subject .== prefixes)
                 r = Regex("("*join(prefixes, '|')*")(?<label>\\w*)")
             else
@@ -160,6 +185,9 @@ function writetrc(io, f::C3DFile;
     mkrnames = mkrnames[ord]
     mkrnames_stripped = mkrnames_stripped[ord]
 
+    nummkr = length(mkrnames)
+    numxmkr = length(virtual_markers)
+
     # Header
     line1 = ["PathFileType", "4", "(X/Y/Z)", basename(f.name)*'\n']
     line2 = ["DataRate", "CameraRate", "NumFrames", "NumMarkers", "Units", "OrigDataRate",
@@ -169,7 +197,7 @@ function writetrc(io, f::C3DFile;
     print(io, f.groups[:POINT][Float32, :RATE], delim)
     print(io, f.groups[:POINT][Float32, :RATE], delim)
     print(io, len, delim)
-    print(io, length(mkrnames) + length(virtual_markers), delim)
+    print(io, length(mkrnames) + numxmkr, delim)
     print(io, strip(f.groups[:POINT][String, :UNITS], Char(0x00)), delim)
     print(io, f.groups[:POINT][Float32, :RATE], delim)
     print(io, 1, delim)
@@ -191,14 +219,16 @@ function writetrc(io, f::C3DFile;
     # Coordinate line
     write(io, delim^2)
     join(io, (string('X', n, delim, 'Y', n, delim, 'Z', n)
-              for n in 1:(length(mkrnames)+length(virtual_markers))), delim)
+              for n in 1:(nummkr+numxmkr)), delim)
     write(io, '\n'^2)
 
     # Core data block
-    et = promote_type(Float32, T, U)
+    et = if !isempty(virtual_markers)
+        promote_type(Float32, T, U)
+    else
+        promote_type(Float32, T)
+    end
     nanet = convert(et, NaN)
-    nummkr = length(mkrnames)
-    numxmkr = length(extra_mkrnames)
     data = Matrix{Union{Missing,et}}(undef, len, 1+3*(nummkr + numxmkr))
 
     data[:,1] .= range(zero(et), step=period, length=len)
