@@ -7,9 +7,11 @@ using OrderedCollections: OrderedCollections, LittleDict, OrderedDict
 using PrecompileTools: @compile_workload, @setup_workload
 using VaxData: VaxFloat, VaxFloatF
 
-export readc3d, writec3d, numpointframes, numanalogframes, writetrc
+export readc3d, writec3d, numpointframes, numanalogframes, writetrc, deletepoint!,
+    deleteanalog!, deleteforceplate!
 
 export C3DFile
+public Group, Parameter
 
 include("endian.jl")
 include("parameters.jl")
@@ -30,6 +32,7 @@ include("read.jl")
 include("validate.jl")
 include("write.jl")
 include("util.jl")
+include("edit.jl")
 
 struct DuplicateMarkerError
     msg::String
@@ -61,7 +64,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
     numpts = groups[:POINT][Int, :USED]
     if !iszero(numpts)
         if haskey(groups[:POINT], :LABELS2)
-            ptlabel_keys = get_multipled_parameter_names(groups[:POINT], :LABELS)
+            ptlabel_keys = get_extended_parameter_names(groups[:POINT], :LABELS)
             pt_labels = Iterators.flatten(
                 groups[:POINT][Vector{String}, label] for label in ptlabel_keys
                 )
@@ -143,7 +146,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
     numanalogs = groups[:ANALOG][Int, :USED]
     if !iszero(numanalogs)
         if haskey(groups[:ANALOG], :LABELS2)
-            anlabel_keys = get_multipled_parameter_names(groups[:ANALOG], :LABELS)
+            anlabel_keys = get_extended_parameter_names(groups[:ANALOG], :LABELS)
             an_labels = Iterators.flatten(
                 groups[:ANALOG][Vector{String}, label] for label in anlabel_keys
                 )

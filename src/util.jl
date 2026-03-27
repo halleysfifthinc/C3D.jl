@@ -12,13 +12,39 @@ function _naturalsortby(x)
     end
 end
 
-function get_multipled_parameter_names(group, param)
+function get_extended_parameter_names(group, param)
     rgx = Regex("^$(param)\\d*")
     params = filter(collect(keys(group))) do k
         contains(string(k), rgx)
     end
     sort!(params; by=_naturalsortby)
     return params
+end
+
+"""
+    _extended_key(base, mult) -> Symbol
+
+Return the parameter key for the given 0-based overflow index: `:LABELS` for mult=0,
+`:LABELS2` for mult=1, `:LABELS3` for mult=2, etc.
+"""
+_extended_key(base::Symbol, mult::Int) = mult == 0 ? base : Symbol(string(base, mult + 1))
+
+"""
+    _find_in_extended(group, base, value) -> Union{Int, Nothing}
+
+Return the global position of `value` across the overflow chain for `base`,
+or `nothing` if not found.
+"""
+function _find_in_extended(group, base::Symbol, value)
+    all_keys = get_extended_parameter_names(group, base)
+    offset = 0
+    for key in all_keys
+        arr = group[key]
+        idx = findfirst(==(value), arr)
+        !isnothing(idx) && return offset + idx
+        offset += length(arr)
+    end
+    return nothing
 end
 
 "loosely based on countmap (addcounts_dict!) from StatsBase"
