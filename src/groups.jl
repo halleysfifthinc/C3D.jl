@@ -79,6 +79,11 @@ function typedindex(g::Group, ::Type{T}, k) where T
     return r
 end
 
+function Base.setindex!(g::Group, p::Parameter, k::Symbol)
+    name(p) === k || throw(ArgumentError("key must match match parameter name"))
+    return g.params[k] = p
+end
+
 Base.keys(g::Group) = keys(g.params)
 Base.values(g::Group) = values(g.params)
 Base.haskey(g::Group, key) = haskey(g.params, key)
@@ -88,9 +93,9 @@ endianness(::Type{Group{END}}) where END = END
 function Base.get(g::Group, key, default)
     return haskey(g, key) ? g[key] : default
 end
-function Base.get(g::Group, key::Tuple{Type,Symbol}, default::T) where T
+function Base.get(g::Group, key::Tuple{Type{T},Symbol}, default::U) where {U,T}
     _key = last(key)
-    return haskey(g, _key) ? g[key...] : default
+    return haskey(g, _key) ? g[U, _key] : default
 end
 
 
