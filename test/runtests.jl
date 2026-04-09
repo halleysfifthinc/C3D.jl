@@ -80,5 +80,6 @@ end
 
         include("write.jl")
         include("extended.jl")
+        include("edit.jl")
     end
 end

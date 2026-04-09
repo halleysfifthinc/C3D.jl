@@ -30,6 +30,24 @@ parameter (e.g. `:LABELS` for mult=1, `:LABELS2` for mult=2, etc.)
 _extended_key(base::Symbol, mult::Int) = mult == 1 ? base : Symbol(string(base, mult))
 
 """
+    _find_in_extended(group, base, value) -> Union{Int, Nothing}
+
+Return the global position of `value` across the overflow chain for `base`,
+or `nothing` if not found.
+"""
+function _find_in_extended(group, base::Symbol, value)
+    all_keys = get_extended_parameter_names(group, base)
+    offset = 0
+    for key in all_keys
+        arr = group[key]
+        idx = findfirst(==(value), arr)
+        !isnothing(idx) && return offset + idx
+        offset += length(arr)
+    end
+    return nothing
+end
+
+"""
     delete_extended_param!(group, base, pos)
 
 Delete the entry at global position `pos` from `base` or `base` extensions.

@@ -7,7 +7,8 @@ using OrderedCollections: OrderedCollections, LittleDict, OrderedDict
 using PrecompileTools: @compile_workload, @setup_workload
 using VaxData: VaxFloat, VaxFloatF
 
-export readc3d, writec3d, numpointframes, numanalogframes, writetrc
+export readc3d, writec3d, numpointframes, numanalogframes, writetrc, deletepoint!,
+    deleteanalog!, deleteforceplate!
 
 export C3DFile
 
@@ -30,6 +31,7 @@ include("read.jl")
 include("util.jl")
 include("validate.jl")
 include("write.jl")
+include("edit.jl")
 
 struct DuplicateMarkerError
     msg::String
