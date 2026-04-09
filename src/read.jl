@@ -29,8 +29,8 @@ function readdata(
     numframes::Int = numpointframes(groups)
     nummarkers::Int = groups[:POINT][Int, :USED]
     numchannels::Int = groups[:ANALOG][Int, :USED]
-    pointrate = get(groups[:POINT], (Float32, :RATE), h.pointrate::Float32)::Float32
-    analograte = get(groups[:ANALOG], (Float32, :RATE), pointrate)::Float32
+    pointrate = get(groups[:POINT], Float32, :RATE, h.pointrate)
+    analograte = get(groups[:ANALOG], Float32, :RATE, pointrate)
     if isinteger(analograte/pointrate)::Bool
         aspf::Int = convert(Int, analograte/pointrate)
     else
