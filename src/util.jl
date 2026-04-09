@@ -175,6 +175,34 @@ function flatten_extended_params(group, base::Symbol, ::Type{T}) where {T}
     return Iterators.take(flat, min(used, total))
 end
 
+"""
+    analog_int_format(groups) -> Union{Int16,UInt16}
+
+Return the stated (ANALOG:FORMAT if existing) or inferred int type for analog data and
+ANALOG:OFFSET.
+
+Signedness is inferred if ANALOG:OFFSET contains "large" (>(2^10)) offsets. Signed data
+should normally have offsets close to zero, according to the spec:
+
+> In the absence of the ANALOG:FORMAT parameter, the format of the analog data can be
+> determined by reading the ANALOG:OFFSET parameter. 12-bit unsigned binary values require
+> an OFFSET of [2^11 - 1] ... while signed binary data will have an OFFSET of 0.
+
+"""
+function analog_int_format(agroup)
+    # No analog channels; type is ~meaningless/unused
+    iszero(agroup[Int, :USED]) && return Int16
+
+
+    format = get(agroup, (Vector{String}, :FORMAT)) do
+        # Auto-zeroing of signed data may shift offsets from zero, but shouldn't be > ~12 bits
+        offsets = flatten_extended_params(agroup, :OFFSET, Int)
+        any(>(1024), offsets) ? ["UNSIGNED"] : ["SIGNED"]
+    end
+
+    return only(format) == "SIGNED" ? Int16 : UInt16
+end
+
 "loosely based on countmap (addcounts_dict!) from StatsBase"
 function findduplicates(itr)
     dups = Dict{eltype(itr), Int}()

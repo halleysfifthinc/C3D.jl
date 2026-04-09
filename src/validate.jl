@@ -165,17 +165,36 @@ function validatec3d(header, groups)
             groups[:ANALOG][:LABELS] = StringParameter(groups[:ANALOG].params[:LABELS])
         end
 
-        # Pad scale and offset if shorter than :USED
-        l = length(groups[:ANALOG][Vector{Float32}, :SCALE])
-        if l < ANALOG_USED && !haskey(groups[:ANALOG], :SCALE2)
-            append!(groups[:ANALOG][Vector{Float32}, :SCALE],
-                    fill(one(Float32), ANALOG_USED - l))
+        # reinterpret ANALOG:OFFSET as unsigned if needed
+        aT = analog_int_format(groups[:ANALOG])
+        if aT <: Unsigned
+            groups[:ANALOG][:OFFSET] = unsigned(groups[:ANALOG].params[:OFFSET])
         end
 
-        l = length(groups[:ANALOG][Vector{Int16}, :OFFSET])
-        if l < ANALOG_USED && !haskey(groups[:ANALOG], :OFFSET2)
-            append!(groups[:ANALOG][Vector{Int16}, :OFFSET],
-                    fill(one(Float32), ANALOG_USED - l))
+        # Pad scale and offset if shorter than :USED. Occurs in:
+        #   - artifact"sample18/bad_parameter_section.c3d"
+        #   - artifact"sample11/evart.c3d"
+        l = count(Returns(true), flatten_extended_params(groups[:ANALOG], :SCALE, Float32)) # Iterators.flatten !HasLength()
+        if l < ANALOG_USED
+            for i in l+1:ANALOG_USED
+                push_extended_param!(groups[:ANALOG], :SCALE, one(Float32), i)
+            end
+        end
+
+        l = count(Returns(true), flatten_extended_params(groups[:ANALOG], :OFFSET, Int))
+        if l < ANALOG_USED
+            default_offset = if aT <: Unsigned
+                avg_offset = sum(flatten_extended_params(groups[:ANALOG], :OFFSET, Int))/l # promote to avoid overflow
+                nbits = round(log2(avg_offset)) + 1
+                2^nbits - 1 # file-spec recommended unsigned OFFSET
+            else
+                zero(Int16)
+            end
+            @debug "Estimating a default ANALOG:OFFSET (for padding) of $(default_offset)"
+
+            for i in l+1:ANALOG_USED
+                push_extended_param!(groups[:ANALOG], :OFFSET, default_offset, i)
+            end
         end
     end # End if analog channels exist
 
