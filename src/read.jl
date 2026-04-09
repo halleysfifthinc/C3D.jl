@@ -102,7 +102,15 @@ function readdata(
             if _iosize - pos ≥ sizeof(pointtmp)
                 read!(io, pointtmp, END)
                 point[:,i] .= convert.(Float32, pointview)
-                residuals[:,i] .= convert.(Int32, resview) .% Int16
+                try
+                    residuals[:,i] .= convert.(Int32, resview) .% Int16
+                catch e
+                    if e isa InexactError
+                        @warn "Found incorrectly stored residuals (non-integer). Defaulting to zero." _id=objectid(io) maxlog=1
+                    else
+                        rethrow()
+                    end
+                end
                 pos += nb*sizeof(F)
             else
                 # Make marker data for missing frames be treated as missing
