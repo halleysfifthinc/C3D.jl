@@ -47,20 +47,32 @@ end
 
 function Parameter(pos, gid, lock, np, name, desc, payload)
     return Parameter(pos, convert(Int8, gid), lock, convert(Int16, np),
-        Vector{UInt8}(name), Symbol(name), Vector{UInt8}(desc), payload)
+        Vector{UInt8}(string(name)), Symbol(name), Vector{UInt8}(desc), payload)
 end
 
-function Parameter(name, desc, payload::P; gid=0, locked=signbit(gid)) where {P<:Union{Vector{String},String}}
+# define top-level default kwargs method
+Parameter(name, desc, payload; gid::Integer=0, locked::Bool=signbit(gid)) = _Parameter(name, desc, payload; gid, locked)
+
+# dispatch methods with mandatory kwargs (not intended for direct use)
+function _Parameter(name, desc, payload::P; gid::Integer, locked::Bool) where {P<:Union{Vector{String},String}}
     return Parameter(0, gid, locked, 0, name, desc, StringParameter(payload))
 end
 
-function Parameter(name, desc, payload::AbstractArray{T,N}; gid=0, locked=signbit(gid)) where {T<:Union{Int8,Int16,Float32},N}
+function _Parameter(name, desc, payload::AbstractArray{T,N}; gid::Integer, locked::Bool) where {T<:Union{Int8,Int16,UInt16,Float32},N}
     return Parameter(0, gid, locked, 0, name, desc,
         ArrayParameter{T,N}(sizeof(T), ndims(payload), collect(size(payload)), payload))
 end
 
-function Parameter(name, desc, payload::T; gid=0, locked=signbit(gid)) where {T <: Union{UInt8,UInt16,Float32}}
+function _Parameter(name, desc, payload::T; gid::Integer, locked::Bool) where {T <: Union{UInt8,UInt16,Float32}}
     return Parameter(0, gid, locked, 0, name, desc, ScalarParameter{T}(payload))
+end
+
+# convenience Int downcast methods
+function _Parameter(name, desc, payload::Int; gid::Integer, locked::Bool)
+    return _Parameter(name, desc, UInt16(payload); gid, locked)
+end
+function _Parameter(name, desc, payload::AbstractVector{Int}; gid::Integer, locked::Bool)
+    return _Parameter(name, desc, convert(Vector{UInt16}, payload); gid, locked)
 end
 
 function Parameter{StringParameter}(p::Parameter{ScalarParameter{String}})
