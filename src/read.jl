@@ -29,8 +29,8 @@ function readdata(
     numframes::Int = numpointframes(groups)
     nummarkers::Int = groups[:POINT][Int, :USED]
     numchannels::Int = groups[:ANALOG][Int, :USED]
-    pointrate = get(groups[:POINT], (Float32, :RATE), h.pointrate::Float32)::Float32
-    analograte = get(groups[:ANALOG], (Float32, :RATE), pointrate)::Float32
+    pointrate = get(groups[:POINT], Float32, :RATE, h.pointrate)
+    analograte = get(groups[:ANALOG], Float32, :RATE, pointrate)
     if isinteger(analograte/pointrate)::Bool
         aspf::Int = convert(Int, analograte/pointrate)
     else
@@ -102,7 +102,15 @@ function readdata(
             if _iosize - pos ≥ sizeof(pointtmp)
                 read!(io, pointtmp, END)
                 point[:,i] .= convert.(Float32, pointview)
-                residuals[:,i] .= convert.(Int32, resview) .% Int16
+                try
+                    residuals[:,i] .= convert.(Int32, resview) .% Int16
+                catch e
+                    if e isa InexactError
+                        @warn "Found incorrectly stored residuals (non-integer). Defaulting to zero." _id=objectid(io) maxlog=1
+                    else
+                        rethrow()
+                    end
+                end
                 pos += nb*sizeof(F)
             else
                 # Make marker data for missing frames be treated as missing
@@ -137,24 +145,10 @@ function readdata(
             SCALE = groups[:ANALOG][Float32, :GEN_SCALE] * groups[:ANALOG][Float32, :SCALE]
             analog .= (analog .- ANALOG_OFFSET) .* SCALE
         else
-            if haskey(groups[:ANALOG], :OFFSET2)
-                off_labels = get_multipled_parameter_names(groups, :ANALOG, :OFFSET)
-                VECANALOG_OFFSET = convert(Vector{Float32}, reduce(vcat,
-                    groups[:ANALOG][Vector{Int}, offset]
-                    for offset in off_labels))[1:numchannels]
-            else
-                VECANALOG_OFFSET = convert(Vector{Float32},
-                    groups[:ANALOG][Vector{Int}, :OFFSET][1:numchannels])
-            end
+            VECANALOG_OFFSET = convert(Vector{Float32},
+                collect(flatten_extended_params(groups[:ANALOG], :OFFSET, Int)))
 
-            if haskey(groups[:ANALOG], :SCALE2)
-                scale_labels = get_multipled_parameter_names(groups, :ANALOG, :SCALE)
-                VECSCALE = convert(Vector{Float32}, reduce(vcat,
-                    groups[:ANALOG][Vector{Int}, scale]
-                    for scale in scale_labels))[1:numchannels]
-            else
-                VECSCALE = groups[:ANALOG][Vector{Float32}, :SCALE][1:numchannels]
-            end
+            VECSCALE = collect(flatten_extended_params(groups[:ANALOG], :SCALE, Float32))
             VECSCALE .*= groups[:ANALOG][Float32, :GEN_SCALE]
 
             analog .= (analog .- VECANALOG_OFFSET) .* VECSCALE
