@@ -22,13 +22,11 @@ assumes that these cases are rare (<2% of samples) when analog data is (correctl
 integers, but that otherwise, the signal must be pre-scaled and therefore non-integer.
 """
 function matrixround_ifintegers(x)
-    y = similar(x)
+    y = copy(x)
     rows = size(x, 1)
-    for (i,c) in enumerate(eachcol(x))
-        if count(isinteger, c)/rows > .98 # integer analog samples stored as floats
-            @views y[:,i] = round.(c)
-        else
-            @views y[:,i] = c
+    for (ycol,xcol) in zip(eachcol(y), eachcol(x))
+        if count(isinteger, xcol)/rows > .98 # integer analog samples stored as floats
+            ycol .= round.(xcol)
         end
     end
     return y
@@ -69,8 +67,8 @@ function assemble_analogdata(h::Header{END}, f::C3DFile{END}, ::Type{T}) where {
 
     numchannels == 0 && return similar(Matrix{Float32}, (numpointframes(f),0,))
 
-    analogdata  = similar(Matrix{Float32}, (numanalogframes(f),length(f.analog),))
-    for (i, (analog, an_arr)) in enumerate(pairs(f.analog))
+    analogdata  = similar(Matrix{Float32}, (numanalogframes(f),numchannels,))
+    for (i, an_arr) in enumerate(values(f.analog))
         analogdata[:,i] = an_arr
     end
 
@@ -82,29 +80,15 @@ function assemble_analogdata(h::Header{END}, f::C3DFile{END}, ::Type{T}) where {
         analogdata .= analogdata ./ ANALOG_SCALE .+ ANALOG_OFFSET
         analogdata[:] = matrixround_ifintegers(analogdata)
     elseif numchannels > 1
-        if haskey(f.groups[:ANALOG], :OFFSET2)
-            off_labels = get_multipled_parameter_names(f.groups, :ANALOG, :OFFSET)
-            VECANALOG_OFFSET = convert(Vector{Float32}, reduce(vcat,
-                f.groups[:ANALOG][Vector{Int}, offset]
-                for offset in off_labels))[1:numchannels]'
-        else
-            VECANALOG_OFFSET = convert(Vector{Float32},
-                f.groups[:ANALOG][Vector{Int}, :OFFSET][1:numchannels])'
-        end
+        VECANALOG_OFFSET = convert(Vector{Float32},
+            collect(flatten_extended_params(f.groups[:ANALOG], :OFFSET, Int)))'
 
         # addition of positive zero changes sign (to positive), negative zero addition
         # leaves sign as-is
         VECANALOG_OFFSET[iszero.(VECANALOG_OFFSET)] .= -0.0f0
 
-
-        if haskey(f.groups[:ANALOG], :SCALE2)
-            scale_labels = get_multipled_parameter_names(f.groups, :ANALOG, :SCALE)
-            VECANALOG_SCALE = convert(Vector{Float32}, reduce(vcat,
-                f.groups[:ANALOG][Vector{Int}, scale]
-                for scale in scale_labels))[1:numchannels]'
-        else
-            VECANALOG_SCALE = f.groups[:ANALOG][Vector{Float32}, :SCALE][1:numchannels]'
-        end
+        VECANALOG_SCALE = convert(Vector{Float32},
+            collect(flatten_extended_params(f.groups[:ANALOG], :SCALE, Float32)))'
         VECANALOG_SCALE .*= f.groups[:ANALOG][Float32, :GEN_SCALE]
 
         # Dividing by zero causes NaNs; dividing by 1 does nothing
@@ -187,7 +171,7 @@ function add_edited!(f::C3DFile{END}) where END
     else
         push!(_data, edited_desc())
     end
-    f.groups[:MANUFACTURER].params[:EDITED] = p
+    f.groups[:MANUFACTURER][:EDITED] = p
 
     return nothing
 end

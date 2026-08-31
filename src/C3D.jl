@@ -7,7 +7,8 @@ using OrderedCollections: OrderedCollections, LittleDict, OrderedDict
 using PrecompileTools: @compile_workload, @setup_workload
 using VaxData: VaxFloat, VaxFloatF
 
-export readc3d, writec3d, numpointframes, numanalogframes, writetrc
+export readc3d, writec3d, numpointframes, numanalogframes, writetrc, deletepoint!,
+    deleteanalog!, deleteforceplate!
 
 export C3DFile
 
@@ -27,9 +28,10 @@ struct C3DFile{END<:AbstractEndian}
 end
 
 include("read.jl")
+include("util.jl")
 include("validate.jl")
 include("write.jl")
-include("util.jl")
+include("edit.jl")
 
 struct DuplicateMarkerError
     msg::String
@@ -60,14 +62,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
 
     numpts = groups[:POINT][Int, :USED]
     if !iszero(numpts)
-        if haskey(groups[:POINT], :LABELS2)
-            ptlabel_keys = get_multipled_parameter_names(groups, :POINT, :LABELS)
-            pt_labels = Iterators.flatten(
-                groups[:POINT][Vector{String}, label] for label in ptlabel_keys
-                )
-        else
-            pt_labels = groups[:POINT][Vector{String}, :LABELS]
-        end
+        pt_labels = flatten_extended_params(groups[:POINT], :LABELS, String)
 
         sizehint!(fpoint, numpts)
         sizehint!(fresiduals, numpts)
@@ -142,14 +137,7 @@ function C3DFile(name::String, header::Header{END}, groups::LittleDict{Symbol,Gr
 
     numanalogs = groups[:ANALOG][Int, :USED]
     if !iszero(numanalogs)
-        if haskey(groups[:ANALOG], :LABELS2)
-            anlabel_keys = get_multipled_parameter_names(groups, :ANALOG, :LABELS)
-            an_labels = Iterators.flatten(
-                groups[:ANALOG][Vector{String}, label] for label in anlabel_keys
-                )
-        else
-            an_labels = groups[:ANALOG][Vector{String}, :LABELS]
-        end
+        an_labels = flatten_extended_params(groups[:ANALOG], :LABELS, String)
 
         sizehint!(fanalog, numanalogs)
 
@@ -232,9 +220,9 @@ function Header{END}(f::C3DFile{OEND}) where {END<:AbstractEndian,OEND<:Abstract
     paramptr::UInt8 = 2
     datafmt::UInt8 = 0x50
     npoints::UInt16 = f.groups[:POINT][Int, :USED]
-    pointrate::Float32 = get(f.groups[:POINT], (Float32, :RATE), h.pointrate)
-    if isinteger(get(f.groups[:ANALOG], (Float32, :RATE), pointrate)/pointrate)
-        aspf::UInt16 = convert(UInt16, get(f.groups[:ANALOG], (Float32, :RATE), pointrate)/pointrate)
+    pointrate::Float32 = get(f.groups[:POINT], Float32, :RATE, h.pointrate)
+    if isinteger(get(f.groups[:ANALOG], Float32, :RATE, pointrate)/pointrate)
+        aspf::UInt16 = convert(UInt16, get(f.groups[:ANALOG], Float32, :RATE, pointrate)/pointrate)
     else
         throw(ArgumentError("ANALOG:RATE is not an integer multiple of POINT:RATE; writing out-of-spec C3DFiles is not supported"))
     end
