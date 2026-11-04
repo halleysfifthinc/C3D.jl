@@ -1,10 +1,4 @@
-using C3D, Test, LazyArtifacts, Artifacts, TOML, Logging, LoggingExtras, Aqua,
-    ExplicitImports
-using TOML: parsefile
-
-@static if isempty(VERSION.prerelease)
-using JET
-end
+using TestItemRunner, Test
 
 ## List of sample data archived from the C3D.org website on Dec 12, 2022
 # sample00 - Current C3D samples                         https://www.c3d.org/data/Sample00.zip
@@ -45,39 +39,16 @@ end
 # sample35 - ANALOG EMG data from MEGAWIN                https://www.c3d.org/data/Sample35.zip
 # sample36 - C3D POINT:FRAMES test suite                 https://www.c3d.org/data/Sample36.zip
 
-include("testutils.jl")
-
-function duplicate_warning(logargs)
-    return !contains(logargs.message, r"^Duplicate")
+# The summary should list each test item, but not the (many) testsets nested inside them.
+# TestItemRunner names the testsets it creates for the package, folders, and files after the
+# package name and the relative paths, which is how those are told apart from test items
+# (failing testsets are always expanded in the summary, regardless of `verbose`)
+function summary_testset(name; verbose)
+    istreenode = name in ("C3D", "test") || endswith(name, ".jl")
+    return Test.DefaultTestSet(name; verbose=(verbose && istreenode))
 end
 
-@testset verbose=true "C3D" begin
-    @testset "Aqua tests" begin
-        Aqua.test_all(C3D)
-    end
-    @testset "Explicit and public imports" begin
-        @test check_no_implicit_imports(C3D) === nothing
-        @test check_no_stale_explicit_imports(C3D) === nothing
-        @test check_all_explicit_imports_via_owners(C3D) === nothing
-        @test check_all_qualified_accesses_are_public(C3D;
-            ignore=(
-                :CompoundPeriod, :value, # Dates
-                :filter, :format_bytes, :_setindex!, :ht_keyindex2_shorthash!, # Base/Iterators
-                :add_new! # OrderedCollections
-            )) === nothing
-    end
-    with_logger(ActiveFilteredLogger(duplicate_warning, global_logger())) do
-        include("identical.jl")
-        include("publicinterface.jl")
-        include("validate.jl")
-        include("bigdata.jl")
-        include("singledata.jl")
-        include("invalid.jl")
-        include("blanklabels.jl")
-        include("badformats.jl")
-        include("inference.jl")
-        include("utils.jl")
-
-        include("write.jl")
-    end
-end
+# Test items are discovered in every `.jl` file under the package root (see the
+# `@testitem`s in the other files in `test/`); shared helpers are in the `TestUtils`
+# `@testmodule` (`test/testutils.jl`)
+@run_package_tests verbose=true testset=summary_testset

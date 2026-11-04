@@ -1,4 +1,7 @@
-@testset "Invalid data points" begin
+@testitem "Invalid data points" setup=[TestUtils] begin
+using LazyArtifacts
+# giant.c3d has duplicate labels
+filter_duplicate_warnings() do
     @test_nothrow readc3d(artifact"sample16/basketball.c3d")
     basketball = readc3d(artifact"sample16/basketball.c3d")
     @test all(( all(v .=== missing) for (k,v) in basketball.point))
@@ -22,4 +25,5 @@
     @test_nothrow readc3d(artifact"sample16/golf.c3d", missingpoints=false)
     golf = readc3d(artifact"sample16/golf.c3d", missingpoints=false)
     @test !any(( any(v .=== missing) for (k,v) in golf.point))
+end
 end

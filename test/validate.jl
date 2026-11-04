@@ -1,4 +1,8 @@
-@testset "Validation" begin
+@testitem "Validation" setup=[TestUtils] begin
+using LazyArtifacts
+using C3D: validatec3d, MissingParametersError, MissingGroupsError
+# dynamic.C3D and standing.C3D have duplicate labels
+filter_duplicate_warnings() do
     let
         path, _io = mktemp()
         write(_io, zeros(UInt8, 10))
@@ -6,7 +10,6 @@
         @test_throws r"not a valid C3D file" readc3d(path)
     end
 
-    using C3D: validatec3d, MissingParametersError, MissingGroupsError
     f = readc3d(artifact"sample01/Eb015pr.c3d")
 
     @test_nothrow readc3d(artifact"sample28/dynamic.C3D")
@@ -37,4 +40,5 @@
     #     delete!(bad_groups[:ANALOG].params, :USED)
     #     @test_throws MissingParametersError validatec3d(header, bad_groups)
     # end
+end
 end
