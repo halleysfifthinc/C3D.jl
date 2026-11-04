@@ -1,6 +1,44 @@
-using DeepDiffs, Test
+# Shared test helpers. A `@testmodule` is evaluated once per test process and is made
+# available to any `@testitem` that lists it in `setup=[TestUtils]`; the test item then
+# sees only the names exported below
+@testmodule TestUtils begin
+
+using C3D, DeepDiffs, Test
 using C3D: AbstractEndian, LE, endianness, readparam, data, unsafe_nonmissing, native_eltype
 using C3D: rstrip_vectorstring as _rstrip
+using Logging: with_logger, current_logger
+using LoggingExtras: ActiveFilteredLogger
+
+export @test_nothrow, @test_internalconsistency, readdir_recursive, compareheader,
+    comparedata, comparefiles, compare_parameters, filter_duplicate_warnings
+
+# Reading a file with repeated POINT/ANALOG labels logs one warning per renamed label
+# (`src/C3D.jl`, `C3DFile` constructor). Those warnings are expected for the sample data
+# and drown out the test output. These sample files are known to warn on a full read, so
+# any test item that reads one of them needs `filter_duplicate_warnings`:
+#   sample00/Motion Analysis Corporation/Sample_Jump2.c3d
+#   sample00/Motion Analysis Corporation/Walk1.c3d
+#   sample00/Vicon Motion Systems/TableTennis.c3d
+#   sample06/MACsample.c3d
+#   sample06/newwalk.c3d
+#   sample10/Sample10/TYPE-2a.c3d
+#   sample10/Sample10/TYPE-3.c3d
+#   sample10/Sample10/TYPE-4a.c3d
+#   sample16/giant.c3d
+#   sample17/128analogchannels.c3d
+#   sample18/bad_parameter_section.c3d
+#   sample21/sample21.c3d
+#   sample25/analogfpscale04.c3d
+#   sample25/analogfpscale04i.c3d
+#   sample26/Walking_Hybrid_2.c3d
+#   sample28/dynamic.C3D
+#   sample28/standing.C3D
+#   sample33/bigparlove.c3d
+function duplicate_warning(logargs)
+    return !contains(logargs.message, r"^Duplicate")
+end
+
+filter_duplicate_warnings(f) = with_logger(f, ActiveFilteredLogger(duplicate_warning, current_logger()))
 
 macro test_nothrow(ex)
     esc(:(@test ($(ex); true)))
@@ -381,3 +419,4 @@ function compare_parameters(f, group, parameter)
     return ParameterComparison(take!(ioA), take!(ioB), :parameter)
 end
 
+end # @testmodule TestUtils

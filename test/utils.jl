@@ -1,4 +1,5 @@
-@testset "TRC" begin
+@testitem "TRC" begin
+    using LazyArtifacts
     mktemp() do path, io
         @test writetrc(path, readc3d(artifact"sample01/Eb015pr.c3d")) == nothing
     end

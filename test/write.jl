@@ -1,9 +1,8 @@
-using C3D: _elsize, _ndims, _size, writesize
-
-@testset "Writing" begin
+# Test that headers can read/write round-trip identically
+@testitem "Write: headers" setup=[TestUtils] begin
+    using LazyArtifacts
+    using TOML: parsefile
     artifacts = keys(parsefile(find_artifacts_toml(@__FILE__)))
-    # Test that headers can read/write round-trip identically
-    @testset "Headers" begin
     @testset "artifact\"$art\"" for art in artifacts
         allfiles = filter(contains(r".c3d$"i), readdir_recursive(@artifact_str(art); join=true))
     @testset "File \"$(replace(fn, @artifact_str(art)*'/' => ""))\"" for fn in allfiles
@@ -15,10 +14,14 @@ using C3D: _elsize, _ndims, _size, writesize
         @test ref == comp
     end
     end
-    end
+end
 
-    # Test that groups can read/write round-trip identically
-    @testset "Groups" begin
+# Test that groups can read/write round-trip identically
+@testitem "Write: groups" setup=[TestUtils] begin
+    using LazyArtifacts
+    using TOML: parsefile
+    using C3D: writesize
+    artifacts = keys(parsefile(find_artifacts_toml(@__FILE__)))
     @testset "artifact\"$art\"" for art in artifacts
         allfiles = filter(contains(r".c3d$"i), readdir_recursive(@artifact_str(art); join=true))
     @testset "File \"$(replace(fn, @artifact_str(art)*'/' => ""))\"" for fn in allfiles
@@ -31,11 +34,15 @@ using C3D: _elsize, _ndims, _size, writesize
         end
     end
     end
-    end
+end
 
-    # Test that parameters can read/write round-trip identically (trimmed white-space is
-    # ignored)
-    @testset "Parameters:" begin
+# Test that parameters can read/write round-trip identically (trimmed white-space is
+# ignored)
+@testitem "Write: parameters" setup=[TestUtils] begin
+    using LazyArtifacts
+    using TOML: parsefile
+    using C3D: writesize, endianness
+    artifacts = keys(parsefile(find_artifacts_toml(@__FILE__)))
     @testset "artifact\"$art\"" for art in artifacts
         allfiles = filter(contains(r".c3d$"i), readdir_recursive(@artifact_str(art); join=true))
     @testset "File \"$(replace(fn, @artifact_str(art)*'/' => ""))\"" for fn in allfiles
@@ -59,9 +66,14 @@ using C3D: _elsize, _ndims, _size, writesize
         end
     end
     end
-    end
+end
 
-    @testset "Data:" begin
+@testitem "Write: data" setup=[TestUtils] begin
+    using LazyArtifacts
+    using TOML: parsefile
+    artifacts = keys(parsefile(find_artifacts_toml(@__FILE__)))
+    # every artifact is read in full, including the files with duplicate labels
+    filter_duplicate_warnings() do
     @testset "artifact\"$art\"" for art in artifacts
         allfiles = filter(contains(r".c3d$"i), readdir_recursive(@artifact_str(art); join=true))
     @testset "File \"$(replace(fn, @artifact_str(art)*'/' => ""))\"" for fn in allfiles
@@ -134,8 +146,14 @@ using C3D: _elsize, _ndims, _size, writesize
     end
     end
     end
+end
 
-    @testset "Whole file:" begin
+@testitem "Write: whole file" setup=[TestUtils] begin
+    using LazyArtifacts
+    using TOML: parsefile
+    artifacts = keys(parsefile(find_artifacts_toml(@__FILE__)))
+    # every artifact is read in full, including the files with duplicate labels
+    filter_duplicate_warnings() do
     @testset "artifact\"$art\"" for art in artifacts
         allfiles = filter(contains(r".c3d$"i), readdir_recursive(@artifact_str(art); join=true))
     @testset "File \"$(replace(fn, @artifact_str(art)*'/' => ""))\"" for fn in allfiles
