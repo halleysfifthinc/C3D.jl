@@ -206,6 +206,7 @@ function readc3d(fn::AbstractString; paramsonly=false, validate=true,
 the docstring for valid options."))
 
     io = open(fn, "r")
+    try
 
     params_ptr = read(io, UInt8)
 
@@ -257,7 +258,6 @@ the docstring for valid options."))
         residual = OrderedDict{String,Vector{Union{Missing, Float32}}}()
         cameras = OrderedDict{String,Vector{UInt8}}()
         analog = OrderedDict{String,Vector{Float32}}()
-        close(io)
         return C3DFile(fn, header, groups, point, residual, cameras, analog)
     else
         format = native_eltype(groups)
@@ -275,13 +275,15 @@ $point_datastart and the header's DATA_START is $(header.datastart)); cannot rea
         end
 
         (point, residual, analog) = readdata(io, header, groups, format)
-        close(io)
     end
 
     res = C3DFile(fn, header, groups, point, residual, analog;
                   missingpoints, strip_prefixes)
 
     return res
+    finally
+        close(io)
+    end
 end
 
 """
