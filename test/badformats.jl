@@ -142,3 +142,56 @@ end
     end
     @test_throws C3D.IrrecoverableFormatError "intended name GID_20_MISSING" readc3d(clash; paramsonly=true)
 end
+
+# A group without parameters keeps none, and every other group keeps exactly its own
+# parameters. FPLOC (gid 4 of 5 in this sample) is emptied so that groups with parameters
+# follow it.
+@testitem "Empty groups" setup=[TestUtils] begin
+    using LazyArtifacts
+    using C3D: gid
+    f = readc3d(artifact"sample01/Eb015pr.c3d")
+    subject = collect(keys(f.groups[:SUBJECT]))
+    empty!(f.groups[:FPLOC].params)
+    g = roundtrip(f).groups
+
+    @test isempty(g[:FPLOC].params)
+    @test collect(keys(g[:SUBJECT])) == subject
+    # MANUFACTURER:EDITED is added by `writec3d`, in a new group after SUBJECT
+    @test collect(keys(g[:MANUFACTURER])) == [:EDITED]
+    @test all(gid(p) == gid(grp) for grp in values(g) for p in values(grp.params))
+
+    # A group whose gid differs from its parameters' gid also has no parameters. FPLOC's
+    # group record is patched to gid 10 while its parameters keep gid 4, so they have no
+    # group and go to a placeholder group instead of to SUBJECT (gid 5).
+    src = artifact"sample01/Eb015pr.c3d"
+    fploc = collect(keys(readc3d(src; paramsonly=true).groups[:FPLOC]))
+    g = readc3d(patchc3d(src) do bytes, c3d
+            bytes[c3d.groups[:FPLOC].pos + 2] = reinterpret(UInt8, Int8(-10))
+        end; paramsonly=true).groups
+
+    @test isempty(g[:FPLOC].params)
+    @test collect(keys(g[:SUBJECT])) == subject
+    @test collect(keys(g[:GID_4_MISSING])) == fploc
+    @test all(gid(p) == gid(grp) for grp in values(g) for p in values(grp.params))
+end
+
+# When groups with different names share a gid, which group the gid's parameters belong to is
+# unknown, so each of those groups gets the same parameter objects (with a warning). The
+# fixture gives SUBJECT's group record FPLOC's gid (4), so SUBJECT's own parameters (gid 5)
+# have no group.
+@testitem "Groups that share a gid" setup=[TestUtils] begin
+    using LazyArtifacts
+    src = artifact"sample01/Eb015pr.c3d"
+    G = readc3d(src; paramsonly=true).groups
+    fploc, subject = collect(keys(G[:FPLOC])), collect(keys(G[:SUBJECT]))
+    shared = patchc3d(src) do bytes, c3d
+        bytes[c3d.groups[:SUBJECT].pos + 2] = bytes[c3d.groups[:FPLOC].pos + 2]
+    end
+
+    f = @test_logs (:warn, r"FPLOC.*SUBJECT.*\b4\b") match_mode=:any readc3d(shared)
+    g = f.groups
+    @test collect(keys(g[:FPLOC])) == fploc
+    @test collect(keys(g[:SUBJECT])) == fploc
+    @test all(g[:SUBJECT].params[k] === g[:FPLOC].params[k] for k in fploc)
+    @test collect(keys(g[:GID_5_MISSING])) == subject
+end

@@ -289,23 +289,16 @@ end
 """
     split_filter!(f::Function, a::AbstractVector) -> (trues, falses)
 
-Returns arrays `trues` and `falses` where `[trues; falses] == a`. `trues` is a copy, while
-`falses` is a view. `a` is assumed to be sorted by `f`.
+Returns an array which contains elements for which `f` returns `true`; those elements are filtered from `a`.
 """
 function split_filter!(f, a::AbstractVector)
-    if isempty(a)
-        return similar(a, (0,)), @view a[end+1:end]
-    end
-
-    true_is = searchsorted(a, first(a); by=f)
+    true_is = f.(a)
     trues = a[true_is]
-    falses = if isempty(true_is)
-        @views a[begin:end]
-    else
-        @views a[last(true_is)+1:end]
+    if any(true_is)
+        deleteat!(a, true_is)
     end
 
-    return trues, falses
+    return trues
 end
 
 function isduplicate(x, a; by=identity)
@@ -435,13 +428,22 @@ group ID will be appended to the duplicate group names to keep group names uniqu
         group_names = map(name, gs)
         groups = LittleDict{Symbol,Group{END},Vector{Symbol},Vector{Group{END}}}(group_names, gs)
         sort!(ps; by=gid)
-        psv = @view ps[begin:end]
 
-        for group in sort(gs; by=gid)
-            group_params, psv = split_filter!(gid, psv)
-            if isempty(group_params)
-                @debug "group $(name(group)) is empty" group_params, psv
-                break
+        # Different groups with the same GID is theoretically possible, so loop over GID to ensure we maintain proper parameter uniqueness per GID
+        gids = sort!(unique!(gid.(gs)))
+        for _gid in gids
+            isempty(ps) && break
+            sharing = filter(==(_gid)∘gid, gs)
+
+            group_params = split_filter!(==(_gid)∘gid, ps)
+            if isempty(group_params) # skip empty groups
+                @debug "group(s) $(join(name.(sharing), ", ")) are empty" ps
+                continue
+            end
+            if length(sharing) > 1
+                # Different (named) groups with the same GID is out-of-spec, but technically still readable
+                @warn "Groups $(join(name.(sharing), ", ", " and ")) all have the same group ID \
+$_gid, so the correct parameter <=> group membership is unknown. All parameters matched to $_gid are referenced by each group."
             end
             unique!(identity, group_params; seen=Set{Parameter}()) # remove literal duplicates
 
@@ -496,16 +498,20 @@ group ID will be appended to the duplicate group names to keep group names uniqu
                 param_names = map(name, group_params)
             end
 
-            sizehint!(group.params, length(group_params))
-            OrderedCollections.add_new!.(Ref(group.params), param_names, group_params)
+            # Add parameters to all matching-GID groups (there is no broadly justifiable, ie no/limited
+            # assumptions, method to determine proper group membership)
+            for group in sharing
+                sizehint!(group.params, length(group_params))
+                OrderedCollections.add_new!.(Ref(group.params), param_names, group_params)
+            end
         end
 
         # The remaining parameters have gids with no group; each gid gets its own placeholder
         # group. `psv` is sorted by gid, so `split_filter!` by gid takes every parameter of
         # the lowest remaining gid at once, and each gid is seen exactly once.
-        while !isempty(psv)
-            _gid = gid(psv[1])
-            group_params, psv = split_filter!(gid, psv)
+        while !isempty(ps)
+            _gid = gid(ps[1])
+            group_params = split_filter!(==(_gid)∘gid, ps)
             groupsym = Symbol("GID_$(_gid)_MISSING")
 
             param_names = map(name, group_params)
