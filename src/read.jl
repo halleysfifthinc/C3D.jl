@@ -500,27 +500,30 @@ group ID will be appended to the duplicate group names to keep group names uniqu
             OrderedCollections.add_new!.(Ref(group.params), param_names, group_params)
         end
 
+        # The remaining parameters have gids with no group; each gid gets its own placeholder
+        # group. `psv` is sorted by gid, so `split_filter!` by gid takes every parameter of
+        # the lowest remaining gid at once, and each gid is seen exactly once.
         while !isempty(psv)
             _gid = gid(psv[1])
-            group_params, psv = split_filter!(Base.Fix1(===,_gid)∘gid, psv)
+            group_params, psv = split_filter!(gid, psv)
             groupsym = Symbol("GID_$(_gid)_MISSING")
 
             param_names = map(name, group_params)
+
+            # Absent evidence that this was ever common, we draw the "irrecoverable format"
+            # (aka too ridiculously out-of-spec to support) line here
             allunique(param_names) || throw(IrrecoverableFormatError(
                 "Parameters with undefined group ID $_gid have duplicate names: \
 $(join(findduplicates(param_names), ", "))"))
+            haskey(groups, groupsym) && throw(IrrecoverableFormatError(
+                "Parameters with undefined group ID $_gid ($(join(param_names, ", "))) need a \
+placeholder group, but the file already has a group (GID $(gid(groups[groupsym]))) with the \
+intended name $groupsym"))
 
-            if !haskey(groups, groupsym)
-                groupname = string(groupsym)
-                group = Group{END}(groupname, "Group was not defined in header",
-                    LittleDict(param_names, group_params); gid=_gid)
-                groups[groupsym] = group
-            else
-                group = groups[groupsym]
-
-                sizehint!(group.params, length(group_params))
-                OrderedCollections.add_new!.(Ref(group.params), param_names, group_params)
-            end
+            groupname = string(groupsym)
+            group = Group{END}(groupname, "Group was not defined in header",
+                LittleDict(param_names, group_params); gid=_gid)
+            groups[groupsym] = group
         end
     else
         groups = LittleDict{Symbol,Group{END}}(Symbol[], Group{END}[])
