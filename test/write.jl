@@ -196,3 +196,19 @@ end
     @test data(g[:SUBJECT].params[:INT]) == data(g[:FPLOC].params[:INT])
     @test all(gid(p) == gid(grp) for grp in values(g) for p in values(grp.params))
 end
+
+# A group created without a gid (gid 0) gets one when written: its parameters' gid if no other
+# group has it, otherwise the first unused gid
+@testitem "Write: gids of new groups" begin
+    using LazyArtifacts
+    using C3D: Group, Parameter, gid
+    f = readc3d(artifact"sample01/Eb015pr.c3d") # groups have gids 1-5
+    f.groups[:NEW] = Group("NEW", "")
+    f.groups[:NEW].params[:X] = Parameter("X", "", 1.0f0; gid=2) # ANALOG's gid
+    f.groups[:OTHER] = Group("OTHER", "")
+    f.groups[:OTHER].params[:Y] = Parameter("Y", "", 1.0f0; gid=10) # an unused gid
+    writec3d(IOBuffer(), f)
+
+    @test allunique(gid.(values(f.groups)))
+    @test gid(f.groups[:OTHER]) == 10
+end

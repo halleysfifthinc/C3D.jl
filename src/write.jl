@@ -224,8 +224,9 @@ function writec3d(io::IO, f::C3DFile{END}) where {END <: AbstractEndian}
             gids = filter(!iszero, gid.(groups(f)))
 
             # gids of group's parameters (to see if we can use an existing parameter's gid)
-            # ignore default (zero) gids
-            _gids = filter(x -> !iszero(x) && !(copysign(x, -1) in gids),
+            # ignore default (zero) gids, and gids of other groups (both `gid`s are absolute
+            # values)
+            _gids = filter(x -> !iszero(x) && !(x in gids),
                 unique(gid.(values(g))))
 
             @debug "Extant gids=$gids, parameter gids=$_gids"
