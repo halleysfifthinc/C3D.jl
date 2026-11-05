@@ -191,8 +191,8 @@ Read the C3D file at `fn`.
   group with the same name. Options are:
   - `:drop`: The first parameter with the duplicated name is used and the rest are dropped.
   - `:keeplast`: The last parameter with the duplicated name is kept.
-  - `:append_position`: All duplicate parameters are kept and their position in the C3D file
-    is appended to their name.
+  - `:append_count`: All duplicate parameters are kept and a count (`_1`, `_2`, …, in file
+    order) is appended to their name.
 - `paramsonly::Bool = false`: Only reads the header and parameters
 - `validateparams::Bool = true`: Validates parameters against C3D requirements
 
@@ -460,7 +460,7 @@ group ID will be appended to the duplicate group names to keep group names uniqu
                     _dups = similar(dups)
                     for _name in dup_names
                         for i in eachindex(_dups)
-                            _dups[i] = name(group_params[i]) === name
+                            _dups[i] = name(group_params[i]) === _name
                         end
                         # if count(_dups) > 1
                         #     @debug "found `duplicates` and keeping `last(duplicates)`" group_params[_dups], group_params[findlast(_dups)]
@@ -478,7 +478,7 @@ group ID will be appended to the duplicate group names to keep group names uniqu
                     _dups = similar(dups)
                     for _name in dup_names
                         for i in eachindex(_dups)
-                            _dups[i] = name(group_params[i]) === name
+                            _dups[i] = name(group_params[i]) === _name
                         end
                         count(_dups) > 1 || continue
                         # @debug "$(count(_dups)) duplicate parameters with name $(_name)"
