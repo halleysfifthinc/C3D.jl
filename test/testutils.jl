@@ -10,7 +10,8 @@ using Logging: with_logger, current_logger
 using LoggingExtras: ActiveFilteredLogger
 
 export @test_nothrow, @test_internalconsistency, readdir_recursive, compareheader,
-    comparedata, comparefiles, compare_parameters, filter_duplicate_warnings
+    comparedata, comparefiles, compare_parameters, filter_duplicate_warnings, patchc3d,
+    roundtrip
 
 # Reading a file with repeated POINT/ANALOG labels logs one warning per renamed label
 # (`src/C3D.jl`, `C3DFile` constructor). Those warnings are expected for the sample data
@@ -51,6 +52,34 @@ macro test_internalconsistency(f)
         @test length(($f).cameras) == ($f).groups[:POINT][Int, :USED]
         @test length(($f).analog) == ($f).groups[:ANALOG][Int, :USED]
     end)
+end
+
+"""
+    patchc3d(f, src)
+
+Copy `src` into a temporary file and edit the raw, unstructured bytes in the copy using
+`f(::Vector{UInt8}, ::C3DFile)`. Returns the path to the patched file.
+
+Only the parameters are read for the `src` file.
+"""
+function patchc3d(f, src)
+    c3d = readc3d(src; paramsonly=true)
+    bytes = read(src)
+    f(bytes, c3d)
+    path = tempname()
+    io = open(path, "w+") do io
+        write(io, bytes)
+    end
+    return path
+end
+
+# Writes `f` to a temporary file and reads it back, so a test goes through the whole public
+# write → read path. `kwargs` are passed to `readc3d`.
+function roundtrip(f::C3DFile; kwargs...)
+    path, io = mktemp()
+    writec3d(io, f)
+    close(io)
+    return readc3d(path; kwargs...)
 end
 
 function readdir_recursive(dir; join=false)
