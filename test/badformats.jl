@@ -107,3 +107,38 @@ end
             haskey(appended, Symbol(k, "_2"))
     end
 end
+
+# Parameters whose gid matches no group are collected into one "GID_<gid>_MISSING" group per
+# gid. The fixtures move SUBJECT parameters of a valid sample into undefined groups by
+# patching each parameter's gid byte.
+@testitem "Parameters of undefined groups" setup=[TestUtils] begin
+    using LazyArtifacts
+    src = artifact"sample01/Eb015pr.c3d"
+    # `moves` pairs an undefined gid with the SUBJECT parameters to move into it
+    orphan(moves) = patchc3d(src) do bytes, c3d
+        S = c3d.groups[:SUBJECT].params
+        for (gid, names) in moves, name in names
+            bytes[S[name].pos + 2] = gid
+        end
+    end
+
+    # Each undefined gid gets its own group (these were all put in GID_20_MISSING)
+    g = readc3d(orphan([20 => (:NAME,), 21 => (:NUMBER,)]); paramsonly=true).groups
+    @test collect(keys(g[:GID_20_MISSING])) == [:NAME]
+    @test collect(keys(g[:GID_21_MISSING])) == [:NUMBER]
+
+    # With this split, no parameters were taken from the remaining ones, so reading never
+    # finished
+    g = readc3d(orphan([20 => (:NAME, :PROJECT), 21 => (:NUMBER, :WEIGHT, :HEIGHT)]);
+        paramsonly=true).groups
+    @test collect(keys(g[:GID_20_MISSING])) == [:NAME, :PROJECT]
+    @test collect(keys(g[:GID_21_MISSING])) == [:NUMBER, :WEIGHT, :HEIGHT]
+
+    # A group in the file already has the placeholder's name ("FORCE_PLATFORM" is renamed to
+    # "GID_20_MISSING", which has the same length), so reading fails
+    clash = patchc3d(src) do bytes, c3d
+        bytes[c3d.groups[:FORCE_PLATFORM].pos .+ (3:16)] .= codeunits("GID_20_MISSING")
+        bytes[c3d.groups[:SUBJECT].params[:NAME].pos + 2] = 20
+    end
+    @test_throws C3D.IrrecoverableFormatError "intended name GID_20_MISSING" readc3d(clash; paramsonly=true)
+end
