@@ -71,3 +71,39 @@ end
     end
     @test_throws C3D.IrrecoverableFormatError "undefined group ID 20 have duplicate names" readc3d(dupnames; paramsonly=true)
 end
+
+# bigparlove.c3d's PROCESSING_10 group repeats 87 parameter names (470 parameters with 115
+# distinct names); each `handle_duplicate_parameters` option must leave unique keys
+@testitem "Duplicate parameters" begin
+    using LazyArtifacts
+    using Logging: with_logger, NullLogger
+    fn = artifact"sample33/bigparlove.c3d"
+    keeplast, drop, appended = map((:keeplast, :drop, :append_count)) do h
+        # Silence expected duplicate warning logs
+        with_logger(NullLogger()) do
+            readc3d(fn; paramsonly=true, handle_duplicate_parameters=h).groups[:PROCESSING_10].params
+        end
+    end
+
+    # `keys` must be collected, because `allunique` is trivially true for a set of keys (but a
+    # `LittleDict` can hold duplicate keys)
+    @test allunique(collect(keys(keeplast)))
+    @test allunique(collect(keys(drop)))
+    @test allunique(collect(keys(appended)))
+
+    # Key name should be the same whether we keep the first copy or the last
+    @test Set(keys(keeplast)) == Set(keys(drop))
+
+    # Validate that all dropped params are previous to the one kept for :keeplast
+    duplicated = filter(k -> keeplast[k].pos > drop[k].pos, collect(keys(drop)))
+    @test length(duplicated) == 87
+    @test all(k -> keeplast[k].pos ≥ drop[k].pos, keys(drop))
+
+    # `:append_count` keeps every copy; duplicated names get a count suffix in file order
+    @test length(appended) == 470
+    @test all(duplicated) do k
+        !haskey(appended, k) &&
+            appended[Symbol(k, "_1")].pos == drop[k].pos &&
+            haskey(appended, Symbol(k, "_2"))
+    end
+end
