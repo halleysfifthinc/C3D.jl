@@ -392,23 +392,19 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
         if !isempty(dup_group_names)
             # @debug "duplicate group names detected"
             if !allunique(gid, gs) # Duplicate names with the same GID
-                for group in gs
-                    name(group) ∈ dup_group_names || continue
+                # Iterating over the duplicated names (not over `gs`, which is shrunk below)
+                # handles each name once
+                for dup_name in dup_group_names
+                    # every group with the duplicated name (there could be more than 2); the
+                    # first is kept and the rest are deleted
+                    is = findall(==(dup_name)∘name, gs)
+                    group = gs[first(is)]
 
                     @warn "Multiple groups with the same name \"$(name(group))\" and \
-group ID `$(gid(group))`. The second duplicate group will be deleted to keep group names
+group ID `$(gid(group))`. The later duplicate groups will be deleted to keep group names
 unique (no parameters will be lost)." _id=(name(group), gid(group)) maxlog=1
 
-                    # could be more than 1 duplicate
-                    is = findall(==(name(group))∘name, gs)
-                    @assert !isempty(is)
-                    @assert group === gs[first(is)]
-
-                    # i.e. we're deleting *after* `group` and therefore deleting will
-                    # only affect future iterations (by not running on the
-                    # already-handled duplicate)
-
-                    deleteat!(gs, is)
+                    deleteat!(gs, is[2:end])
                 end
             else # Duplicate names with different GIDs
                 for group in gs

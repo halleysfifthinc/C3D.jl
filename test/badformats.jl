@@ -175,6 +175,29 @@ end
     @test all(gid(p) == gid(grp) for grp in values(g) for p in values(grp.params))
 end
 
+# When several groups share a name and gid, the first is kept and the later ones are
+# dropped. The fixture turns FPLOC (whose name has as many characters as POINT's) into a
+# second POINT group by patching its gid byte and name.
+@testitem "Duplicate groups" setup=[TestUtils] begin
+    using LazyArtifacts
+    using Logging: with_logger, NullLogger
+    src = artifact"sample01/Eb015pr.c3d"
+    point = collect(keys(readc3d(src; paramsonly=true).groups[:POINT]))
+    dup = patchc3d(src) do bytes, c3d
+        p = c3d.groups[:FPLOC].pos
+        bytes[p + 2] = bytes[c3d.groups[:POINT].pos + 2]
+        bytes[p .+ (3:7)] .= codeunits("POINT")
+    end
+    # the duplicate group's (expected) warning is silenced
+    g = with_logger(NullLogger()) do
+        readc3d(dup; paramsonly=true).groups
+    end
+
+    # POINT keeps its parameters (all copies of POINT were deleted, and validation then
+    # recreated POINT from the header)
+    @test collect(keys(g[:POINT])) == point
+end
+
 # When groups with different names share a gid, which group the gid's parameters belong to is
 # unknown, so each of those groups gets the same parameter objects (with a warning), and
 # writing splits them (a new gid, and its own copies, for SUBJECT). The fixture gives
