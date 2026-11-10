@@ -17,9 +17,29 @@ concurrency:
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
 jobs:
-  test:
-    name: Julia ${{ matrix.version }} - ${{ github.event_name }}
+  compute-test-matrix:
     runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      test-matrix: ${{ steps.matrix.outputs.test-matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: matrix
+        uses: julia-actions/julia-compute-test-matrix@cfcfd7bc02d7aed71869fde5e0e6dddc28084ffc # v2 branch (untagged)
+        with:
+          include-rc-versions: true
+          include-beta-versions: true
+          include-windows-x64: false
+          include-windows-x86: false
+          include-linux-x86: false
+          include-macos-x64: false
+          include-macos-aarch64: false
+          allow-failure: none
+
+  test:
+    name: Julia ${{ matrix.juliaup-channel }} - ${{ github.event_name }}
+    needs: compute-test-matrix
+    runs-on: ${{ matrix.os }}
     # needed to allow julia-actions/cache to delete old caches that it has created
     permissions:
       actions: write
@@ -27,18 +47,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - 'min'
-          - '1'
-          - 'pre'
+        include: ${{ fromJson(needs.compute-test-matrix.outputs.test-matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: julia-actions/setup-julia@da908477b5db94c10ffce8cfea9f2b3b9d5db687 # v3.0.3
+      - uses: julia-actions/install-juliaup@8d13b44e0eb1620c4e2d2d0a4ceee7d98100b955 # v3.1.6
         with:
-          version: ${{ matrix.version }}
+          channel: ${{ matrix.juliaup-channel }}
       - uses: julia-actions/cache@9353db09a0f2bbbdec6f41791918c75d37391b36 # v3.5.0
       # - name: Resolve pre-release environment
-      #   if: matrix.version == 'pre'
+      #   if: startsWith(matrix.juliaup-channel, 'rc')
       #   shell: julia --project=test --color=yes {0}
       #   # edit test/Project using TOML because of a Pkg.rm bug
       #   run: |
@@ -52,10 +69,15 @@ jobs:
       #       end
       #       using Pkg
       #       Pkg.update()
-      - uses: julia-actions/julia-runtest@6e050c8013b833b1195105ff2fce9cd802f53271 # v1.12.0
-      - uses: julia-actions/julia-processcoverage@03114f09f119417c3242a9fb6e0b722676aedf38 # v1.2.2
+      - uses: halleysfifthinc/julia-run-testitems@b4f7e79272e380b96c2803e749f23e752f7c0751 # main branch
+        with:
+          juliaup-channel: ${{ matrix.juliaup-channel }}
+          check-bounds: 'yes'
+          coverage-lcov-path: lcov.info
+          run-stall: 600
       - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
+          disable_search: true
 
