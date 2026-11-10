@@ -1,11 +1,11 @@
 abstract type AbstractParameter{T,N} end
 
-struct ParameterTypeError <: Exception
+struct InvalidRecordError <: Exception
     msg::String
 end
 
-function Base.showerror(io::IO, e::ParameterTypeError)
-    print(io, e.msg)
+function Base.showerror(io::IO, e::InvalidRecordError)
+    print(io, "InvalidRecordError: ", e.msg)
 end
 
 # Parameter format description https://www.c3d.org/HTML/Documents/parameterformat1.htm
@@ -216,12 +216,15 @@ end
 function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     pos = position(io)
     nl = read(io, Int8)
-    @assert nl != 0
+    nl != 0 || throw(InvalidRecordError("Parameter record at byte $pos has a name length of 0"))
     locked = signbit(nl)
     gid = read(io, Int8)
-    @assert gid != 0
+    gid != 0 || throw(InvalidRecordError("Parameter record at byte $pos has a group ID of 0"))
     _name = read(io, abs(nl))
-    @assert any(!iscntrl∘Char, _name)
+    # The name processing below converts control chars to '_'. A name of only control chars
+    # would be meaningless (and likely only caused by a bad pointer)
+    any(!iscntrl∘Char, _name) || throw(InvalidRecordError(
+        "Parameter record at byte $pos has a name of only control characters"))
     name = Symbol(replace(transcode(String, rstrip_vectorstring(!isspace∘Char, view(_name, :))), r"[^a-zA-Z0-9_]" => '_'))
 
     # @debug "Parameter $name at $pos has unofficially supported characters.
@@ -239,7 +242,7 @@ function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     elseif elsize == 4
         T = eltype(END)
     else
-        throw(ParameterTypeError("Bad parameter type size found. Got $(elsize), but only -1 (Char), 1 (Int8), 2 (Int16) and 4 (Float32) are valid"))
+        throw(InvalidRecordError("Parameter $name at byte $pos has a bad type size. Got $(elsize), but only -1 (Char), 1 (Int8), 2 (Int16) and 4 (Float32) are valid"))
     end
 
     nd = read(io, UInt8)
