@@ -336,7 +336,7 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
                     moreparams = gs[end].np != 0 ? true : false # break if the pointer is 0 (ie the parameters are finished)
                     fail = 0 # reset fail counter following a successful read
                 catch e
-                    if e isa AssertionError
+                    if e isa InvalidRecordError
                         # Last readgroup failed, possibly due to a bad pointer. Reset to the ending
                         # location of the last successfully read parameter and try again. Count the failure.
                         reset(io)
@@ -358,7 +358,7 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
                     np = fileposition(lastps) + Int(lastps.np) + namelength(lastps) + 2
                     fail = 0
                 catch e
-                    if e isa AssertionError || e isa ParameterTypeError
+                    if e isa InvalidRecordError
                         reset(io)
                         @debug "Read group failed, last parameter ended at $(string(position(io); base=16)), pointer at $(string(np; base=16))" fail exception=(e,catch_backtrace())
                         fail += 1

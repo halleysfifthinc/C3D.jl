@@ -127,12 +127,15 @@ end
 function Base.read(io::IO, ::Type{Group{END}}) where {END<:AbstractEndian}
     pos = position(io)
     nl = read(io, Int8)
-    @assert nl != 0
+    nl != 0 || throw(InvalidRecordError("Group record at byte $pos has a name length of 0"))
     locked = signbit(nl)
     gid = read(io, Int8)
-    @assert gid != 0
+    gid != 0 || throw(InvalidRecordError("Group record at byte $pos has a group ID of 0"))
     _name = read(io, abs(nl))
-    @assert any(!iscntrl∘Char, _name)
+    # The name processing below converts control chars to '_'. A name of only control chars
+    # would be meaningless (and likely only caused by a bad pointer)
+    any(!iscntrl∘Char, _name) || throw(InvalidRecordError(
+        "Group record at byte $pos has a name of only control characters"))
     name = Symbol(replace(strip(transcode(String, copy(_name))), r"[^a-zA-Z0-9_]" => '_'))
 
     @debug "Group $name at $pos has unofficially supported characters.
