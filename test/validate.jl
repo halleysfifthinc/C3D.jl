@@ -7,7 +7,7 @@ filter_duplicate_warnings() do
         path, _io = mktemp()
         write(_io, zeros(UInt8, 10))
         close(_io)
-        @test_throws r"not a valid C3D file" readc3d(path)
+        @test_throws C3D.IrrecoverableFormatError readc3d(path)
     end
 
     f = readc3d(artifact"sample01/Eb015pr.c3d")

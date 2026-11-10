@@ -164,6 +164,14 @@ function readdata(
     return (point', permutedims(residuals), analog')
 end
 
+struct IrrecoverableFormatError <: Exception
+    msg::String
+end
+
+function Base.showerror(io::IO, e::IrrecoverableFormatError)
+    print(io, "IrrecoverableFormatError: ", e.msg)
+end
+
 """
     readc3d(fn)
 
@@ -194,7 +202,7 @@ the docstring for valid options."))
     params_ptr = read(io, UInt8)
 
     if read(io, UInt8) != 0x50
-        throw(error("File ", stat(fd(io)).desc, " is not a valid C3D file"))
+        throw(IrrecoverableFormatError("File $fn is not a valid C3D file"))
     end
 
     # Jump to parameters block
@@ -221,7 +229,8 @@ the docstring for valid options."))
         # big-endian
         END = BE{FType}
     else
-        error("Malformed processor type. Expected 0x54, 0x55, or 0x56. Found ", proctype)
+        throw(IrrecoverableFormatError(
+            "Malformed processor type. Expected 0x54, 0x55, or 0x56. Found $proctype"))
     end
 
     groups, header = _readparams(io, paramblocks, END, handle_duplicate_parameters)
@@ -244,7 +253,7 @@ the docstring for valid options."))
             if !iszero(header.datastart-1)
                 seek(io, (header.datastart-1)*512)
             else
-                throw(ArgumentError("DATA_START missing/incorrect; cannot read file"))
+                throw(IrrecoverableFormatError("DATA_START missing/incorrect; cannot read file"))
             end
         else
             seek(io, (groups[:POINT][Int, :DATA_START]-1)*512)
@@ -299,18 +308,23 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
         np = 0
 
         skip(io, 1)
-        if read(io, Int8) < 0
-            # Group
-            skip(io, -2)
-            push!(gs, read(io, Group{END}))
-            np = fileposition(gs[end]) + gs[end].np + namelength(gs[end]) + 2
-            moreparams = gs[end].np != 0 ? true : false
-        else
-            # Parameter
-            skip(io, -2)
-            push!(ps, readparam(io, END))
-            np = fileposition(ps[end]) + ps[end].np + namelength(ps[end]) + 2
-            moreparams = ps[end].np != 0 ? true : false
+        try
+            if read(io, Int8) < 0
+                # Group
+                skip(io, -2)
+                push!(gs, read(io, Group{END}))
+                np = fileposition(gs[end]) + gs[end].np + namelength(gs[end]) + 2
+                moreparams = gs[end].np != 0 ? true : false
+            else
+                # Parameter
+                skip(io, -2)
+                push!(ps, readparam(io, END))
+                np = fileposition(ps[end]) + ps[end].np + namelength(ps[end]) + 2
+                moreparams = ps[end].np != 0 ? true : false
+            end
+        catch e
+            e isa InvalidRecordError || rethrow()
+            throw(IrrecoverableFormatError("First record of parameter section is invalid: $(e.msg)"))
         end
 
         while moreparams
@@ -489,7 +503,9 @@ group ID will be appended to the duplicate group names to keep group names uniqu
             groupsym = Symbol("GID_$(_gid)_MISSING")
 
             param_names = map(name, group_params)
-            @assert allunique(param_names)::Bool
+            allunique(param_names) || throw(IrrecoverableFormatError(
+                "Parameters with undefined group ID $_gid have duplicate names: \
+$(join(findduplicates(param_names), ", "))"))
 
             if !haskey(groups, groupsym)
                 groupname = string(groupsym)
