@@ -218,21 +218,30 @@ function _size(p::Parameter{ArrayParameter{String,N}}) where {N}
     end
 end
 
-function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
+# Reads and checks the start of a group or parameter record (name length, group ID, and
+# name), which is the same for both. `kind` is "Group" or "Parameter", for error messages
+function _readrecordstart(io::IO, kind::String)
     pos = position(io)
     nl = read(io, Int8)
-    nl != 0 || throw(InvalidRecordError(
-        "Parameter record at byte 0x$(string(pos; base=16)) has a name length of 0"))
-    locked = signbit(nl)
+    # A negative name length means the record is locked. `Int` before `abs`, because
+    # `abs(typemin(Int8))` overflows
+    abs(Int(nl)) ∈ 1:typemax(Int8) || throw(InvalidRecordError(
+        "$kind record at byte 0x$(string(pos; base=16)) has an invalid name length of $nl"))
     gid = read(io, Int8)
     gid != 0 || throw(InvalidRecordError(
-        "Parameter record at byte 0x$(string(pos; base=16)) has a group ID of 0"))
+        "$kind record at byte 0x$(string(pos; base=16)) has a group ID of 0"))
     _name = read(io, abs(nl))
-    # The name processing below converts control chars to '_'. A name of only control chars
+    # The callers convert control chars in the name to '_'. A name of only control chars
     # would be meaningless (and likely only caused by a bad pointer)
     any(!iscntrl∘Char, _name) || throw(InvalidRecordError(
-        "Parameter record at byte 0x$(string(pos; base=16)) has a name of only control \
+        "$kind record at byte 0x$(string(pos; base=16)) has a name of only control \
 characters"))
+    return pos, nl, gid, _name
+end
+
+function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
+    pos, nl, gid, _name = _readrecordstart(io, "Parameter")
+    locked = signbit(nl)
     name = Symbol(replace(transcode(String, rstrip_vectorstring(!isspace∘Char, view(_name, :))), r"[^a-zA-Z0-9_]" => '_'))
 
     # @debug "Parameter $name at $pos has unofficially supported characters.

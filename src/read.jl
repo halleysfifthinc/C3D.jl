@@ -322,27 +322,9 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
         ps = Vector{Parameter}()
         moreparams = true
         fail = 0
-        np = 0
-
-        skip(io, 1)
-        try
-            if read(io, Int8) < 0
-                # Group
-                skip(io, -2)
-                push!(gs, read(io, Group{END}))
-                np = fileposition(gs[end]) + gs[end].np + namelength(gs[end]) + 2
-                moreparams = gs[end].np != 0 ? true : false
-            else
-                # Parameter
-                skip(io, -2)
-                push!(ps, readparam(io, END))
-                np = fileposition(ps[end]) + ps[end].np + namelength(ps[end]) + 2
-                moreparams = ps[end].np != 0 ? true : false
-            end
-        catch e
-            e isa InvalidRecordError || rethrow()
-            throw(IrrecoverableFormatError("First record of parameter section is invalid: $(e.msg)"))
-        end
+        # The first record starts here. An invalid first record fails twice at the same
+        # position, like any other invalid record, which ends the loop
+        np = position(io)
 
         while moreparams
             # Mark current position in file in case the pointer is incorrect
@@ -407,6 +389,10 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
                 break
             end
         end
+
+        # The first record has no previous record to fall back to
+        length(gs) + length(ps) > 0 || throw(IrrecoverableFormatError(
+            "Parameter section has no valid group or parameter records"))
 
         group_names = map(name, gs)
         dup_group_names = findduplicates(group_names)
