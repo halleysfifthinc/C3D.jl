@@ -27,11 +27,17 @@ end
     end
     @test_throws C3D.IrrecoverableFormatError "parameter section pointer" readc3d(noparams)
 
-    # We cannot successfully read a file if the first record is invalid
+    # We cannot successfully read a file if the first record is invalid. The first record
+    # starts at byte 5 of the parameter section, with its name length (Int8; negative means
+    # locked, so 0 and -128 are the invalid values)
     nonamelength = patchc3d(src) do bytes, c3d
         bytes[(bytes[1] - 1) * 512 + 5] = 0x00
     end
-    @test_throws C3D.IrrecoverableFormatError "First record of parameter section is invalid" readc3d(nonamelength)
+    @test_throws C3D.IrrecoverableFormatError "no valid group or parameter records" readc3d(nonamelength)
+    longnamelength = patchc3d(src) do bytes, c3d
+        bytes[(bytes[1] - 1) * 512 + 5] = 0x80
+    end
+    @test_throws C3D.IrrecoverableFormatError "no valid group or parameter records" readc3d(longnamelength)
 
     # Writes `block` to the POINT:DATA_START parameter and `hblock` to the header's
     # DATA_START word (bytes 17:18)

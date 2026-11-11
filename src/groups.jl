@@ -125,20 +125,8 @@ function Base.show(io::IO, ::MIME"text/plain", g::Group)
 end
 
 function Base.read(io::IO, ::Type{Group{END}}) where {END<:AbstractEndian}
-    pos = position(io)
-    nl = read(io, Int8)
-    nl != 0 || throw(InvalidRecordError(
-        "Group record at byte 0x$(string(pos; base=16)) has a name length of 0"))
+    pos, nl, gid, _name = _readrecordstart(io, "Group")
     locked = signbit(nl)
-    gid = read(io, Int8)
-    gid != 0 || throw(InvalidRecordError(
-        "Group record at byte 0x$(string(pos; base=16)) has a group ID of 0"))
-    _name = read(io, abs(nl))
-    # The name processing below converts control chars to '_'. A name of only control chars
-    # would be meaningless (and likely only caused by a bad pointer)
-    any(!iscntrl∘Char, _name) || throw(InvalidRecordError(
-        "Group record at byte 0x$(string(pos; base=16)) has a name of only control \
-characters"))
     name = Symbol(replace(strip(transcode(String, copy(_name))), r"[^a-zA-Z0-9_]" => '_'))
 
     @debug "Group $name at $pos has unofficially supported characters.
