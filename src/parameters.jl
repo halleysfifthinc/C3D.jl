@@ -1,5 +1,10 @@
 abstract type AbstractParameter{T,N} end
 
+"""
+    InvalidRecordError(msg)
+
+A group or parameter record is invalid (e.g. bad pointer from the previous record, etc.)
+"""
 struct InvalidRecordError <: Exception
     msg::String
 end
@@ -216,15 +221,18 @@ end
 function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     pos = position(io)
     nl = read(io, Int8)
-    nl != 0 || throw(InvalidRecordError("Parameter record at byte $pos has a name length of 0"))
+    nl != 0 || throw(InvalidRecordError(
+        "Parameter record at byte 0x$(string(pos; base=16)) has a name length of 0"))
     locked = signbit(nl)
     gid = read(io, Int8)
-    gid != 0 || throw(InvalidRecordError("Parameter record at byte $pos has a group ID of 0"))
+    gid != 0 || throw(InvalidRecordError(
+        "Parameter record at byte 0x$(string(pos; base=16)) has a group ID of 0"))
     _name = read(io, abs(nl))
     # The name processing below converts control chars to '_'. A name of only control chars
     # would be meaningless (and likely only caused by a bad pointer)
     any(!iscntrl∘Char, _name) || throw(InvalidRecordError(
-        "Parameter record at byte $pos has a name of only control characters"))
+        "Parameter record at byte 0x$(string(pos; base=16)) has a name of only control \
+characters"))
     name = Symbol(replace(transcode(String, rstrip_vectorstring(!isspace∘Char, view(_name, :))), r"[^a-zA-Z0-9_]" => '_'))
 
     # @debug "Parameter $name at $pos has unofficially supported characters.
@@ -242,7 +250,9 @@ function readparam(io::IO, ::Type{END}) where {END<:AbstractEndian}
     elseif elsize == 4
         T = eltype(END)
     else
-        throw(InvalidRecordError("Parameter $name at byte $pos has a bad type size. Got $(elsize), but only -1 (Char), 1 (Int8), 2 (Int16) and 4 (Float32) are valid"))
+        throw(InvalidRecordError("Parameter $name at byte 0x$(string(pos; base=16)) has a \
+bad type size. Got $(elsize), but only -1 (Char), 1 (Int8), 2 (Int16) and 4 (Float32) are \
+valid"))
     end
 
     nd = read(io, UInt8)

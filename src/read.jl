@@ -164,6 +164,13 @@ function readdata(
     return (point', permutedims(residuals), analog')
 end
 
+"""
+    IrrecoverableFormatError(msg)
+
+The file that is so out-of-spec that it (literally, or without unreasonable effort) cannot
+be read (e.g. invalid top-level format details such as the processor type, or due to logical
+inconsistencies in group/parameter records).
+"""
 struct IrrecoverableFormatError <: Exception
     msg::String
 end
@@ -189,6 +196,7 @@ Read the C3D file at `fn`.
 - `paramsonly::Bool = false`: Only reads the header and parameters
 - `validateparams::Bool = true`: Validates parameters against C3D requirements
 
+Throws a `C3D.IrrecoverableFormatError` if the file can't be read.
 """
 function readc3d(fn::AbstractString; paramsonly=false, validate=true,
     handle_duplicate_parameters=:keeplast, missingpoints=true, strip_prefixes=false)
@@ -205,6 +213,10 @@ the docstring for valid options."))
         throw(IrrecoverableFormatError("File $fn is not a valid C3D file"))
     end
 
+    # The pointer is a 1-based block number, and block 1 is the header
+    params_ptr ≥ 2 || throw(IrrecoverableFormatError(
+        "File $fn has an invalid parameter section pointer (block $params_ptr)"))
+
     # Jump to parameters block
     seek(io, (params_ptr - 1) * 512)
 
@@ -213,7 +225,7 @@ the docstring for valid options."))
     skip(io, 2)
 
     paramblocks = read(io, UInt8)
-    proctype = read(io, Int8)
+    proctype = read(io, UInt8)
 
     FType = Float32
 
@@ -230,7 +242,8 @@ the docstring for valid options."))
         END = BE{FType}
     else
         throw(IrrecoverableFormatError(
-            "Malformed processor type. Expected 0x54, 0x55, or 0x56. Found $proctype"))
+            "Malformed processor type. Expected 0x54, 0x55, or 0x56. Found \
+0x$(string(proctype; base=16, pad=2))"))
     end
 
     groups, header = _readparams(io, paramblocks, END, handle_duplicate_parameters)
@@ -249,14 +262,16 @@ the docstring for valid options."))
     else
         format = native_eltype(groups)
 
-        if iszero(groups[:POINT][Int, :DATA_START]-1)
-            if !iszero(header.datastart-1)
-                seek(io, (header.datastart-1)*512)
-            else
-                throw(IrrecoverableFormatError("DATA_START missing/incorrect; cannot read file"))
-            end
+        # DATA_START is a 1-based block number, and block 1 is the header. A
+        # POINT:DATA_START of 0 means the parameter is missing (see `validatec3d`)
+        point_datastart = groups[:POINT][Int, :DATA_START]
+        if point_datastart ≥ 2
+            seek(io, (point_datastart-1)*512)
+        elseif header.datastart ≥ 2
+            seek(io, (header.datastart-1)*512)
         else
-            seek(io, (groups[:POINT][Int, :DATA_START]-1)*512)
+            throw(IrrecoverableFormatError("DATA_START missing/incorrect (POINT:DATA_START is \
+$point_datastart and the header's DATA_START is $(header.datastart)); cannot read file"))
         end
 
         (point, residual, analog) = readdata(io, header, groups, format)

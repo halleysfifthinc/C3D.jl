@@ -18,25 +18,42 @@ end
     badproc = patchc3d(src) do bytes, c3d
         bytes[(bytes[1] - 1) * 512 + 4] = 0x57
     end
-    @test_throws C3D.IrrecoverableFormatError readc3d(badproc)
+    @test_throws C3D.IrrecoverableFormatError "Found 0x57" readc3d(badproc)
+
+    # The parameter section pointer (byte 1) is a 1-based block number, and block 1 is the
+    # header, so 0 and 1 can't point to a parameter section
+    noparams = patchc3d(src) do bytes, c3d
+        bytes[1] = 0x00
+    end
+    @test_throws C3D.IrrecoverableFormatError "parameter section pointer" readc3d(noparams)
 
     # We cannot successfully read a file if the first record is invalid
     nonamelength = patchc3d(src) do bytes, c3d
         bytes[(bytes[1] - 1) * 512 + 5] = 0x00
     end
-    @test_throws C3D.IrrecoverableFormatError readc3d(nonamelength)
+    @test_throws C3D.IrrecoverableFormatError "First record of parameter section is invalid" readc3d(nonamelength)
 
-    # Setting both the POINT:DATA_START parameter and the header's DATA_START word (bytes
-    # 17:18) to block 1 (the header itself) leaves no source for where the data section starts
-    nodatastart = patchc3d(src) do bytes, c3d
+    # Writes `block` to the POINT:DATA_START parameter and `hblock` to the header's
+    # DATA_START word (bytes 17:18)
+    patchdatastart(block, hblock) = patchc3d(src) do bytes, c3d
         p = c3d.groups[:POINT].params[:DATA_START]
         # first data byte of a scalar parameter: after name length, gid, name, pointer (2
         # bytes), element size, and number of dimensions
         i = p.pos + 7 + length(p._name)
-        bytes[i:i+1] .= (0x01, 0x00)
-        bytes[17:18] .= (0x01, 0x00)
+        bytes[i:i+1] .= (block, 0x00)
+        bytes[17:18] .= (hblock, 0x00)
     end
-    @test_throws C3D.IrrecoverableFormatError readc3d(nodatastart)
+
+    # A POINT:DATA_START of 0 (missing) falls back to the header. `validate=false`, because
+    # `validatec3d` also replaces a POINT:DATA_START of 0 with the header's value
+    zerodatastart = patchdatastart(0x00, 0x0b)
+    @test isequal(readc3d(zerodatastart; validate=false).point,
+        readc3d(src; validate=false).point)
+
+    # With neither DATA_START pointing past the header (block 1), there is no source for
+    # where the data section starts
+    @test_throws C3D.IrrecoverableFormatError "DATA_START" readc3d(patchdatastart(0x01, 0x01))
+    @test_throws C3D.IrrecoverableFormatError "DATA_START" readc3d(patchdatastart(0x00, 0x00))
 
     # Two parameters with the same name and no group: SUBJECT:WEIGHT is renamed to HEIGHT
     # (same length), and both are moved to the undefined group 20
@@ -46,5 +63,5 @@ end
         bytes[S[:WEIGHT].pos + 2] = 20
         bytes[S[:HEIGHT].pos + 2] = 20
     end
-    @test_throws C3D.IrrecoverableFormatError readc3d(dupnames; paramsonly=true)
+    @test_throws C3D.IrrecoverableFormatError "undefined group ID 20 have duplicate names" readc3d(dupnames; paramsonly=true)
 end
