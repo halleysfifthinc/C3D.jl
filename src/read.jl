@@ -389,36 +389,22 @@ function _readparams(io::IO, paramblocks, ::Type{END}, handle_duplicate_paramete
 
         group_names = map(name, gs)
         dup_group_names = findduplicates(group_names)
-        if !isempty(dup_group_names)
-            # @debug "duplicate group names detected"
-            if !allunique(gid, gs) # Duplicate names with the same GID
-                # Iterating over the duplicated names (not over `gs`, which is shrunk below)
-                # handles each name once
-                for dup_name in dup_group_names
-                    # every group with the duplicated name (there could be more than 2); the
-                    # first is kept and the rest are deleted
-                    is = findall(==(dup_name)∘name, gs)
-                    group = gs[first(is)]
-
-                    @warn "Multiple groups with the same name \"$(name(group))\" and \
-group ID `$(gid(group))`. The later duplicate groups will be deleted to keep group names
-unique (no parameters will be lost)." _id=(name(group), gid(group)) maxlog=1
-
-                    deleteat!(gs, is[2:end])
-                end
-            else # Duplicate names with different GIDs
-                for group in gs
-                    name(group) ∈ dup_group_names || continue
-
-                    # @debug group isduplicate(group, gs; by=(g->g.name))
-                    @warn "Multiple groups with the same name \"$(name(group))\". The \
-group ID will be appended to the duplicate group names to keep group names unique." _id=name(group) maxlog=1
-                    dups = findall(==(name(group))∘name, gs)
-                    for i in dups
-                        gs[i].name = Symbol(name(gs[i]), "_", gid(gs[i]))
-                    end
+        for dup_name in dup_group_names
+            dgs = findall(==(dup_name)∘name, gs)
+            keep = unique(i -> gid(gs[i]), dgs)
+            for i in setdiff(dgs, keep) # Duplicate names with the same GID
+                @warn "Multiple groups with the same name \"$dup_name\" and group ID \
+`$(gid(gs[i]))`. The later duplicate group(s) will be deleted to keep group names unique (no \
+parameters will be lost)." _id=(dup_name, gid(gs[i])) maxlog=1
+            end
+            if length(keep) > 1 # Duplicate names with different GIDs
+                @warn "Multiple groups with the same name \"$dup_name\". The group ID will be \
+appended to the duplicate group names to keep group names unique." _id=dup_name maxlog=1
+                for i in keep
+                    gs[i].name = Symbol(dup_name, "_", gid(gs[i]))
                 end
             end
+            deleteat!(gs, setdiff(dgs, keep))
         end
 
         group_names = map(name, gs)

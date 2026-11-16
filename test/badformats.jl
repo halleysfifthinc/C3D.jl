@@ -198,6 +198,40 @@ end
     @test collect(keys(g[:POINT])) == point
 end
 
+# Same-named groups are handled per name: a later group with an earlier one's name and gid is
+# dropped, and same-named groups with different gids get their gid appended to their names.
+# Before, any gid shared by two groups (here, the two POINTs) made every duplicated name take
+# the drop path, so the second ANALOG (gid 5) was dropped instead of renamed.
+@testitem "Duplicate group names with different gids" setup=[TestUtils] begin
+    using LazyArtifacts
+    src = artifact"sample01/Eb015pr.c3d"
+    G = readc3d(src; paramsonly=true).groups
+    point, analog, fploc, subject = (collect(keys(G[k])) for k in (:POINT, :ANALOG, :FPLOC, :SUBJECT))
+    dup = patchc3d(src) do bytes, c3d
+        # FPLOC becomes a second POINT (same name and gid); its parameters move to gid 1 too,
+        # so that none are left without a group
+        p = c3d.groups[:FPLOC].pos
+        bytes[p + 2] = bytes[c3d.groups[:POINT].pos + 2]
+        bytes[p .+ (3:7)] .= codeunits("POINT")
+        for param in values(c3d.groups[:FPLOC].params)
+            bytes[param.pos + 2] = 0x01
+        end
+        # SUBJECT becomes a second ANALOG with its own gid (5); names are stripped, so the
+        # trailing space keeps the name length
+        bytes[c3d.groups[:SUBJECT].pos .+ (3:9)] .= codeunits("ANALOG ")
+    end
+
+    g = @test_logs (:warn, r"\"POINT\".*`1`") (:warn, r"\"ANALOG\"") match_mode=:any begin
+        readc3d(dup; paramsonly=true, validate=false).groups
+    end
+    # in file order, FPLOC's parameters are among POINT's
+    @test issetequal(keys(g[:POINT]), [point; fploc])
+    @test collect(keys(g[:ANALOG_2])) == analog
+    @test collect(keys(g[:ANALOG_5])) == subject
+    @test !haskey(g, :ANALOG)
+    @test !haskey(g, :GID_5_MISSING)
+end
+
 # When groups with different names share a gid, which group the gid's parameters belong to is
 # unknown, so each of those groups gets the same parameter objects (with a warning), and
 # writing splits them (a new gid, and its own copies, for SUBJECT). The fixture gives
