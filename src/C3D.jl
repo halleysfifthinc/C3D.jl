@@ -11,7 +11,7 @@ export readc3d, writec3d, numpointframes, numanalogframes, writetrc
 
 export C3DFile
 
-public IrrecoverableFormatError
+public IrrecoverableFormatError, UnwritableFileError
 
 include("endian.jl")
 include("parameters.jl")
