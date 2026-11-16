@@ -159,6 +159,23 @@ function edited_desc()
 end
 
 """
+    UnwritableFileError(msg)
+
+The C3DFile cannot be written correctly according to the C3D file-spec.
+
+If you experience this error when trying to write an unmodified file, please open an issue with the developer of the software, or the manufacturer of the system, that created the file. If you believe the original file correctly adheres to the file-spec, please open an issue with C3D.jl.
+
+Directly editing/modifying fields in a C3DFile may corrupt the file and cause it not to adhere to the file-spec.
+"""
+struct UnwritableFileError <: Exception
+    msg::String
+end
+
+function Base.showerror(io::IO, e::UnwritableFileError)
+    print(io, "UnwritableFileError: ", e.msg)
+end
+
+"""
     writec3d(filename::String, f::C3DFile)
     writec3d(io::IO, f::C3DFile)
 
@@ -197,9 +214,11 @@ function writec3d(io::IO, f::C3DFile{END}) where {END <: AbstractEndian}
 
     # we may add groups and/or parameters during read validation; default gids for new
     # groups or parameters is zero
+    seen = Set{Int8}()
     for g in groups(f)
         g_gid = gid(g)
-        if iszero(g_gid) # group we added during read validation
+        if iszero(g_gid) || # group we added during read validation
+            g_gid ∈ seen # group with duplicate (non-unique) gid
             # gids = collect(Iterators.filter(!iszero, (g.gid for g in groups(f))))
             # existing gids
             gids = filter(!iszero, gid.(groups(f)))
@@ -221,13 +240,7 @@ function writec3d(io::IO, f::C3DFile{END}) where {END <: AbstractEndian}
             @debug "Setting group $g gid to $g_gid"
             g.gid = g_gid
         end
-
-        # update parameter gids to match group gid `g_gid`
-        let gid = abs(g_gid)
-            foreach(values(g)) do p
-                p.gid = gid
-            end
-        end
+        push!(seen, abs(g_gid))
     end
 
     nb::Int = 0
@@ -258,11 +271,15 @@ function writec3d(io::IO, f::C3DFile{END}) where {END <: AbstractEndian}
     end
 
     nb += sum(g -> write(io, g), groups(f); init=0)
-    params = collect(parameters(f))
-    nb += sum(p -> write(io, p, END), @view params[1:end-1]; init=0)::Int
-    # Properly, the `pointer` in the last parameter should be zero to signify the end of the
-    # parameter section
-    nb += write(io, last(params::Vector{Parameter}), END; last=true)::Int
+    nparams = sum(length∘values, groups(f); init=0)
+    ip = 0
+    nb += sum(groups(f)) do g
+        return sum(values(g); init=0) do p
+            ip += 1
+            p.gid = gid(g)
+            return write(io, p, END; last=(ip == nparams))::Int
+        end
+    end
 
     datastart = (header.datastart % Int - 1)*512
     # pad with zeros until the beginning of the data section

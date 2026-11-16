@@ -174,3 +174,25 @@ end
     end
     end
 end
+
+# Groups that share a gid (e.g. groups with different names and the same gid in the file that
+# was read) are split when written: later groups get an unused gid. A parameter object in more
+# than one group is written once per group, with that group's gid, so it is read back as
+# independent parameters with the same contents.
+@testitem "Write: groups that share a gid or parameter" setup=[TestUtils] begin
+    using LazyArtifacts
+    using C3D: gid, data
+    f = readc3d(artifact"sample01/Eb015pr.c3d")
+    fploc, subject = (collect(keys(f.groups[k])) for k in (:FPLOC, :SUBJECT))
+    f.groups[:SUBJECT].gid = f.groups[:FPLOC].gid
+    f.groups[:SUBJECT].params[:INT] = f.groups[:FPLOC].params[:INT]
+    g = roundtrip(f).groups
+
+    @test allunique(gid.(values(g)))
+    @test gid(g[:FPLOC]) == 4
+    @test collect(keys(g[:FPLOC])) == fploc
+    @test collect(keys(g[:SUBJECT])) == [subject; :INT]
+    @test g[:SUBJECT].params[:INT] !== g[:FPLOC].params[:INT]
+    @test data(g[:SUBJECT].params[:INT]) == data(g[:FPLOC].params[:INT])
+    @test all(gid(p) == gid(grp) for grp in values(g) for p in values(grp.params))
+end

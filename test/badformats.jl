@@ -176,11 +176,12 @@ end
 end
 
 # When groups with different names share a gid, which group the gid's parameters belong to is
-# unknown, so each of those groups gets the same parameter objects (with a warning). The
-# fixture gives SUBJECT's group record FPLOC's gid (4), so SUBJECT's own parameters (gid 5)
-# have no group.
+# unknown, so each of those groups gets the same parameter objects (with a warning), and
+# writing splits them (a new gid, and its own copies, for SUBJECT). The fixture gives
+# SUBJECT's group record FPLOC's gid (4), so SUBJECT's own parameters (gid 5) have no group.
 @testitem "Groups that share a gid" setup=[TestUtils] begin
     using LazyArtifacts
+    using C3D: gid, data
     src = artifact"sample01/Eb015pr.c3d"
     G = readc3d(src; paramsonly=true).groups
     fploc, subject = collect(keys(G[:FPLOC])), collect(keys(G[:SUBJECT]))
@@ -193,5 +194,14 @@ end
     @test collect(keys(g[:FPLOC])) == fploc
     @test collect(keys(g[:SUBJECT])) == fploc
     @test all(g[:SUBJECT].params[k] === g[:FPLOC].params[k] for k in fploc)
+    @test collect(keys(g[:GID_5_MISSING])) == subject
+
+    g = roundtrip(f).groups
+    @test allunique(gid.(values(g)))
+    @test collect(keys(g[:FPLOC])) == collect(keys(g[:SUBJECT])) == fploc
+    @test all(fploc) do k
+        a, b = g[:FPLOC].params[k], g[:SUBJECT].params[k]
+        a !== b && data(a) == data(b)
+    end
     @test collect(keys(g[:GID_5_MISSING])) == subject
 end
